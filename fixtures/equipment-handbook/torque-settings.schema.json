@@ -1,0 +1,1 @@
+{"fields": [{"name": "fastener", "type": "string"}, {"name": "torque_nm", "type": "number", "unit": "N.m"}, {"name": "thread", "type": "string"}]}

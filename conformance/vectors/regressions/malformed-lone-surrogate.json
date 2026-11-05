@@ -1,0 +1,42 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A string with a lone surrogate gives a typed failure",
+  "clauses": [
+    "STS-MAL-1",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The spike review found untyped failures for malformed input. A lone surrogate gives non_ijson_value.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "raw": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"logical_id\":\"\\ud800\"}"
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "non_ijson_value"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "non_ijson_value"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

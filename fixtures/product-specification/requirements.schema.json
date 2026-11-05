@@ -1,0 +1,1 @@
+{"fields": [{"name": "id", "type": "string"}, {"name": "property", "type": "string"}, {"name": "min", "type": "number", "optional": true}, {"name": "max", "type": "number", "optional": true}, {"name": "unit", "type": "string"}]}

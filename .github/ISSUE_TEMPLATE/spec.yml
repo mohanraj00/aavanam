@@ -1,0 +1,24 @@
+name: Spec change
+description: Propose a contract change, with the workflow that needs it.
+title: "Spec: "
+labels: [spec]
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Consumer and workflow
+      description: Which consumer reads or writes the store, and what result must it get?
+    validations:
+      required: true
+  - type: textarea
+    id: clauses
+    attributes:
+      label: Clauses and gap
+      description: Name the clause IDs that apply now and the smallest change. Aavanam stores and resolves. It does not evaluate rules.
+    validations:
+      required: true
+  - type: textarea
+    id: vectors
+    attributes:
+      label: Expected outcomes and completion criteria
+      description: Write the expected outcomes from the spec, not from an implementation run. Give each refusal a positive pair. Keep application data out.

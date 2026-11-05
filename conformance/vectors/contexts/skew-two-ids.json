@@ -1,0 +1,456 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An item has one binding_skew reason for each logical ID with skew",
+  "clauses": [
+    "CTX-SKW-4",
+    "STS-ENV-3",
+    "STS-RSN-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. n8 pins x1 and z1, and m9 pins x2 and z2. Two logical IDs have skew."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "schema3": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"unit\", \"factor\"]}"
+    },
+    "schema4": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"unit\", \"offset\"]}"
+    },
+    "receipt1": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-1\"}"
+    }
+  },
+  "pair": "contexts/skew-two-ids-permit-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "p1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1",
+              "logical_id": "sample/runtime"
+            }
+          },
+          {
+            "as": "p2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v2",
+              "logical_id": "sample/runtime"
+            }
+          },
+          {
+            "as": "x1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              },
+              "logical_id": "sample/part-schema"
+            }
+          },
+          {
+            "as": "x2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              },
+              "logical_id": "sample/part-schema"
+            }
+          },
+          {
+            "as": "z1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema3"
+              },
+              "logical_id": "sample/unit-schema"
+            }
+          },
+          {
+            "as": "z2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema4"
+              },
+              "logical_id": "sample/unit-schema"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b6",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "runtime_profiles": [
+                {
+                  "$ref": "p1"
+                }
+              ]
+            }
+          },
+          {
+            "as": "b7",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "runtime_profiles": [
+                {
+                  "$ref": "p2"
+                }
+              ]
+            }
+          },
+          {
+            "as": "b8",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "parts": {
+                  "$ref": "x1"
+                },
+                "units": {
+                  "$ref": "z1"
+                }
+              }
+            }
+          },
+          {
+            "as": "b9",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "parts": {
+                  "$ref": "x2"
+                },
+                "units": {
+                  "$ref": "z2"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u6",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b6"
+              }
+            }
+          },
+          {
+            "as": "u7",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b7"
+              }
+            }
+          },
+          {
+            "as": "u8",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b8"
+              }
+            }
+          },
+          {
+            "as": "u9",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b9"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "units": [
+          {
+            "$ref": "u6"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n6"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "glossary",
+        "units": [
+          {
+            "$ref": "u7"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "m7"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "units": [
+          {
+            "$ref": "u8"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n8"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "glossary",
+        "units": [
+          {
+            "$ref": "u9"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "m9"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "n8"
+          },
+          {
+            "$ref": "m9"
+          }
+        ]
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "binding_skew",
+          "binding_skew",
+          "binding_skew",
+          "binding_skew"
+        ],
+        "items": [
+          {
+            "status": "incompatible",
+            "reasons": [
+              "binding_skew",
+              "binding_skew"
+            ],
+            "reason_details": [
+              {
+                "code": "binding_skew",
+                "refs": [
+                  {
+                    "$ref": "x1"
+                  }
+                ]
+              },
+              {
+                "code": "binding_skew",
+                "refs": [
+                  {
+                    "$ref": "z1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "status": "incompatible",
+            "reasons": [
+              "binding_skew",
+              "binding_skew"
+            ],
+            "reason_details": [
+              {
+                "code": "binding_skew",
+                "refs": [
+                  {
+                    "$ref": "x2"
+                  }
+                ]
+              },
+              {
+                "code": "binding_skew",
+                "refs": [
+                  {
+                    "$ref": "z2"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

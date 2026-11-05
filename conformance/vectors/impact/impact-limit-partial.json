@@ -1,0 +1,355 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Impact with fewer places than dependents returns the first items and is partial",
+  "clauses": [
+    "CHG-IMP-1",
+    "CHG-IMP-3",
+    "CHG-IMP-4",
+    "STS-ENV-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", 1]]}"
+    },
+    "outside": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p9\", 9]]}"
+    },
+    "rule": {
+      "media_type": "text/plain",
+      "text": "sample rule body\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "outside"
+              }
+            }
+          },
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "declared_roles": {
+                "data": {
+                  "$ref": "s"
+                }
+              },
+              "payload": {
+                "$payload": "rule"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                },
+                "rule": {
+                  "$ref": "a"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t"
+              },
+              "origin": "sample-producer",
+              "values": {
+                "unit": "N m"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "o"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              },
+              "overlay_sets": [
+                {
+                  "$ref": "os"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "impact",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "changed": [
+          {
+            "$ref": "s"
+          }
+        ],
+        "limit": 5
+      },
+      "expect": {
+        "status": "partial",
+        "reasons": [
+          "bounds_reached"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t"
+              },
+              "kind": "data-resource",
+              "distance": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a"
+              },
+              "kind": "artifact",
+              "distance": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b"
+              },
+              "kind": "binding-set",
+              "distance": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o"
+              },
+              "kind": "overlay",
+              "distance": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "os"
+              },
+              "kind": "overlay-set",
+              "distance": 3
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "impact/impact-limit-ok"
+}

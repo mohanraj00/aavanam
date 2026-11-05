@@ -1,0 +1,15 @@
+# Example Works G-100 bench grinder: service handbook
+
+This handbook is synthetic. It describes a fictional machine for conformance tests.
+
+## Service intervals
+
+Inspect the wheel guard every 25 operating hours. Replace the grinding wheel when its diameter is less than the minimum in the interval table. Lubricate the spindle bearings every 200 operating hours.
+
+## Torque settings
+
+Tighten the wheel flange nut to the torque in the torque table. Use a calibrated torque wrench. Do not use an impact driver on the flange nut.
+
+## Safety
+
+Disconnect the power cord before you open the wheel guard. Wear eye protection when the motor operates.

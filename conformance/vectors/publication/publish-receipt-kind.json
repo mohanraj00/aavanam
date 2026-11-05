@@ -1,0 +1,280 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A receipt field that names a schema gives unsupported_target_kind.",
+  "clauses": [
+    "PUB-HED-2",
+    "PUB-HED-3",
+    "STS-ENV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "receipt1": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-1\"}"
+    },
+    "receipt2": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-2\"}"
+    },
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "sample handbook page\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "chk",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s1"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "example/checker"
+            }
+          },
+          {
+            "as": "chk2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s2"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "fail",
+              "scope": {},
+              "origin": "example/checker"
+            }
+          },
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "subjects": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "payload": {
+                "$payload": "receipt1"
+              }
+            }
+          },
+          {
+            "as": "r2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "subjects": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "payload": {
+                "$payload": "receipt2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n1"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "n1"
+        },
+        "checks": [
+          {
+            "$ref": "chk"
+          }
+        ],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k1"
+        },
+        "receipt": {
+          "$ref": "s1"
+        }
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k1"
+        },
+        {
+          "$ref": "r1"
+        }
+      ]
+    ]
+  },
+  "pair": "publication/publish-ok"
+}

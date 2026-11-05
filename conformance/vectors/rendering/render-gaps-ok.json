@@ -1,0 +1,429 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "render shows each gap: no check, an unknown total, omissions and a coverage observation with values of a bad form.",
+  "clauses": [
+    "RND-DOC-1",
+    "RND-DOC-2",
+    "RND-DOC-3",
+    "RND-SCP-1",
+    "RND-SCP-3",
+    "RND-SCP-4",
+    "RND-SCP-5",
+    "OBS-COV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "outside": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p9\", 9]]}"
+    },
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", 1]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "outside"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "cn",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/coverage/v1",
+              "scope": {},
+              "values": {
+                "unit": "pages",
+                "covered": 2,
+                "total": null,
+                "omissions": [
+                  {
+                    "reason": "unreadable page"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "as": "cb",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/coverage/v1",
+              "scope": {},
+              "values": {
+                "unit": "pages",
+                "covered": 3,
+                "total": 2,
+                "omissions": []
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": []
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sa",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-collection",
+              "units": [
+                {
+                  "$ref": "u"
+                }
+              ],
+              "relation_sets": [
+                {
+                  "$ref": "rs"
+                }
+              ],
+              "observations": [
+                {
+                  "$ref": "cn"
+                },
+                {
+                  "$ref": "cb"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "sa"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "render",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "t"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "subject",
+              "ref": {
+                "$ref": "t"
+              },
+              "kind": "data-resource"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "coverage",
+              "subject": {
+                "$ref": "t"
+              },
+              "ref": {
+                "$ref": "cn"
+              },
+              "unit": "pages",
+              "covered": 2,
+              "total": null,
+              "omissions": [
+                {
+                  "reason": "unreadable page"
+                }
+              ]
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "gap",
+              "subject": {
+                "$ref": "t"
+              },
+              "gap": "no_check",
+              "ref": null
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "gap",
+              "subject": {
+                "$ref": "t"
+              },
+              "gap": "unknown_total",
+              "ref": {
+                "$ref": "cn"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "gap",
+              "subject": {
+                "$ref": "t"
+              },
+              "gap": "omissions",
+              "ref": {
+                "$ref": "cn"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "gap",
+              "subject": {
+                "$ref": "t"
+              },
+              "gap": "values_form",
+              "ref": {
+                "$ref": "cb"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

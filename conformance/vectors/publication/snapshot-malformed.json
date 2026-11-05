@@ -1,0 +1,97 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A collection that is not a string gives field_type.",
+  "clauses": [
+    "PUB-SNP-1",
+    "PUB-SNP-2",
+    "PUB-SNP-3",
+    "KND-SCH-4",
+    "STS-ENV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "sample handbook page\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": 7,
+        "schemas": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "field_type"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "publication/snapshot-ok"
+}

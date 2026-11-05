@@ -1,0 +1,2 @@
+This is an opaque application artifact. The store does not read it.
+It stands for an acceptance test template that an application fills from the role requirements.

@@ -1,0 +1,147 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "One native identity with two subjects in one snapshot gives native_id_conflict.",
+  "clauses": [
+    "PUB-SNP-1",
+    "PUB-SNP-2",
+    "PUB-SNP-3",
+    "IDN-NAT-3",
+    "STS-ENV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "sample handbook page\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "m1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "native-mapping",
+              "subject": {
+                "$ref": "s1"
+              },
+              "native_scheme": "sample/ids",
+              "native_id": "n-1",
+              "checked": {}
+            }
+          },
+          {
+            "as": "m2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "native-mapping",
+              "subject": {
+                "$ref": "src"
+              },
+              "native_scheme": "sample/ids",
+              "native_id": "n-1",
+              "checked": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "native_mappings": [
+          {
+            "$ref": "m1"
+          },
+          {
+            "$ref": "m2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "native_id_conflict"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "native_id_conflict"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "publication/snapshot-native-ok"
+}

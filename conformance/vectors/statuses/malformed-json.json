@@ -1,0 +1,41 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A descriptor that is not valid JSON fails",
+  "clauses": [
+    "STS-MAL-1",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "raw": "{\"kind\": \"source\","
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "malformed_json"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "malformed_json"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

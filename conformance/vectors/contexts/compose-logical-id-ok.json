@@ -1,0 +1,199 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Two collections with two revisions of one logical ID keep both revisions in the context",
+  "clauses": [
+    "CTX-CMP-3",
+    "IDN-LOG-2",
+    "IDN-LOG-3",
+    "CTX-CMP-1",
+    "QRY-GET-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. The schemas v1 and v2 have the logical ID part-schema and different payloads."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "receipt1": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-1\"}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "v1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "logical_id": "part-schema",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "v2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "logical_id": "part-schema",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "v1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "glossary",
+        "schemas": [
+          {
+            "$ref": "v2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "m1"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "n1"
+          },
+          {
+            "$ref": "m1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "m1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "v1"
+          },
+          {
+            "$ref": "v2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "v1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "v2"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

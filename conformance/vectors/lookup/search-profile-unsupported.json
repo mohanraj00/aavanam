@@ -1,0 +1,335 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search under a profile other than the lexical profile gives unsupported_profile, not a lexical result",
+  "clauses": [
+    "QRY-LEX-1",
+    "QRY-LEX-4",
+    "RSV-RSP-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "source": {
+      "media_type": "text/plain",
+      "text": "alpha alpha alpha alpha\n"
+    },
+    "r1": {
+      "media_type": "text/plain",
+      "text": "alpha beta alpha alpha\n"
+    },
+    "ex": {
+      "media_type": "text/plain",
+      "text": "alpha beta alpha"
+    },
+    "r2": {
+      "media_type": "text/plain",
+      "text": "alpha Alpha\n"
+    },
+    "r4": {
+      "media_type": "text/plain",
+      "text": "alpha alpha alpha alpha alpha\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "r1"
+              }
+            }
+          },
+          {
+            "as": "r2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "r2"
+              }
+            }
+          },
+          {
+            "as": "r4",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "r4"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ex",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "r1"
+              },
+              "ranges": [
+                {
+                  "start": 0,
+                  "end": 16
+                }
+              ],
+              "payload": {
+                "$payload": "ex"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "dv",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "derivation",
+              "operands": [
+                {
+                  "$ref": "r1"
+                },
+                {
+                  "$ref": "ex"
+                },
+                {
+                  "$ref": "r2"
+                }
+              ],
+              "method": "sample/method/v1",
+              "result": {
+                "value": 1
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": [
+                {
+                  "$ref": "dv"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              },
+              "relation_sets": [
+                {
+                  "$ref": "rs"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "query": "alpha",
+        "search_profile": "sample/semantic/v1"
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_profile"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lookup/search-ok"
+}

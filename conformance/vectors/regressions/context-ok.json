@@ -1,0 +1,309 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read context opens on a knowledge unit",
+  "clauses": [
+    "CTX-OPN-1",
+    "CTX-OPN-2"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "Positive pair of the open_context refusals. The spike opened a context on the declared closure.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "table": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\nbeta,2\n"
+    },
+    "other": {
+      "media_type": "text/csv",
+      "text": "key,value\ngamma,3\n"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "Sample source text.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Sample reading text.\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "t2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "other"
+              }
+            }
+          },
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "reading"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          },
+          {
+            "as": "e",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "evidence",
+              "subject": {
+                "$ref": "t"
+              },
+              "supports": {
+                "$ref": "r"
+              },
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retraction",
+              "target": {
+                "$ref": "e"
+              },
+              "reason": "sample reason",
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": [
+                {
+                  "$ref": "e"
+                },
+                {
+                  "$ref": "x"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              },
+              "relation_sets": [
+                {
+                  "$ref": "rs"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

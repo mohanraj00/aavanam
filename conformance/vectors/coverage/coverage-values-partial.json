@@ -1,0 +1,399 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A coverage observation whose total is less than covered gives values_form, and the other item stays ok",
+  "clauses": [
+    "OBS-COV-1",
+    "OBS-COV-2",
+    "OBS-COV-3",
+    "STS-ENV-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", 1]]}"
+    },
+    "outside": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p9\", 9]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "outside"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "c1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/coverage/v1",
+              "scope": {},
+              "values": {
+                "unit": "pages",
+                "covered": 10,
+                "total": 12,
+                "omissions": [
+                  {
+                    "reason": "image only",
+                    "selector": {
+                      "selector_profile": "aavanam/bytes/v1",
+                      "start": 0,
+                      "end": 4
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "as": "c2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/coverage/v1",
+              "scope": {},
+              "values": {
+                "unit": "rows",
+                "covered": 3,
+                "total": 2,
+                "omissions": []
+              }
+            }
+          },
+          {
+            "as": "o3",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "sample/retrieval/v1",
+              "scope": {},
+              "values": {
+                "note": "not coverage"
+              }
+            }
+          },
+          {
+            "as": "out",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/coverage/v1",
+              "scope": {},
+              "values": {
+                "unit": "pages",
+                "covered": 1,
+                "total": 12,
+                "omissions": [
+                  {
+                    "reason": "image only",
+                    "selector": {
+                      "selector_profile": "aavanam/bytes/v1",
+                      "start": 0,
+                      "end": 4
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sa",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-collection",
+              "units": [
+                {
+                  "$ref": "u"
+                }
+              ],
+              "observations": [
+                {
+                  "$ref": "c1"
+                },
+                {
+                  "$ref": "c2"
+                },
+                {
+                  "$ref": "o3"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "sa"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "coverage",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "t"
+        }
+      },
+      "expect": {
+        "status": "partial",
+        "reasons": [
+          "items_not_ok"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "c1"
+              },
+              "unit": "pages",
+              "covered": 10,
+              "total": 12,
+              "omissions": [
+                {
+                  "reason": "image only",
+                  "selector": {
+                    "selector_profile": "aavanam/bytes/v1",
+                    "start": 0,
+                    "end": 4
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "status": "failed",
+            "reasons": [
+              "values_form"
+            ]
+          }
+        ],
+        "unordered": true
+      }
+    }
+  ],
+  "pair": "coverage/coverage-ok"
+}

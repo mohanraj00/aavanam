@@ -1,0 +1,129 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An excerpt of two ranges is the parent bytes of each range, joined in order",
+  "clauses": [
+    "BUN-EXC-1",
+    "BUN-EXC-2",
+    "BUN-EXC-3"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "Positive pair of excerpt-ranges-overlap.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "source": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "excerpt": {
+      "media_type": "text/plain",
+      "text": "LineLine two."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "reading"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "r"
+              },
+              "ranges": [
+                {
+                  "start": 0,
+                  "end": 4
+                },
+                {
+                  "start": 10,
+                  "end": 19
+                }
+              ],
+              "payload": {
+                "$payload": "excerpt"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

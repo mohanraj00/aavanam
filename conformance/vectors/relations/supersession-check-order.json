@@ -1,0 +1,215 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "unsupported_target_kind comes before replacement_kind",
+  "clauses": [
+    "REL-RET-2",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    },
+    "r1": {
+      "media_type": "text/plain",
+      "text": "Sample reading one."
+    },
+    "art": {
+      "media_type": "text/plain",
+      "text": "Sample artifact bytes."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "s1"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "r1"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample-type",
+              "payload": {
+                "$payload": "art"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "e1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "evidence",
+              "subject": {
+                "$ref": "a1"
+              },
+              "supports": {
+                "$ref": "r1"
+              },
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "c1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s1"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "supersession",
+              "target": {
+                "$ref": "s1"
+              },
+              "replacement": {
+                "$ref": "e1"
+              },
+              "reason": "sample reason",
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "relations/supersession-check-ok"
+}

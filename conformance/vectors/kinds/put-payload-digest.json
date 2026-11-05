@@ -1,0 +1,54 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Payload bytes that do not agree with the digest fail",
+  "clauses": [
+    "KND-OPQ-1",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the runner changes the digest of correct bytes."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one",
+                "fault": "digest"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "digest_mismatch"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "digest_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

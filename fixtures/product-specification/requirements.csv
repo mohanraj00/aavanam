@@ -1,0 +1,4 @@
+id,property,min,max,unit
+R-1,capacity,500,,ml
+R-2,water temperature after 6 h,70,,degC
+R-3,empty mass,,340,g

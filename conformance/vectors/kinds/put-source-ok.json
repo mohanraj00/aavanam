@@ -1,0 +1,51 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A put of one valid source descriptor is ok",
+  "clauses": [
+    "KND-REG-1",
+    "KND-SCH-1",
+    "KND-OPQ-1",
+    "STS-RSN-1",
+    "STS-ENV-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

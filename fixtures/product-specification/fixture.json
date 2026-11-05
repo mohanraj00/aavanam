@@ -1,0 +1,318 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-product-specification",
+  "root": "snap",
+  "payloads": {
+    "specification": {
+      "media_type": "text/markdown",
+      "file": "specification.md"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "file": "specification.txt"
+    },
+    "requirements-schema": {
+      "media_type": "application/json",
+      "file": "requirements.schema.json"
+    },
+    "dimensions-schema": {
+      "media_type": "application/json",
+      "file": "dimensions.schema.json"
+    },
+    "requirements": {
+      "media_type": "text/csv",
+      "file": "requirements.csv"
+    },
+    "dimensions": {
+      "media_type": "text/csv",
+      "file": "dimensions.csv"
+    },
+    "runtime": {
+      "media_type": "application/json",
+      "file": "runtime-b.json"
+    },
+    "acceptance": {
+      "media_type": "text/plain",
+      "file": "acceptance.txt"
+    }
+  },
+  "descriptors": [
+    {
+      "as": "src",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "source",
+        "payload": {
+          "$payload": "specification"
+        }
+      }
+    },
+    {
+      "as": "rd",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "src"
+        },
+        "producer": "sample/reader/v1",
+        "coverage_profile": "sample/coverage/v1",
+        "payload": {
+          "$payload": "reading"
+        }
+      }
+    },
+    {
+      "as": "ex-retention",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "rd"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "After 6 hours at an ambient temperature of 20 °C, water that starts at 95 °C must be at 70 °C or more."
+        },
+        "payload": {
+          "$text": "After 6 hours at an ambient temperature of 20 °C, water that starts at 95 °C must be at 70 °C or more.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "ex-diameter",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "rd"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "The outer diameter is 72 mm, with a tolerance of 0.5 mm."
+        },
+        "payload": {
+          "$text": "The outer diameter is 72 mm, with a tolerance of 0.5 mm.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "s-req",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "sample/schema/v1",
+        "payload": {
+          "$payload": "requirements-schema"
+        }
+      }
+    },
+    {
+      "as": "s-dim",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "sample/schema/v1",
+        "payload": {
+          "$payload": "dimensions-schema"
+        }
+      }
+    },
+    {
+      "as": "t-req",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "data_profile": "sample/table/v1",
+        "schema": {
+          "$ref": "s-req"
+        },
+        "payload": {
+          "$payload": "requirements"
+        }
+      }
+    },
+    {
+      "as": "t-dim",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "data_profile": "sample/table/v1",
+        "schema": {
+          "$ref": "s-dim"
+        },
+        "payload": {
+          "$payload": "dimensions"
+        }
+      }
+    },
+    {
+      "as": "rt",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "runtime-profile",
+        "profile_id": "sample/runtime/template-b/v1",
+        "payload": {
+          "$payload": "runtime"
+        }
+      }
+    },
+    {
+      "as": "a-acc",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/acceptance/v1",
+        "declared_roles": {
+          "requirements": {
+            "$ref": "s-req"
+          }
+        },
+        "runtime_profile": {
+          "$ref": "rt"
+        },
+        "payload": {
+          "$payload": "acceptance"
+        }
+      }
+    },
+    {
+      "as": "b",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "acceptance": {
+            "$ref": "a-acc"
+          },
+          "requirements": {
+            "$ref": "t-req"
+          },
+          "dimensions": {
+            "$ref": "t-dim"
+          }
+        },
+        "runtime_profiles": [
+          {
+            "$ref": "rt"
+          }
+        ],
+        "parameters": {
+          "units": "mixed"
+        }
+      }
+    },
+    {
+      "as": "ev-retention",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "t-req"
+        },
+        "supports": {
+          "$ref": "ex-retention"
+        },
+        "origin": "sample/fixture/v1"
+      }
+    },
+    {
+      "as": "ev-diameter",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "t-dim"
+        },
+        "supports": {
+          "$ref": "ex-diameter"
+        },
+        "origin": "sample/fixture/v1"
+      }
+    },
+    {
+      "as": "rs",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "relation-set",
+        "members": [
+          {
+            "$ref": "ev-retention"
+          },
+          {
+            "$ref": "ev-diameter"
+          }
+        ]
+      }
+    },
+    {
+      "as": "ov",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "t-dim"
+        },
+        "origin": "sample/fixture/v1",
+        "values": {
+          "note": "Sample revision note for the dimension table."
+        }
+      }
+    },
+    {
+      "as": "os",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay-set",
+        "members": [
+          {
+            "$ref": "ov"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "binding_set": {
+          "$ref": "b"
+        },
+        "relation_sets": [
+          {
+            "$ref": "rs"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os"
+          }
+        ]
+      }
+    },
+    {
+      "as": "snap",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-product-specification",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ],
+        "schemas": [
+          {
+            "$ref": "s-req"
+          },
+          {
+            "$ref": "s-dim"
+          }
+        ]
+      }
+    }
+  ]
+}

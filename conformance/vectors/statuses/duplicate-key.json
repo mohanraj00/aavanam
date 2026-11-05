@@ -1,0 +1,40 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A descriptor with a duplicate key fails",
+  "clauses": [
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "raw": "{\"descriptor_profile\": \"aavanam/base/v1\", \"kind\": \"source\", \"kind\": \"artifact\"}"
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "duplicate_key"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "duplicate_key"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

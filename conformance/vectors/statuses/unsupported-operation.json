@@ -1,0 +1,26 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An operation with no row in the operation table is unsupported",
+  "clauses": [
+    "STS-SET-3",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "sample_operation",
+      "request": {},
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_operation"
+        ]
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

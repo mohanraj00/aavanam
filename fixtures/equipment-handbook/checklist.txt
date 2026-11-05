@@ -1,0 +1,2 @@
+This is an opaque application artifact. The store does not read it.
+It stands for a maintenance checklist that an application builds from the roles intervals and torque.

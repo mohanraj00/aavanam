@@ -1,0 +1,100 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify the changed paths
+        id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            push) base="$PUSH_BEFORE" ;;
+            *) base="" ;;
+          esac
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "No usable base: run all checks."; exit 0
+          fi
+          python3 -B tools/classify_change.py "$base" HEAD --github-output "$GITHUB_OUTPUT"
+  # The spec checks run on each change, because a contract change can break a vector citation.
+  shared-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.14.6
+      - name: Validate the shared harness layout and the source inventory
+        run: python3 -B tools/check_project.py
+      - name: Check the spec, the clauses, the registry tables, the vectors and the fixtures
+        run: python3 -B tools/check_spec.py
+      - name: Test the conformance runner
+        run: python3 -B -m unittest discover -s conformance
+  suite:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.14.6
+      - name: Record the toolchain
+        run: |
+          uname -srm
+          if [ -r /etc/os-release ]; then grep PRETTY_NAME /etc/os-release; else sw_vers; fi
+          python3 --version
+          python3 -c 'import sqlite3; print("SQLite", sqlite3.sqlite_version)'
+      - name: Test the reference implementation
+        run: python3 -B -m unittest discover -s tests
+      - name: Run all vectors against the reference implementation
+        run: python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter
+      # The null implementation refuses each call. If it passes all vectors, a refusal vector has no positive pair.
+      - name: Require the null implementation to fail
+        run: |
+          set +e
+          python3 -B conformance/runner.py --adapter null_adapter:NullAdapter > null.txt 2>&1
+          status=$?
+          tail -n 5 null.txt
+          if [ "$status" -ne 1 ]; then echo "::error::The null implementation must fail with exit 1, not $status."; exit 1; fi
+  ci-ok:
+    needs: [changes, shared-project, suite]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every needed job to pass or be skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) exit 1 ;; esac
+          done

@@ -1,0 +1,44 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A descriptor with a kind that is not registered is unsupported",
+  "clauses": [
+    "KND-REG-3",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "sample-widget"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unknown_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unknown_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

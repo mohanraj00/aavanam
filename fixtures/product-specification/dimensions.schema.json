@@ -1,0 +1,1 @@
+{"fields": [{"name": "feature", "type": "string"}, {"name": "nominal", "type": "number"}, {"name": "tolerance", "type": "number"}, {"name": "unit", "type": "string"}]}

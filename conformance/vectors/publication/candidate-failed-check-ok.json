@@ -1,0 +1,192 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "The store does not read the outcome of a check, so a failed check is a valid candidate input.",
+  "clauses": [
+    "PUB-CND-1",
+    "PUB-CND-2",
+    "PUB-CND-3",
+    "PUB-CND-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "sample handbook page\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "chk",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s1"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "example/checker"
+            }
+          },
+          {
+            "as": "chk2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s2"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "fail",
+              "scope": {},
+              "origin": "example/checker"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "s2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n1"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "n1"
+        },
+        "checks": [
+          {
+            "$ref": "chk2"
+          }
+        ],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    }
+  ],
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": []
+  }
+}

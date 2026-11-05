@@ -1,0 +1,124 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A BindingSet with a second dependency list is refused",
+  "clauses": [
+    "KND-DEP-2",
+    "KND-SCH-2"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The first spike defect: a semantic pointer and a separate dependency list could diverge. A second list is an unknown field.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "table": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\nbeta,2\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              },
+              "dependencies": [
+                {
+                  "$ref": "s"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "unknown_field"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "unknown_field"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "regressions/binding-table-ok"
+}

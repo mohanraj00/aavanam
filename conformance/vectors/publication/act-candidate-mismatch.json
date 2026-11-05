@@ -1,0 +1,349 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An activation for a different candidate gives activation_mismatch, and the store does not call the validator",
+  "clauses": [
+    "PUB-ACT-3",
+    "PUB-RCP-2",
+    "STS-ENV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "part-a-1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "part-a-2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\", \"unit\"]}"
+    },
+    "part-b": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "accept": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-1\"}"
+    },
+    "approval": {
+      "media_type": "application/json",
+      "text": "{\"approved\": true}"
+    },
+    "report": {
+      "media_type": "application/json",
+      "text": "{\"result\": \"pass\"}"
+    }
+  },
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k1"
+        },
+        {
+          "$ref": "r1"
+        }
+      ]
+    ]
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "logical_id": "part-a",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "part-a-1"
+              }
+            }
+          },
+          {
+            "as": "a2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "logical_id": "part-a",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "part-a-2"
+              }
+            }
+          },
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "logical_id": "part-b",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "part-b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "payload": {
+                "$payload": "accept"
+              }
+            }
+          },
+          {
+            "as": "ra",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "sample-approver",
+              "payload": {
+                "$payload": "approval"
+              }
+            }
+          },
+          {
+            "as": "rr",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "sample-runner",
+              "payload": {
+                "$payload": "report"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n1"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "n1"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "l1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "build-lock",
+              "inputs": [
+                {
+                  "$ref": "a1"
+                }
+              ],
+              "consumer": "sample-consumer",
+              "completeness": "sample/declared/v1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "activation",
+              "candidate": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+              "lock": {
+                "$ref": "l1"
+              },
+              "approval": {
+                "$ref": "ra"
+              },
+              "report": {
+                "$ref": "rr"
+              },
+              "partition": "handbook",
+              "effective_from": "2026-01-01",
+              "request_key": "sample-request",
+              "producer": "sample-producer",
+              "runner": "sample-runner",
+              "approver": "sample-approver"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k1"
+        },
+        "receipt": {
+          "$ref": "r1"
+        },
+        "activation": {
+          "$ref": "a"
+        }
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "activation_mismatch"
+        ],
+        "items": [
+          {
+            "status": "incompatible",
+            "reasons": [
+              "activation_mismatch"
+            ],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              }
+            },
+            "reason_details": [
+              {
+                "code": "activation_mismatch",
+                "refs": [
+                  {
+                    "$ref": "a"
+                  }
+                ],
+                "capabilities": []
+              }
+            ]
+          }
+        ],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "activation_mismatch",
+            "refs": [
+              {
+                "$ref": "a"
+              }
+            ],
+            "capabilities": []
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "publication/act-publish-ok"
+}

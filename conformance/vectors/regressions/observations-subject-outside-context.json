@@ -1,0 +1,394 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Observations refuse a subject that is not in the read context",
+  "clauses": [
+    "OBS-SUB-1",
+    "CTX-OPN-4"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The table t3 is in the store, but collection a does not bind it.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "table": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\n"
+    },
+    "other": {
+      "media_type": "text/csv",
+      "text": "key,value\nbeta,2\n"
+    },
+    "third": {
+      "media_type": "text/csv",
+      "text": "key,value\ngamma,3\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "t2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "other"
+              }
+            }
+          },
+          {
+            "as": "t3",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "third"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "first": {
+                  "$ref": "t1"
+                },
+                "second": {
+                  "$ref": "t2"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          },
+          {
+            "as": "o1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t1"
+                }
+              ],
+              "observation_type": "sample/retrieval/v1",
+              "scope": {},
+              "values": {
+                "note": "o1"
+              }
+            }
+          },
+          {
+            "as": "o2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t1"
+                }
+              ],
+              "observation_type": "sample/retrieval/v1",
+              "scope": {},
+              "values": {
+                "note": "o2"
+              }
+            }
+          },
+          {
+            "as": "o3",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t1"
+                }
+              ],
+              "observation_type": "sample/retrieval/v1",
+              "scope": {},
+              "values": {
+                "note": "o3"
+              }
+            }
+          },
+          {
+            "as": "o4",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t1"
+                },
+                {
+                  "$ref": "t2"
+                }
+              ],
+              "observation_type": "sample/retrieval/v1",
+              "scope": {},
+              "values": {
+                "note": "o4"
+              }
+            }
+          },
+          {
+            "as": "o5",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t2"
+                }
+              ],
+              "observation_type": "sample/retrieval/v1",
+              "scope": {},
+              "values": {
+                "note": "o5"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sa",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-collection-a",
+              "units": [
+                {
+                  "$ref": "u"
+                }
+              ],
+              "observations": [
+                {
+                  "$ref": "o1"
+                },
+                {
+                  "$ref": "o4"
+                },
+                {
+                  "$ref": "o5"
+                }
+              ]
+            }
+          },
+          {
+            "as": "sb",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-collection-b",
+              "observations": [
+                {
+                  "$ref": "o2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "sa"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "observations",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "t3"
+        }
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "not_in_context"
+        ],
+        "items": []
+      }
+    }
+  ],
+  "pair": "regressions/observations-for-subject"
+}

@@ -1,0 +1,1 @@
+{"fields": [{"name": "task", "type": "string"}, {"name": "interval_h", "type": "integer", "unit": "h", "optional": true}, {"name": "limit", "type": "number", "optional": true}, {"name": "limit_unit", "type": "string", "optional": true}]}

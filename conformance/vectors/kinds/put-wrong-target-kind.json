@@ -1,0 +1,116 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A check whose subject is a check record is unsupported",
+  "clauses": [
+    "KND-REF-3",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "c1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s1"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "c2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "c1"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-check-ok"
+}

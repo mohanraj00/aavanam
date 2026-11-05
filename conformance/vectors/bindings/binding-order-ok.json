@@ -1,0 +1,267 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A BindingSet with other key and field order is the same object",
+  "clauses": [
+    "BND-SET-1",
+    "IDN-CAN-3",
+    "KND-SCH-6"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\", \"unit\"]}"
+    },
+    "selected": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,240\n"
+    },
+    "other": {
+      "media_type": "text/csv",
+      "text": "key,value,unit\nalpha,240,s\n"
+    },
+    "runtime": {
+      "media_type": "application/json",
+      "text": "{\"entry\": \"sample-entry\"}"
+    },
+    "rule": {
+      "media_type": "text/plain",
+      "text": "sample rule body: compare data.value with the limit\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          },
+          {
+            "as": "rt",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1",
+              "payload": {
+                "$payload": "runtime"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "selected"
+              }
+            }
+          },
+          {
+            "as": "t2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s2"
+              },
+              "payload": {
+                "$payload": "other"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "payload": {
+                "$payload": "rule"
+              },
+              "declared_roles": {
+                "data": {
+                  "$ref": "s"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "rule": {
+                  "$ref": "a"
+                },
+                "data": {
+                  "$ref": "t"
+                }
+              },
+              "runtime_profiles": [
+                {
+                  "$ref": "rt"
+                }
+              ],
+              "parameters": {
+                "limit": 3
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "parameters": {
+                "limit": 3
+              },
+              "runtime_profiles": [
+                {
+                  "$ref": "rt"
+                }
+              ],
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                },
+                "rule": {
+                  "$ref": "a"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,213 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A request with two empty lists gives failed with field_count, with no items, and the store does not change",
+  "clauses": [
+    "CTX-OPN-5",
+    "CTX-VIW-2",
+    "STS-MAL-1",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "receipt1": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-1\"}"
+    }
+  },
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k1"
+        },
+        {
+          "$ref": "r1"
+        }
+      ]
+    ]
+  },
+  "pair": "contexts/open-empty-heads-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "subjects": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "payload": {
+                "$payload": "receipt1"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n1"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "n1"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k1"
+        },
+        "receipt": {
+          "$ref": "r1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "n1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [],
+        "heads": []
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_count"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

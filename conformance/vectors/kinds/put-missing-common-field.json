@@ -1,0 +1,52 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A descriptor without descriptor_profile fails with field_count",
+  "clauses": [
+    "KND-SCH-1",
+    "KND-SCH-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_count"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "field_count"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

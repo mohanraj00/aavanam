@@ -1,0 +1,166 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A byte selector with start after end fails",
+  "clauses": [
+    "REL-SEL-3"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The corrected spike build checked selector bounds.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "before": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\nbeta,2\n"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "Sample source text.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Sample reading text.\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "before"
+              }
+            }
+          },
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "reading"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "evidence",
+              "subject": {
+                "$ref": "t1"
+              },
+              "subject_selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 25,
+                "end": 18
+              },
+              "supports": {
+                "$ref": "r"
+              },
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "field_type"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "regressions/put-selector-ok"
+}

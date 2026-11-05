@@ -1,0 +1,88 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "create_snapshot on a device store is refused",
+  "clauses": [
+    "BUN-IMP-6",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The device store has no object. The store checks the role before the request, so the outcome does not depend on the schema. The pair makes the same snapshot on the writer store."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "sample handbook page\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "read_only_store"
+        ],
+        "items": [],
+        "store_unchanged": true
+      },
+      "store": "device"
+    }
+  ],
+  "pair": "publication/snapshot-ok"
+}

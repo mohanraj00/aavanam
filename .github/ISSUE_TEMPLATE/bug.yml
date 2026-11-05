@@ -1,0 +1,24 @@
+name: Reproducible defect
+description: Report behavior of the reference implementation or the runner that differs from a contract clause.
+title: "Bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Clause, expected and actual behavior
+      description: Name the clause ID and the concrete difference.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Neutral reproducer and versions
+      description: Include the source commit, the Python and SQLite versions, the OS and the smallest vector or commands. Use invented data. Do not post credentials, customer material or private source.
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Checks and diagnostics
+      description: State what ran, with the failures and the skipped checks. Follow SECURITY.md for a possible vulnerability.

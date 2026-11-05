@@ -1,0 +1,51 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A reference to a descriptor that is not in the store is not_found",
+  "clauses": [
+    "KND-REF-2",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$absent": "x"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "missing_target"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "missing_target"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-check-ok"
+}

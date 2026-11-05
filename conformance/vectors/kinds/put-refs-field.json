@@ -1,0 +1,59 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A descriptor with a refs field fails as an unknown field",
+  "clauses": [
+    "KND-DEP-1",
+    "KND-DEP-2",
+    "KND-SCH-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              },
+              "refs": [
+                {
+                  "$absent": "x"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "unknown_field"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "unknown_field"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

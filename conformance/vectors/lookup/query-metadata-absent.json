@@ -1,0 +1,306 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A metadata key that no overlay gives is no_metadata, not a default",
+  "clauses": [
+    "QRY-DAT-1",
+    "QRY-DAT-2",
+    "QRY-DAT-3",
+    "BND-OVL-2",
+    "BND-OVL-3",
+    "STS-SET-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"zone\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"zone\", \"limit\", \"unit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"zone\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", \"A\", 1], [\"p2\", \"B\", 2], [\"p3\", \"A\", 3]]}"
+    },
+    "outside": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"zone\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p9\", \"A\", 9]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "outside"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t"
+              },
+              "origin": "sample-producer",
+              "precedence": "producer",
+              "values": {
+                "unit": "N m"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "o1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              },
+              "overlay_sets": [
+                {
+                  "$ref": "os"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "t"
+          }
+        ],
+        "where": {
+          "zone": "A"
+        },
+        "metadata": [
+          "scale"
+        ]
+      },
+      "expect": {
+        "status": "unresolved",
+        "reasons": [
+          "no_metadata"
+        ],
+        "items": [
+          {
+            "status": "unresolved",
+            "reasons": [
+              "no_metadata"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "lookup/query-metadata-ok"
+}

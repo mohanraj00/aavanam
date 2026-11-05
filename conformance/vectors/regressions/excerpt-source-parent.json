@@ -1,0 +1,130 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An excerpt whose parent is a source, not a reading, is refused",
+  "clauses": [
+    "KND-REF-3",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The spike review found that excerpts were not checked against their parent. The parent must be a reading.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "source": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "excerpt": {
+      "media_type": "text/plain",
+      "text": "Line two."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "reading"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "src"
+              },
+              "ranges": [
+                {
+                  "start": 10,
+                  "end": 19
+                }
+              ],
+              "payload": {
+                "$payload": "excerpt"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "regressions/excerpt-ok"
+}

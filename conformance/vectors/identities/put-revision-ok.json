@@ -1,0 +1,68 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A second put of one descriptor with other key order and white space returns the same ref",
+  "clauses": [
+    "IDN-CAN-1",
+    "IDN-CAN-2",
+    "IDN-CAN-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {},
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "raw": "{ \"profile_id\" : \"sample/runtime/v1\",\n  \"kind\": \"runtime-profile\", \"descriptor_profile\": \"aavanam/base/v1\" }"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "r"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

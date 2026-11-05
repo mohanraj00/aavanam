@@ -1,0 +1,189 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An activation whose approval is not in the store is not found",
+  "clauses": [
+    "KND-REF-2",
+    "PUB-ACT-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "src": {
+      "media_type": "text/plain",
+      "text": "sample source\n"
+    },
+    "approval": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"sample approval\"}"
+    },
+    "report": {
+      "media_type": "application/json",
+      "text": "{\"result\": \"sample report\"}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "src"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "l",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "build-lock",
+              "inputs": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "consumer": "sample-consumer",
+              "completeness": "sample/declared/v1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ra",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "sample-approver",
+              "payload": {
+                "$payload": "approval"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rr",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "sample-runner",
+              "payload": {
+                "$payload": "report"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "activation",
+              "candidate": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+              "lock": {
+                "$ref": "l"
+              },
+              "approval": {
+                "$absent": "x"
+              },
+              "report": {
+                "$ref": "rr"
+              },
+              "partition": "sample-collection",
+              "effective_from": "2026-01-01",
+              "request_key": "sample-request",
+              "producer": "sample-producer",
+              "runner": "sample-runner",
+              "approver": "sample-approver"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "missing_target"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "missing_target"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-activation-ok"
+}

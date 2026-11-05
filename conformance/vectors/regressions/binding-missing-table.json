@@ -1,0 +1,88 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A BindingSet that binds a table that is not in the store is refused",
+  "clauses": [
+    "KND-REF-2",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The first spike defect: a binding selected a table that was not in the declared closure. Here the table is not in the store.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "table": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\nbeta,2\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$absent": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "missing_target"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "missing_target"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "regressions/binding-table-ok"
+}

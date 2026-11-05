@@ -1,0 +1,28 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A call to open_cross_catalog_context returns reserved_profile with the profile aavanam/cross-catalog/v1",
+  "clauses": [
+    "RSV-LST-1",
+    "RSV-RSP-1",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the reserved profile table."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "open_cross_catalog_context",
+      "request": {},
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "reserved_profile"
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

@@ -1,0 +1,210 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A research agent reads the reading, a cited excerpt, its support and the coverage observation in the specification collection",
+  "clauses": [
+    "CTX-OPN-2",
+    "CTX-CMP-1",
+    "QRY-GET-1",
+    "REL-EVD-2",
+    "REL-EVD-4",
+    "OBS-SUB-2",
+    "OBS-SUB-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The scenario adds one coverage observation with an unknown denominator, in a second snapshot of the same collection. The agent gets the reading and the excerpt, the support of the second table and the observations of the reading."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "product-specification",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "obs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "rd"
+                }
+              ],
+              "observation_type": "sample/coverage/v1",
+              "scope": {
+                "reading": "whole"
+              },
+              "values": {
+                "denominator": "unknown"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap-obs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-product-specification-observations",
+              "observations": [
+                {
+                  "$ref": "obs"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          },
+          {
+            "$ref": "snap-obs"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "rd"
+          },
+          {
+            "$ref": "ex-diameter"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex-diameter"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "t-dim"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ev-diameter"
+              },
+              "relation": "support"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "observations",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "rd"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "obs"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

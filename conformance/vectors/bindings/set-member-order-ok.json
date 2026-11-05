@@ -1,0 +1,287 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An OverlaySet with other member order is the same object, and an empty set is valid",
+  "clauses": [
+    "BND-SET-2",
+    "IDN-CAN-3",
+    "KND-SCH-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\", \"unit\"]}"
+    },
+    "selected": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,240\n"
+    },
+    "other": {
+      "media_type": "text/csv",
+      "text": "key,value,unit\nalpha,240,s\n"
+    },
+    "runtime": {
+      "media_type": "application/json",
+      "text": "{\"entry\": \"sample-entry\"}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          },
+          {
+            "as": "rt",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1",
+              "payload": {
+                "$payload": "runtime"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "selected"
+              }
+            }
+          },
+          {
+            "as": "t2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s2"
+              },
+              "payload": {
+                "$payload": "other"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t"
+              },
+              "origin": "sample-origin",
+              "values": {
+                "label": "sample label 1"
+              }
+            }
+          },
+          {
+            "as": "o2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t2"
+              },
+              "origin": "sample-origin",
+              "values": {
+                "label": "sample label 2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "o1"
+                },
+                {
+                  "$ref": "o2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "o2"
+                },
+                {
+                  "$ref": "o1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "os"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "e",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

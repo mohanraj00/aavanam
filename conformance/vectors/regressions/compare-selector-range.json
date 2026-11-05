@@ -1,0 +1,285 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Compare refuses a byte range that ends after the payload",
+  "clauses": [
+    "CHG-SEL-3",
+    "REL-SEL-4"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The corrected spike build checked selector bounds.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "before": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\nbeta,2\n"
+    },
+    "after": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,1\nbeta,3\n"
+    },
+    "other": {
+      "media_type": "text/csv",
+      "text": "key,value\ngamma,4\nbeta,2\n"
+    },
+    "source": {
+      "media_type": "text/plain",
+      "text": "Sample source text.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Sample reading text.\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "before"
+              }
+            }
+          },
+          {
+            "as": "t2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "after"
+              }
+            }
+          },
+          {
+            "as": "t3",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "other"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t1"
+                }
+              }
+            }
+          },
+          {
+            "as": "b2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t2"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b1"
+              }
+            }
+          },
+          {
+            "as": "u2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u1"
+          },
+          {
+            "$ref": "u2"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "compare",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "before": {
+          "$ref": "t1"
+        },
+        "after": {
+          "$ref": "t2"
+        },
+        "selector": {
+          "selector_profile": "aavanam/bytes/v1",
+          "start": 18,
+          "end": 26
+        }
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "selector_range"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "selector_range"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "regressions/compare-selected-row-changed"
+}

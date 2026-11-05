@@ -1,0 +1,31 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A publications request with a field that is not collection fails",
+  "clauses": [
+    "PUB-LOG-1",
+    "STS-MAL-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "publications",
+      "request": {
+        "collection": "handbook",
+        "head": "handbook"
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "unknown_field"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "publication/publications-empty-ok"
+}

@@ -1,0 +1,67 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "One bad descriptor aborts the put, and the valid one has batch_aborted",
+  "clauses": [
+    "STS-ENV-3",
+    "STS-ENV-5",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          },
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "sample-widget"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unknown_kind"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "batch_aborted"
+            ]
+          },
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unknown_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "statuses/put-batch-ok"
+}

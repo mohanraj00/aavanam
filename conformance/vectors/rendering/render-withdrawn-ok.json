@@ -1,0 +1,470 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A check with a retraction in the context stays, with the gap withdrawn.",
+  "clauses": [
+    "RND-DOC-1",
+    "RND-DOC-2",
+    "RND-DOC-3",
+    "RND-SCP-1",
+    "RND-SCP-2",
+    "RND-SCP-4",
+    "REL-RET-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "outside": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p9\", 9]]}"
+    },
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", 1]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          },
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "outside"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "chk",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "t"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {
+                "rows": "all"
+              },
+              "origin": "example/checker"
+            }
+          },
+          {
+            "as": "chk2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "t"
+              },
+              "check_profile": "sample/review/v2",
+              "outcome": "example/needs-review",
+              "scope": {
+                "rows": "all"
+              },
+              "origin": "example/checker"
+            }
+          },
+          {
+            "as": "c1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/coverage/v1",
+              "scope": {},
+              "values": {
+                "unit": "rows",
+                "covered": 1,
+                "total": 1,
+                "omissions": []
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ret",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retraction",
+              "target": {
+                "$ref": "chk"
+              },
+              "reason": "wrong sample",
+              "origin": "example/checker"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": [
+                {
+                  "$ref": "chk"
+                },
+                {
+                  "$ref": "chk2"
+                },
+                {
+                  "$ref": "ret"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sa",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-collection",
+              "units": [
+                {
+                  "$ref": "u"
+                }
+              ],
+              "relation_sets": [
+                {
+                  "$ref": "rs"
+                }
+              ],
+              "observations": [
+                {
+                  "$ref": "c1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "sa"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "render",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "t"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "subject",
+              "ref": {
+                "$ref": "t"
+              },
+              "kind": "data-resource"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "check",
+              "subject": {
+                "$ref": "t"
+              },
+              "ref": {
+                "$ref": "chk"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {
+                "rows": "all"
+              },
+              "origin": "example/checker"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "check",
+              "subject": {
+                "$ref": "t"
+              },
+              "ref": {
+                "$ref": "chk2"
+              },
+              "check_profile": "sample/review/v2",
+              "outcome": "example/needs-review",
+              "scope": {
+                "rows": "all"
+              },
+              "origin": "example/checker"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "coverage",
+              "subject": {
+                "$ref": "t"
+              },
+              "ref": {
+                "$ref": "c1"
+              },
+              "unit": "rows",
+              "covered": 1,
+              "total": 1,
+              "omissions": []
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "entry": "gap",
+              "subject": {
+                "$ref": "t"
+              },
+              "gap": "withdrawn",
+              "ref": {
+                "$ref": "chk"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

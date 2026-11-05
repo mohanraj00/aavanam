@@ -1,0 +1,54 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Payload bytes that do not agree with the size fail",
+  "clauses": [
+    "KND-OPQ-1",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the runner adds 1 to the size of correct bytes."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one",
+                "fault": "size"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "size_mismatch"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "size_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

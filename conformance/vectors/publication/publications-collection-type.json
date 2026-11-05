@@ -1,0 +1,30 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A publications request whose collection is not a string fails",
+  "clauses": [
+    "PUB-LOG-1",
+    "STS-MAL-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "publications",
+      "request": {
+        "collection": 7
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "publication/publications-empty-ok"
+}

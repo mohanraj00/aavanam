@@ -1,0 +1,249 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An object that the head snapshot does not contain is not in a read context of that head",
+  "clauses": [
+    "CTX-VIW-1",
+    "CTX-VIW-2",
+    "CTX-OPN-4",
+    "QRY-GET-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. The head n1 has the schema s1 and not s2."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "receipt1": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\", \"ticket\": \"r-1\"}"
+    }
+  },
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k1"
+        },
+        {
+          "$ref": "r1"
+        }
+      ]
+    ]
+  },
+  "pair": "contexts/heads-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema1"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "subjects": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "payload": {
+                "$payload": "receipt1"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "n1"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "n1"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k1"
+        },
+        "receipt": {
+          "$ref": "r1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "n1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "heads": [
+          "handbook"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "s2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "not_in_context"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "not_in_context"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

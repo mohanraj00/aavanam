@@ -1,0 +1,98 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An excerpt whose parent reading is not in the store is refused",
+  "clauses": [
+    "KND-REF-2",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The spike review found that excerpts were not checked against their parent. The parent must be in the store at write.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "source": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "excerpt": {
+      "media_type": "text/plain",
+      "text": "Line two."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$absent": "r"
+              },
+              "ranges": [
+                {
+                  "start": 10,
+                  "end": 19
+                }
+              ],
+              "payload": {
+                "$payload": "excerpt"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "missing_target"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "missing_target"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "regressions/excerpt-ok"
+}

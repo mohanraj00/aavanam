@@ -1,0 +1,28 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A call to workspace_open returns reserved_profile with the profile aavanam/workspace/v1",
+  "clauses": [
+    "RSV-LST-1",
+    "RSV-RSP-1",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the reserved profile table."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "workspace_open",
+      "request": {},
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "reserved_profile"
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

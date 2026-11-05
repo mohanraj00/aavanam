@@ -1,0 +1,53 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A logical_id that is not a string fails with field_type",
+  "clauses": [
+    "KND-SCH-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              },
+              "logical_id": 7
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "field_type"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-logical-id-ok"
+}

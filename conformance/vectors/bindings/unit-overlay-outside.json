@@ -1,0 +1,399 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An overlay on a bound table that no set of the unit has is not in the context",
+  "clauses": [
+    "BND-UNT-2",
+    "BND-OVL-1",
+    "BND-OVL-2",
+    "CTX-OPN-4",
+    "QRY-GET-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\"]}"
+    },
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"key\", \"value\", \"unit\"]}"
+    },
+    "selected": {
+      "media_type": "text/csv",
+      "text": "key,value\nalpha,240\n"
+    },
+    "other": {
+      "media_type": "text/csv",
+      "text": "key,value,unit\nalpha,240,s\n"
+    },
+    "runtime": {
+      "media_type": "application/json",
+      "text": "{\"entry\": \"sample-entry\"}"
+    },
+    "rule": {
+      "media_type": "text/plain",
+      "text": "sample rule body: compare data.value with the limit\n"
+    },
+    "narrative": {
+      "media_type": "text/markdown",
+      "text": "# Sample narrative\n\nThe table gives one value.\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema2"
+              }
+            }
+          },
+          {
+            "as": "rt",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1",
+              "payload": {
+                "$payload": "runtime"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "selected"
+              }
+            }
+          },
+          {
+            "as": "t2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "sample/table/v1",
+              "schema": {
+                "$ref": "s2"
+              },
+              "payload": {
+                "$payload": "other"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "payload": {
+                "$payload": "rule"
+              },
+              "declared_roles": {
+                "data": {
+                  "$ref": "s"
+                }
+              }
+            }
+          },
+          {
+            "as": "n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/narrative/v1",
+              "payload": {
+                "$payload": "narrative"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "rule": {
+                  "$ref": "a"
+                },
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t"
+              },
+              "origin": "sample-origin",
+              "values": {
+                "label": "sample label 1"
+              }
+            }
+          },
+          {
+            "as": "o2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t"
+              },
+              "origin": "sample-origin",
+              "values": {
+                "label": "sample label 2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "o1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              },
+              "narratives": [
+                {
+                  "$ref": "n"
+                }
+              ],
+              "overlay_sets": [
+                {
+                  "$ref": "os"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "o2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "not_in_context"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "not_in_context"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "bindings/unit-overlay-member-ok"
+}

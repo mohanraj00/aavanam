@@ -1,0 +1,108 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A response agent reads a table, its excerpt and its support in the handbook collection",
+  "clauses": [
+    "CTX-OPN-1",
+    "CTX-OPN-2",
+    "QRY-GET-1",
+    "REL-EVD-2",
+    "REL-EVD-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The agent opens a context on the snapshot, gets the table and the excerpt for its answer, and gets the support of the table. The fixture gives the evidence record."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "t-int"
+          },
+          {
+            "$ref": "ex-guard"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-int"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex-guard"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "t-int"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ev-guard"
+              },
+              "relation": "support"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

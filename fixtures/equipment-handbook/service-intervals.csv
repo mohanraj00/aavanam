@@ -1,0 +1,4 @@
+task,interval_h,limit,limit_unit
+inspect wheel guard,25,,
+replace grinding wheel,,150,mm
+lubricate spindle bearings,200,,

@@ -1,0 +1,206 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An unknown reference comes before the check of requires",
+  "clauses": [
+    "LCK-EXE-1",
+    "LCK-CAP-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. The BindingSet is not in the store, and aavanam/semantic/v1 is not in the capability table."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "rule": {
+      "media_type": "text/plain",
+      "text": "opaque rule source\n"
+    },
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"zone\", \"limit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"zone\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", \"A\", 1], [\"p2\", \"B\", 2], [\"p3\", \"A\", 3]]}"
+    }
+  },
+  "pair": "locks/cap-exe-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "execution_inputs",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "binding_set": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "consumer": "sample-consumer",
+        "completeness": "sample/declared/v1",
+        "requires": [
+          "aavanam/lexical/v1",
+          "aavanam/semantic/v1"
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "unknown_ref",
+            "refs": [
+              "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

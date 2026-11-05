@@ -1,0 +1,129 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An excerpt range that ends after the parent payload fails",
+  "clauses": [
+    "BUN-EXC-3"
+  ],
+  "provenance": {
+    "type": "spike",
+    "note": "The range ends after the last byte of the reading.",
+    "source": "a pre-build prototype"
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "source": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "text": "Line one.\nLine two.\n"
+    },
+    "excerpt": {
+      "media_type": "text/plain",
+      "text": "Line two."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "source"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample-producer",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "reading"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "r"
+              },
+              "ranges": [
+                {
+                  "start": 10,
+                  "end": 21
+                }
+              ],
+              "payload": {
+                "$payload": "excerpt"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "excerpt_mismatch"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "excerpt_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "regressions/excerpt-range-ok"
+}

@@ -1,0 +1,55 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A payload with no bytes in the store is not_found",
+  "clauses": [
+    "KND-OPQ-1",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the runner does not send the payload bytes."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one.",
+      "stored": false
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "payload_missing"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "payload_missing"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

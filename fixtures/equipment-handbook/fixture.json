@@ -1,0 +1,290 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-equipment-handbook",
+  "root": "snap",
+  "payloads": {
+    "handbook": {
+      "media_type": "text/markdown",
+      "file": "handbook.md"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "file": "handbook.txt"
+    },
+    "intervals-schema": {
+      "media_type": "application/json",
+      "file": "service-intervals.schema.json"
+    },
+    "torque-schema": {
+      "media_type": "application/json",
+      "file": "torque-settings.schema.json"
+    },
+    "intervals": {
+      "media_type": "text/csv",
+      "file": "service-intervals.csv"
+    },
+    "torque": {
+      "media_type": "text/csv",
+      "file": "torque-settings.csv"
+    },
+    "runtime": {
+      "media_type": "application/json",
+      "file": "runtime-a.json"
+    },
+    "checklist": {
+      "media_type": "text/plain",
+      "file": "checklist.txt"
+    }
+  },
+  "descriptors": [
+    {
+      "as": "src",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "source",
+        "payload": {
+          "$payload": "handbook"
+        }
+      }
+    },
+    {
+      "as": "rd",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "src"
+        },
+        "producer": "sample/reader/v1",
+        "coverage_profile": "sample/coverage/v1",
+        "payload": {
+          "$payload": "reading"
+        }
+      }
+    },
+    {
+      "as": "ex-guard",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "rd"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "Inspect the wheel guard every 25 operating hours."
+        },
+        "payload": {
+          "$text": "Inspect the wheel guard every 25 operating hours.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "ex-flange",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "rd"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "Tighten the wheel flange nut to the torque in the torque table."
+        },
+        "payload": {
+          "$text": "Tighten the wheel flange nut to the torque in the torque table.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "s-int",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "sample/schema/v1",
+        "payload": {
+          "$payload": "intervals-schema"
+        }
+      }
+    },
+    {
+      "as": "s-tq",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "sample/schema/v1",
+        "payload": {
+          "$payload": "torque-schema"
+        }
+      }
+    },
+    {
+      "as": "t-int",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "data_profile": "sample/table/v1",
+        "schema": {
+          "$ref": "s-int"
+        },
+        "payload": {
+          "$payload": "intervals"
+        }
+      }
+    },
+    {
+      "as": "t-tq",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "data_profile": "sample/table/v1",
+        "schema": {
+          "$ref": "s-tq"
+        },
+        "payload": {
+          "$payload": "torque"
+        }
+      }
+    },
+    {
+      "as": "rt",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "runtime-profile",
+        "profile_id": "sample/runtime/script-a/v1",
+        "payload": {
+          "$payload": "runtime"
+        }
+      }
+    },
+    {
+      "as": "a-chk",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/checklist/v1",
+        "declared_roles": {
+          "intervals": {
+            "$ref": "s-int"
+          },
+          "torque": {
+            "$ref": "s-tq"
+          }
+        },
+        "runtime_profile": {
+          "$ref": "rt"
+        },
+        "payload": {
+          "$payload": "checklist"
+        }
+      }
+    },
+    {
+      "as": "b",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "checklist": {
+            "$ref": "a-chk"
+          },
+          "intervals": {
+            "$ref": "t-int"
+          },
+          "torque": {
+            "$ref": "t-tq"
+          }
+        },
+        "runtime_profiles": [
+          {
+            "$ref": "rt"
+          }
+        ],
+        "parameters": {
+          "unit_system": "SI"
+        }
+      }
+    },
+    {
+      "as": "ev-guard",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "t-int"
+        },
+        "supports": {
+          "$ref": "ex-guard"
+        },
+        "origin": "sample/fixture/v1"
+      }
+    },
+    {
+      "as": "ev-flange",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "t-tq"
+        },
+        "supports": {
+          "$ref": "ex-flange"
+        },
+        "origin": "sample/fixture/v1"
+      }
+    },
+    {
+      "as": "rs",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "relation-set",
+        "members": [
+          {
+            "$ref": "ev-guard"
+          },
+          {
+            "$ref": "ev-flange"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "binding_set": {
+          "$ref": "b"
+        },
+        "relation_sets": [
+          {
+            "$ref": "rs"
+          }
+        ]
+      }
+    },
+    {
+      "as": "snap",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-equipment-handbook",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ],
+        "schemas": [
+          {
+            "$ref": "s-int"
+          },
+          {
+            "$ref": "s-tq"
+          }
+        ]
+      }
+    }
+  ]
+}

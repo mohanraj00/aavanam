@@ -1,0 +1,40 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A create_snapshot request with a kind field gives unknown_field.",
+  "clauses": [
+    "PUB-SNP-1",
+    "PUB-SNP-2",
+    "KND-SCH-2",
+    "STS-ENV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses. The request has no descriptor_profile or kind field."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "kind": "snapshot"
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "unknown_field"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "unknown_field"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "publication/snapshot-ok"
+}

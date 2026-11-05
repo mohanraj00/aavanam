@@ -1,0 +1,68 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A payload digest of another scheme or with uppercase digits fails with field_type",
+  "clauses": [
+    "IDN-DIG-1",
+    "KND-SCH-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {},
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "digest": "sha512:9b3b937f81a7ae237228e4363cf81307fbf25c183222f98b3121cc00627c4389dd1a9421db34a462ff2a41bc084d8086df14fce55682ca4f79b30614e3136d75",
+                "media_type": "text/plain",
+                "size": 23
+              }
+            }
+          },
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "digest": "sha256:E3EA861F7D004BF048D32F8FF1857B6CE52C61E9D9584617BB6109E9C9B6F39F",
+                "media_type": "text/plain",
+                "size": 23
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type",
+          "field_type"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "field_type"
+            ]
+          },
+          {
+            "status": "failed",
+            "reasons": [
+              "field_type"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "kinds/put-source-ok"
+}

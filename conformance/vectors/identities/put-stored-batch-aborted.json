@@ -1,0 +1,83 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A stored descriptor in a put that is not ok fails with batch_aborted",
+  "clauses": [
+    "IDN-CAN-3",
+    "STS-ENV-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {},
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "runtime-profile",
+              "profile_id": "sample/runtime/v1"
+            }
+          },
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "sample-unknown-kind"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unknown_kind"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "batch_aborted"
+            ]
+          },
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unknown_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "identities/put-revision-ok"
+}
