@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from support import Store
+from support import BASE, Store, payload, put_ref
 
 SERVING = 'sample-serving'
 
@@ -49,6 +49,34 @@ class SectionTest(unittest.TestCase):
             store.section(SERVING, 'serving')
         self.assertIsNone(store.section_of(SERVING))
         store.section('sample-other', 'serving')  # a different collection has no snapshot
+        store.close()
+
+    def test_a_declaration_during_a_snapshot_write(self):  # PUB-SEC-2, PUB-SEC-3
+        store = Store(self.path)
+        schema_obj, schema_data = payload('schema')
+        schema = put_ref(store, {'descriptor_profile': BASE, 'kind': 'schema', 'schema_profile': 'sample/schema/v1', 'payload': schema_obj}, schema_data)
+        table_obj, table_data = payload('table')
+        table = put_ref(store, {'descriptor_profile': BASE, 'kind': 'data-resource', 'data_profile': 'sample/table/v1', 'schema': schema, 'payload': table_obj}, table_data)
+        source_obj, source_data = payload('source')
+        source = put_ref(store, {'descriptor_profile': BASE, 'kind': 'source', 'payload': source_obj}, source_data)
+        reading_obj, reading_data = payload('reading')
+        reading = put_ref(store, {'descriptor_profile': BASE, 'kind': 'reading', 'source': source, 'producer': 'sample/reader/v1', 'coverage_profile': 'sample/coverage/v1', 'payload': reading_obj}, reading_data)
+        evidence = put_ref(store, {'descriptor_profile': BASE, 'kind': 'evidence', 'subject': table, 'supports': reading, 'origin': 'sample/fixture/v1'})
+        members = put_ref(store, {'descriptor_profile': BASE, 'kind': 'relation-set', 'members': [evidence]})
+        write = store.write
+
+        def declare_then_write(objects, blobs):  # a different open declares after the check of call()
+            other = Store(self.path)
+            other.section(SERVING, 'serving')
+            other.close()
+            write(objects, blobs)
+        store.write = declare_then_write
+        before = store.fingerprint()
+        result = store.call('create_snapshot', {'collection': SERVING, 'relation_sets': [members]})
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual({r['code'] for r in result['items'][0]['reasons']}, {'section_violation'})
+        self.assertEqual(len(result['items'][0]['reasons']), 3)  # the evidence, the reading and the source
+        self.assertEqual(store.fingerprint(), before)  # STS-ENV-4
         store.close()
 
     def test_a_later_open_keeps_the_section(self):  # PUB-SEC-2
