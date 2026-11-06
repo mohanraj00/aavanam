@@ -72,9 +72,9 @@ NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
 class SectionViolation(Exception):
     """The check of PUB-SEC-3 failed in the write transaction."""
 
-    def __init__(self, ref: str, found: list[str]):
-        super().__init__(ref)
-        self.ref, self.found = ref, found
+    def __init__(self, found: dict[str, list[str]]):
+        super().__init__('section_violation')
+        self.found = found  # the descriptors that each revision of the batch must not have in its closure
 
 
 def reason(code: str, refs=(), capabilities=()) -> dict:
@@ -352,10 +352,9 @@ class Store:
                 objects = {r: o for r, o in objects.items() if self.device.descriptor(r) is None}
                 blobs = {k: b for k, b in blobs.items() if self.device.blob(k) is None}
             # A second connection can declare a section after the check of call(), so check again here (PUB-SEC-2)
-            for ref, desc in objects.items():
-                found = self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r))
-                if found:
-                    raise SectionViolation(ref, found)
+            found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
+            if any(found.values()):
+                raise SectionViolation(found)
             for ref, desc in objects.items():
                 self.db.execute('INSERT OR IGNORE INTO objects VALUES (?, ?, ?)', (ref, desc['kind'], canonical(desc)))
                 self.db.executemany('INSERT OR IGNORE INTO edges VALUES (?, ?)', {(ref, t) for _, t in d.references(desc)})
@@ -680,7 +679,7 @@ class Store:
         try:
             self.write(objects, blobs)
         except SectionViolation as e:  # STS-ENV-4: the store did not change
-            return self.commit_batch(operation, [refused(['section_violation'] * len(e.found), e.found) if 'status' not in c and revision(c) == e.ref else c for c in checked], data, whole)
+            return self.commit_batch(operation, [refused(['section_violation'] * len(e.found[revision(c)]), e.found[revision(c)]) if e.found.get(revision(c)) else c for c in checked], data, whole)
         except Failure:
             raise
         except Exception:

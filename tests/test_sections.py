@@ -1,4 +1,5 @@
 """The storage section rules that the runner cannot express: declarations and two opens of one store."""
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -63,11 +64,11 @@ class SectionTest(unittest.TestCase):
         reading = put_ref(store, {'descriptor_profile': BASE, 'kind': 'reading', 'source': source, 'producer': 'sample/reader/v1', 'coverage_profile': 'sample/coverage/v1', 'payload': reading_obj}, reading_data)
         evidence = put_ref(store, {'descriptor_profile': BASE, 'kind': 'evidence', 'subject': table, 'supports': reading, 'origin': 'sample/fixture/v1'})
         members = put_ref(store, {'descriptor_profile': BASE, 'kind': 'relation-set', 'members': [evidence]})
-        write = store.write
+        write, target = store.write, [SERVING]
 
         def declare_then_write(objects, blobs):  # a different open declares after the check of call()
             other = Store(self.path)
-            other.section(SERVING, 'serving')
+            other.section(target[0], 'serving')
             other.close()
             write(objects, blobs)
         store.write = declare_then_write
@@ -77,6 +78,12 @@ class SectionTest(unittest.TestCase):
         self.assertEqual({r['code'] for r in result['items'][0]['reasons']}, {'section_violation'})
         self.assertEqual(len(result['items'][0]['reasons']), 3)  # the evidence, the reading and the source
         self.assertEqual(store.fingerprint(), before)  # STS-ENV-4
+        target[0] = 'sample-other'
+        snapshots = [json.dumps({'descriptor_profile': BASE, 'kind': 'snapshot', 'collection': target[0], 'logical_id': name, 'relation_sets': [members]}) for name in 'ab']
+        result = store.call('put', {'descriptors': snapshots, 'payloads': {}})
+        self.assertEqual([i['status'] for i in result['items']], ['failed', 'failed'])
+        for each in result['items']:  # each snapshot has its own reasons (PUB-SEC-3), also after the check of call()
+            self.assertEqual({r['code'] for r in each['reasons']}, {'section_violation'})
         store.close()
 
     def test_only_a_writer_store_has_sections(self):  # PUB-SEC-1
