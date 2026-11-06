@@ -79,24 +79,13 @@ class SectionTest(unittest.TestCase):
         self.assertEqual(store.fingerprint(), before)  # STS-ENV-4
         store.close()
 
-    def test_a_device_store_and_its_output_store_share_the_rules(self):  # PUB-SEC-2, BUN-IMP-8
-        writer = Store()
-        snap = snapshot(writer, SERVING)['items'][0]['ref']
-        context = writer.call('open_context', {'roots': [snap]})['context']
-        bundle = writer.call('export', {'context': context, 'roots': [snap]})['bundle']
+    def test_only_a_writer_store_has_sections(self):  # PUB-SEC-1
         device = Store(role='device')
-        self.assertEqual(device.call('import', {'bundle': bundle})['status'], 'ok')
-        with self.assertRaises(ValueError):  # the snapshot is in the device store
-            device.output.section(SERVING, 'serving')
-        self.assertIsNone(device.output.section_of(SERVING))
-        other = Store(role='device')
-        other.section(SERVING, 'serving')
-        self.assertEqual(other.output.section_of(SERVING), 'serving')  # the output store reads the declaration
-        with self.assertRaises(ValueError):
-            other.output.section(SERVING, 'evidence')
-        third = Store(role='device')
-        third.output.section(SERVING, 'evidence')
-        self.assertEqual(third.section_of(SERVING), 'evidence')
+        for store in (device, device.output):
+            with self.assertRaises(ValueError):
+                store.section(SERVING, 'serving')
+            self.assertIsNone(store.section_of(SERVING))
+        device.close()
 
     def test_a_later_open_keeps_the_section(self):  # PUB-SEC-2
         store = Store(self.path)

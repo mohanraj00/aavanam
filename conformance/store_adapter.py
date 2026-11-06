@@ -39,5 +39,4 @@ class StoreAdapter:
             store.gate(collection)  # PUB-GAT-1
 
     def section(self, collection, section) -> None:
-        for store in self.stores.values():
-            store.section(collection, section)  # PUB-SEC-1
+        self.stores['writer'].section(collection, section)  # PUB-SEC-1: only a writer store

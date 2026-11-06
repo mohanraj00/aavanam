@@ -264,6 +264,8 @@ class Store:
         """Declare the storage section of a collection (PUB-SEC-1). The store keeps it for its life (PUB-SEC-2)."""
         if not isinstance(collection, str) or section not in SECTIONS:
             raise TypeError('a section declaration is a collection name and a section name (PUB-SEC-1)')
+        if self.role != 'writer':
+            raise ValueError('only a writer store has sections (PUB-SEC-1)')
         if self.called:
             raise ValueError('declare a section before the first call of this open (PUB-SEC-1)')
         with self.mutex:
@@ -273,10 +275,9 @@ class Store:
                 if declared not in (None, section):
                     raise ValueError(f'the collection already has the section {declared} (PUB-SEC-2)')
                 if declared is None:
-                    for store in self.linked():
-                        for (text,) in store.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
-                            if json.loads(text, parse_float=number_value)['collection'] == collection:
-                                raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
+                    for (text,) in self.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
+                        if json.loads(text, parse_float=number_value)['collection'] == collection:
+                            raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
                     self.db.execute('INSERT INTO sections VALUES (?, ?)', (collection, section))
                 self.db.execute('COMMIT')
             except BaseException:
@@ -284,15 +285,8 @@ class Store:
                 raise
 
     def section_of(self, collection: str) -> str | None:
-        for store in self.linked():
-            row = store.db.execute('SELECT section FROM sections WHERE collection = ?', (collection,)).fetchone()
-            if row:
-                return row[0]
-        return None
-
-    def linked(self) -> list[Store]:
-        """This store, and its device store or its local output store (BUN-IMP-8, PUB-SEC-2)."""
-        return [s for s in (self, self.device, self.output) if s]
+        row = self.db.execute('SELECT section FROM sections WHERE collection = ?', (collection,)).fetchone()
+        return row[0] if row else None
 
     def close(self) -> None:
         if self.output:
