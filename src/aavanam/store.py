@@ -273,9 +273,10 @@ class Store:
                 if declared not in (None, section):
                     raise ValueError(f'the collection already has the section {declared} (PUB-SEC-2)')
                 if declared is None:
-                    for (text,) in self.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
-                        if json.loads(text, parse_float=number_value)['collection'] == collection:
-                            raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
+                    for store in self.linked():
+                        for (text,) in store.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
+                            if json.loads(text, parse_float=number_value)['collection'] == collection:
+                                raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
                     self.db.execute('INSERT INTO sections VALUES (?, ?)', (collection, section))
                 self.db.execute('COMMIT')
             except BaseException:
@@ -283,8 +284,15 @@ class Store:
                 raise
 
     def section_of(self, collection: str) -> str | None:
-        row = self.db.execute('SELECT section FROM sections WHERE collection = ?', (collection,)).fetchone()
-        return row[0] if row else None
+        for store in self.linked():
+            row = store.db.execute('SELECT section FROM sections WHERE collection = ?', (collection,)).fetchone()
+            if row:
+                return row[0]
+        return None
+
+    def linked(self) -> list[Store]:
+        """This store, and its device store or its local output store (BUN-IMP-8, PUB-SEC-2)."""
+        return [s for s in (self, self.device, self.output) if s]
 
     def close(self) -> None:
         if self.output:
