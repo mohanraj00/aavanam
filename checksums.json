@@ -421,7 +421,7 @@
   "conformance/vectors/statuses/put-batch-ok.json": "45f13ace0d3f42dd1128fb8a4bdc68611c04df546f44b09776c1573c4bde864a",
   "conformance/vectors/statuses/unsupported-operation.json": "681bdcff6cddf50cb5531c3e004b45721d9db99760640b2eb666c6626b1f7070",
   "docs/REVIEW.md": "085f0077d8277196cf03aaca5209d7058534d99ae6265a1c1f704de8a5d51538",
-  "docs/STATUS.md": "73ce87568485cd7af803b1c58a88e7d42fa43f4ca2e464c873ad8f03b1cfd8b6",
+  "docs/STATUS.md": "312b946e791238fb903f7ea1a4fa3f264b8fbdf36a48b1321597db1e2121b827",
   "docs/contracts/01-identities-and-native-mappings.md": "9c96842824ffbd2a59cc5f2e8f0eb894a5494a5f006ef7f0de17341177f792a3",
   "docs/contracts/02-kinds-and-typed-references.md": "6b21854042e2dc24e92226d663e7a8c4fba9390838d5c158e656dc68de4c0272",
   "docs/contracts/03-statuses-and-reasons.md": "c60f5b73a948e54ab0ece3267abe30327c17f7770c916372ad0e4dc75bcdb82a",

@@ -15,3 +15,4 @@ The specification has 16 contract documents in the `draft` state. The reference 
 - Integrations with producers and consumers. An implementation that integrates with a host application uses the tech spec of that application (constitution principle 9).
 
 GitHub issues own the current work. The counts in [README.md](../README.md) come from the checks.
+This line is a temporary test of the review request path (issue 10). Do not merge it.
