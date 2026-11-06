@@ -33,7 +33,7 @@ FIXTURES = ROOT / 'fixtures'
 FIXTURE_FIELDS = {'format', 'collection', 'root', 'payloads', 'descriptors'}
 REQUIRED_COUNTS = {'1', '1..n', '1..n list'}
 FIXTURE_EXCLUDED_KINDS = {'supersession'}
-VECTOR_FIELDS = {'format', 'title', 'clauses', 'provenance', 'profile', 'fixture', 'payloads', 'steps', 'pair', 'acceptance', 'gates'}
+VECTOR_FIELDS = {'format', 'title', 'clauses', 'provenance', 'profile', 'fixture', 'payloads', 'steps', 'pair', 'acceptance', 'gates', 'sections'}
 PROVENANCE = {'spec', 'spike', 'fault'}
 EXPECT_FIELDS = {'status', 'reasons', 'items', 'store_unchanged', 'unordered', 'reason_details'}
 UNORDERED_OPERATIONS = {'evidence', 'observations', 'coverage', 'execution_inputs', 'build_inputs', 'export', 'import', 'render'}  # REL-EVD-4, OBS-SUB-4, OBS-COV-3, LCK-EXE-4, LCK-BLD-3, BUN-EXP-3, BUN-IMP-3, RND-DOC-5
@@ -372,6 +372,13 @@ def check_gates(where: str, gates) -> list[str]:
     return []
 
 
+def check_sections(where: str, sections) -> list[str]:
+    """The sections of a vector map collection names to the sections of PUB-SEC-1."""
+    if not (isinstance(sections, dict) and sections and all(s in ('serving', 'evidence') for s in sections.values())):
+        return [f'{where}: sections needs an object from a collection name to serving or evidence']
+    return []
+
+
 def check_acceptance(where: str, acceptance, bound: set[str]) -> list[str]:
     """The test policy of a vector has a name and the accepted pairs of candidate and receipt (PUB-RCP-1)."""
     if not (isinstance(acceptance, dict) and set(acceptance) == {'policy', 'accept'} and isinstance(acceptance['policy'], str)
@@ -532,6 +539,8 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
             errors += check_acceptance(where, v['acceptance'], bound)
         if 'gates' in v:
             errors += check_gates(where, v['gates'])
+        if 'sections' in v:
+            errors += check_sections(where, v['sections'])
     for vid, v in vectors.items():
         if not isinstance(v, dict) or final.get(vid) is None:
             continue

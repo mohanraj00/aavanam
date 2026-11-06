@@ -52,6 +52,7 @@ REASON_STATUS = {
     'values_form': 'failed',
     'bundle_incomplete': 'failed',
     'native_id_conflict': 'failed',
+    'section_violation': 'failed',
     'replacement_kind': 'failed',
     'digest_mismatch': 'failed',
     'size_mismatch': 'failed',

@@ -38,6 +38,7 @@ The ID of a vector is its path under `conformance/vectors/`, without `.json`, fo
 | `pair` | The ID of the positive pair. Only a refusal vector has it |
 | `acceptance` | Optional. A test acceptance policy (see Acceptance policies) |
 | `gates` | Optional. A list of collection names. Before the first step, the runner declares each name as gated (PUB-GAT-1) |
+| `sections` | Optional. An object from a collection name to a section name. Before the first step, the runner declares each section (PUB-SEC-1) |
 
 The provenance types:
 

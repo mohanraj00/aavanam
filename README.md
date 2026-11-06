@@ -10,9 +10,9 @@ Aavanam stores and resolves. It never executes. Applications own their engines, 
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 236, in 16 documents under `docs/contracts/` |
-| Conformance vectors | 388. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 387. The runner exits with 1 |
+| Contract clauses | 242, in 16 documents under `docs/contracts/` |
+| Conformance vectors | 394. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 393. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
 | Reference implementation | 1825 lines of Python over SQLite. The standard library only |
 

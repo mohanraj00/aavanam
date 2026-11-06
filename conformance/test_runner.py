@@ -85,6 +85,9 @@ class Scripted:
     def gate(self, collection):
         self.gates = getattr(self, 'gates', []) + [collection]
 
+    def section(self, collection, section):
+        pass
+
 
 def put_step(entries, status='ok', reasons=(), items=None, **extra):
     expect = {'status': status, 'reasons': list(reasons), **extra}

@@ -37,3 +37,7 @@ class StoreAdapter:
     def gate(self, collection) -> None:
         for store in self.stores.values():
             store.gate(collection)  # PUB-GAT-1
+
+    def section(self, collection, section) -> None:
+        for store in self.stores.values():
+            store.section(collection, section)  # PUB-SEC-1

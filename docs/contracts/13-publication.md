@@ -17,6 +17,7 @@ The store keeps a receipt as opaque content (KND-OPQ-2). An acceptance policy is
 | `RCP` | Acceptance receipt validation |
 | `HED` | Head updates, idempotency and dispositions |
 | `GAT` | Gated collections |
+| `SEC` | Storage sections |
 | `LOG` | Publication history |
 | `ACT` | Activations |
 
@@ -106,6 +107,20 @@ An item with reason `head_moved` also has the field `head`, the current head.
 **PUB-GAT-2.** The store MUST keep each declaration for the life of the store. A later open of the store keeps it, also if the application does not declare it again. The base profile has no operation that removes a declaration. A gate is on a collection, not on a policy, so a candidate with a different policy does not avoid it.
 
 **PUB-GAT-3.** The gate check of `publish` is check 1 of the activation checks (PUB-ACT-3): if the collection of the snapshot of the candidate is gated and the request has no activation, the item has status `incompatible` and reason `activation_required`. The item has no other reason, and the store does not change (STS-ENV-4). The store applies the activation checks after step 3 of PUB-HED-3 and before step 4. Thus a repeat `publish` of a published candidate gives the outcome of step 3 without the gate check, and the store does not call the validator if the gate check fails. An open can declare a gate while a `publish` of a different open runs its validator. Action 1 of step 5 applies the activation checks again in the atomic step (PUB-RCP-3). Thus that `publish` gives the outcome of the checks in the gated collection, and the store does not change if a check fails.
+
+### Storage sections
+
+**PUB-SEC-1.** A storage section states the purpose of the data of a collection. The application can declare one section for a collection when it opens the store, before the first call of that open. The declaration is store configuration. It is not a request field, a descriptor or a catalog record. The base profile has two sections: `serving`, for the content that consumers read live, and `evidence`, for the material that supports that content. A collection with no declaration has no section, and this topic does not apply to it.
+
+**PUB-SEC-2.** The store MUST keep each declaration for the life of the store. A later open of the store keeps it, also if the application does not declare it again. The base profile has no operation that removes a declaration. A repeat of a declaration has no effect. The store MUST refuse a declaration with a different section for the collection. The store MUST also refuse a first declaration for a collection that has a snapshot in the store, because the store did not check that snapshot (PUB-SEC-3). The declaration fails, and the store does not change.
+
+**PUB-SEC-3.** If the `collection` of a snapshot has the section `serving`, the closure of the snapshot (KND-DEP-3) MUST NOT have a descriptor of kind `source`, `reading`, `excerpt` or `evidence`. This check is in step 6 of STS-MAL-3, so it applies to each operation that checks a descriptor in these steps, for example `create_snapshot` and `put`. The item has status `failed`, with one reason `section_violation` for each such descriptor. The `refs` of each reason list these descriptors.
+
+**PUB-SEC-4.** Thus a bundle of a root in a `serving` collection has no descriptor of these kinds and no payload bytes of these descriptors (BUN-EXP-2). The `export` operation has no check for a section. An `overlay` on the content of a `serving` collection can keep a source locator in its `values`, for example a source URL. The store does not interpret it (KND-OPQ-3).
+
+**PUB-SEC-5.** An `evidence` collection has no restriction on the kinds in its closure. A read context with a root in a `serving` collection and a root in an `evidence` collection reads the evidence of a subject with `evidence`. The result gives the evidence records (REL-EVD-2). The application follows `supports` to read the excerpt.
+
+**PUB-SEC-6.** A section changes no identity, reference, closure, status or reason, except by PUB-SEC-3. All the sections are in one logical store, so a reference from one section to a different section resolves (KND-REF-2). An implementation MAY keep each section in a different backend. This topic sets no time limit for a read of an `evidence` collection.
 
 ### Publication history
 

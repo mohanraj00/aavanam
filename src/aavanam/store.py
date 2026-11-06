@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NU
 CREATE TABLE IF NOT EXISTS heads (collection TEXT PRIMARY KEY, snapshot TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS publications (candidate TEXT PRIMARY KEY, receipt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS gates (collection TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS sections (collection TEXT PRIMARY KEY, section TEXT NOT NULL);
 """
 
 
@@ -62,6 +63,10 @@ class Failure(Exception):
         super().__init__(status)
         self.status = status
         self.reasons = reasons
+
+
+SECTIONS = ('serving', 'evidence')  # PUB-SEC-1
+NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
 
 
 def reason(code: str, refs=(), capabilities=()) -> dict:
@@ -246,6 +251,27 @@ class Store:
 
     def gated(self, collection: str) -> bool:
         return self.db.execute('SELECT 1 FROM gates WHERE collection = ?', (collection,)).fetchone() is not None
+
+    def section(self, collection: str, section: str) -> None:
+        """Declare the storage section of a collection (PUB-SEC-1). The store keeps it for its life (PUB-SEC-2)."""
+        if not isinstance(collection, str) or section not in SECTIONS:
+            raise TypeError('a section declaration is a collection name and a section name (PUB-SEC-1)')
+        if self.called:
+            raise ValueError('declare a section before the first call of this open (PUB-SEC-1)')
+        declared = self.section_of(collection)
+        if declared == section:
+            return
+        if declared is not None:
+            raise ValueError(f'the collection already has the section {declared} (PUB-SEC-2)')
+        for (text,) in self.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
+            if json.loads(text, parse_float=number_value)['collection'] == collection:
+                raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
+        with self.mutex:
+            self.db.execute('INSERT INTO sections VALUES (?, ?)', (collection, section))
+
+    def section_of(self, collection: str) -> str | None:
+        row = self.db.execute('SELECT section FROM sections WHERE collection = ?', (collection,)).fetchone()
+        return row[0] if row else None
 
     def close(self) -> None:
         if self.output:
@@ -529,7 +555,7 @@ class Store:
         for n, desc in enumerate(out):
             if 'status' in desc:
                 continue
-            for step in (self.step_references, self.step_payloads, self.step_content):
+            for step in (self.step_references, self.step_payloads, self.step_content, self.step_section):
                 try:
                     step(desc, lookup, data_of, incomplete)
                 except d.Refusal as e:
@@ -583,6 +609,24 @@ class Store:
             conflicts = [k for k, v in subjects.items() if len(v) > 1]
             if conflicts:
                 raise d.Refusal(['native_id_conflict'] * len(conflicts))
+
+    def step_section(self, desc, lookup, data_of, incomplete):
+        """STS-MAL-3 step 6: the closure of a snapshot in a `serving` collection (PUB-SEC-3)."""
+        if desc['kind'] != 'snapshot' or self.section_of(desc['collection']) != 'serving':
+            return
+        seen, todo, found = set(), [r for _, r in d.references(desc)], []
+        while todo:
+            ref = todo.pop()
+            if ref not in seen:
+                seen.add(ref)
+                target = lookup(ref)
+                if target is None:  # a member of this batch that fails its own step 4 (STS-ENV-5)
+                    continue
+                if target['kind'] in NOT_IN_SERVING:
+                    found.append(ref)
+                todo += [r for _, r in d.references(target)]
+        if found:
+            raise d.Refusal(['section_violation'] * len(found), sorted(found))
 
     @staticmethod
     def revisions(texts: list[str]) -> set[str]:

@@ -19,7 +19,8 @@ class Adapter(Protocol):
     registers an acceptance policy (PUB-RCP-1): a validator of a candidate
     identity, a receipt reference and an activation reference or None.
     `gate` declares a collection as gated
-    (PUB-GAT-1).
+    (PUB-GAT-1). `section` declares the storage section of a collection
+    (PUB-SEC-1).
     """
 
     def reset(self) -> None: ...
@@ -31,6 +32,8 @@ class Adapter(Protocol):
     def accept(self, policy: str, validate: Callable[..., bool]) -> None: ...
 
     def gate(self, collection: str) -> None: ...
+
+    def section(self, collection: str, section: str) -> None: ...
 
 
 def envelope(operation: str, status: str, codes: list[str], items: list[dict] | None = None) -> dict:
