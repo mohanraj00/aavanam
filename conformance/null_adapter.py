@@ -24,3 +24,6 @@ class NullAdapter:
 
     def gate(self, collection) -> None:
         pass
+
+    def section(self, collection, section) -> None:
+        pass

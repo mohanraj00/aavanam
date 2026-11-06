@@ -667,6 +667,11 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
             adapter.gate(collection)  # PUB-GAT-1: before the first call
         except Exception as e:  # noqa: BLE001  a missing gate fails this vector only
             return [f'the adapter did not declare the gated collection {collection}: {e!r} (PUB-GAT-1)']
+    for collection, section in vector.get('sections', {}).items():
+        try:
+            adapter.section(collection, section)  # PUB-SEC-1: before the first call
+        except Exception as e:  # noqa: BLE001  a missing declaration fails this vector only
+            return [f'the adapter did not declare the section of {collection}: {e!r} (PUB-SEC-1)']
     kept = {s: set() for s in check_spec.STORES}  # the revisions that each store has, for the lock check (LCK-EXE-4, LCK-BLD-3)
     known = {s: set() for s in check_spec.STORES}  # the candidate identities that each store has (PUB-CND-4)
     for n, step in enumerate(vector['steps'], 1):

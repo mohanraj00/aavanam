@@ -1,0 +1,57 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A serving snapshot with evidence in its closure is refused, with one reason for each object",
+  "clauses": [
+    "PUB-SEC-3",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The fixture unit u has the relation set rs. Its closure has 2 evidence records, 2 excerpts, 1 reading and 1 source: 6 reasons."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "sections": {
+    "sample-serving": "serving",
+    "sample-evidence": "evidence"
+  },
+  "pair": "publication/sec-serving-ok",
+  "steps": [
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-serving",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "section_violation",
+          "section_violation",
+          "section_violation",
+          "section_violation",
+          "section_violation",
+          "section_violation"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "section_violation",
+              "section_violation",
+              "section_violation",
+              "section_violation",
+              "section_violation",
+              "section_violation"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

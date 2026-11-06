@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NU
 CREATE TABLE IF NOT EXISTS heads (collection TEXT PRIMARY KEY, snapshot TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS publications (candidate TEXT PRIMARY KEY, receipt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS gates (collection TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS sections (collection TEXT PRIMARY KEY, section TEXT NOT NULL);
 """
 
 
@@ -62,6 +63,18 @@ class Failure(Exception):
         super().__init__(status)
         self.status = status
         self.reasons = reasons
+
+
+SECTIONS = ('serving', 'evidence')  # PUB-SEC-1
+NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
+
+
+class SectionViolation(Exception):
+    """The check of PUB-SEC-3 failed in the write transaction."""
+
+    def __init__(self, found: dict[str, list[str]]):
+        super().__init__('section_violation')
+        self.found = found  # the descriptors that each revision of the batch must not have in its closure
 
 
 def reason(code: str, refs=(), capabilities=()) -> dict:
@@ -247,6 +260,34 @@ class Store:
     def gated(self, collection: str) -> bool:
         return self.db.execute('SELECT 1 FROM gates WHERE collection = ?', (collection,)).fetchone() is not None
 
+    def section(self, collection: str, section: str) -> None:
+        """Declare the storage section of a collection (PUB-SEC-1). The store keeps it for its life (PUB-SEC-2)."""
+        if not isinstance(collection, str) or section not in SECTIONS:
+            raise TypeError('a section declaration is a collection name and a section name (PUB-SEC-1)')
+        if self.role != 'writer':
+            raise ValueError('only a writer store has sections (PUB-SEC-1)')
+        if self.called:
+            raise ValueError('declare a section before the first call of this open (PUB-SEC-1)')
+        with self.mutex:
+            self.db.execute('BEGIN IMMEDIATE')  # atomic with a snapshot write of a different open (PUB-SEC-2)
+            try:
+                declared = self.section_of(collection)
+                if declared not in (None, section):
+                    raise ValueError(f'the collection already has the section {declared} (PUB-SEC-2)')
+                if declared is None:
+                    for (text,) in self.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
+                        if json.loads(text, parse_float=number_value)['collection'] == collection:
+                            raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
+                    self.db.execute('INSERT INTO sections VALUES (?, ?)', (collection, section))
+                self.db.execute('COMMIT')
+            except BaseException:
+                self.rollback()
+                raise
+
+    def section_of(self, collection: str) -> str | None:
+        row = self.db.execute('SELECT section FROM sections WHERE collection = ?', (collection,)).fetchone()
+        return row[0] if row else None
+
     def close(self) -> None:
         if self.output:
             self.output.close()
@@ -310,6 +351,10 @@ class Store:
             if self.role == 'output':  # the objects and bytes of the device store are already here (BUN-IMP-8)
                 objects = {r: o for r, o in objects.items() if self.device.descriptor(r) is None}
                 blobs = {k: b for k, b in blobs.items() if self.device.blob(k) is None}
+            # A second connection can declare a section after the check of call(), so check again here (PUB-SEC-2)
+            found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
+            if any(found.values()):
+                raise SectionViolation(found)
             for ref, desc in objects.items():
                 self.db.execute('INSERT OR IGNORE INTO objects VALUES (?, ?, ?)', (ref, desc['kind'], canonical(desc)))
                 self.db.executemany('INSERT OR IGNORE INTO edges VALUES (?, ?)', {(ref, t) for _, t in d.references(desc)})
@@ -529,7 +574,7 @@ class Store:
         for n, desc in enumerate(out):
             if 'status' in desc:
                 continue
-            for step in (self.step_references, self.step_payloads, self.step_content):
+            for step in (self.step_references, self.step_payloads, self.step_content, self.step_section):
                 try:
                     step(desc, lookup, data_of, incomplete)
                 except d.Refusal as e:
@@ -584,6 +629,29 @@ class Store:
             if conflicts:
                 raise d.Refusal(['native_id_conflict'] * len(conflicts))
 
+    def step_section(self, desc, lookup, data_of, incomplete):
+        """STS-MAL-3 step 6: the closure of a snapshot in a `serving` collection (PUB-SEC-3)."""
+        found = self.section_violations(desc, lookup)
+        if found:
+            raise d.Refusal(['section_violation'] * len(found), found)
+
+    def section_violations(self, desc, lookup) -> list[str]:
+        """The descriptors in the closure of a snapshot that its `serving` collection does not permit (PUB-SEC-3)."""
+        if desc['kind'] != 'snapshot' or self.section_of(desc['collection']) != 'serving':
+            return []
+        seen, todo, found = set(), [r for _, r in d.references(desc)], []
+        while todo:
+            ref = todo.pop()
+            if ref not in seen:
+                seen.add(ref)
+                target = lookup(ref)
+                if target is None:  # a member of this batch that fails its own step 4 (STS-ENV-5)
+                    continue
+                if target['kind'] in NOT_IN_SERVING:
+                    found.append(ref)
+                todo += [r for _, r in d.references(target)]
+        return sorted(found)
+
     @staticmethod
     def revisions(texts: list[str]) -> set[str]:
         """The revision of each text: of its normal form, or of its JSON value if a check fails (BUN-IMP-2)."""
@@ -610,6 +678,8 @@ class Store:
         blobs = {p['digest']: data[p['digest']] for c in checked for p in d.payloads(c) if p['digest'] in data}
         try:
             self.write(objects, blobs)
+        except SectionViolation as e:  # STS-ENV-4: the store did not change
+            return self.commit_batch(operation, [refused(['section_violation'] * len(e.found[revision(c)]), e.found[revision(c)]) if e.found.get(revision(c)) else c for c in checked], data, whole)
         except Failure:
             raise
         except Exception:

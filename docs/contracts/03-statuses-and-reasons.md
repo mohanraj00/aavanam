@@ -104,6 +104,7 @@ The reason table:
 | `values_form` | `failed` | The values of an observation do not agree with the form that its observation type gives (OBS-COV-3) |
 | `bundle_incomplete` | `failed` | A bundle does not have a reference target or payload bytes that the store does not have (BUN-IMP-2) |
 | `native_id_conflict` | `failed` | One native identity has more than one subject in a snapshot (IDN-NAT-3) |
+| `section_violation` | `failed` | The closure of a snapshot in a `serving` collection has a descriptor of a kind that the section does not permit (PUB-SEC-3) |
 | `replacement_kind` | `failed` | A supersession replacement has a different kind than its target (REL-RET-2) |
 | `digest_mismatch` | `failed` | Bytes do not agree with their digest |
 | `size_mismatch` | `failed` | Bytes do not agree with their size |
@@ -186,7 +187,7 @@ Conflicting evidence is not `ambiguous`. `evidence` returns each conflict as an 
 3. Schema: `unknown_field`, `field_count`, `field_type`.
 4. References: `missing_target`, `unsupported_target_kind`, `replacement_kind`.
 5. Payload bytes: `payload_missing`, `digest_mismatch`, `size_mismatch`.
-6. Content: `excerpt_mismatch` (BUN-EXC-3), `native_id_conflict` (IDN-NAT-3).
+6. Content: `excerpt_mismatch` (BUN-EXC-3), `native_id_conflict` (IDN-NAT-3), `section_violation` (PUB-SEC-3).
 
 In step 1, a number is outside I-JSON if it is not finite as an IEEE 754 double, or if its canonical form (IDN-CAN-1) has a different value (RFC 7493 section 2.2). The notation has no effect. Thus `9007199254740993` and `9007199254740993e0` give `non_ijson_value`, but `100000000000000000000` and `1e20` do not. Each number that the store keeps has a canonical form that the store accepts again, so an exported bundle imports again (BUN-IMP-3).
 

@@ -1,0 +1,66 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A put of a serving snapshot with evidence in its closure is refused",
+  "clauses": [
+    "PUB-SEC-3",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The rule is in step 6 of STS-MAL-3, so a put has the same check as create_snapshot. The closure of rs has 6 objects of the listed kinds."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "sections": {
+    "sample-serving": "serving",
+    "sample-evidence": "evidence"
+  },
+  "pair": "publication/sec-put-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "bad",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-serving",
+              "relation_sets": [
+                {
+                  "$ref": "rs"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "section_violation",
+          "section_violation",
+          "section_violation",
+          "section_violation",
+          "section_violation",
+          "section_violation"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "section_violation",
+              "section_violation",
+              "section_violation",
+              "section_violation",
+              "section_violation",
+              "section_violation"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

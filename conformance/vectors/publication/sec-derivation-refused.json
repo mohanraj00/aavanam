@@ -1,0 +1,113 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A serving snapshot that reaches an excerpt through a derivation is refused",
+  "clauses": [
+    "PUB-SEC-3",
+    "KND-DEP-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "A derivation is not a listed kind, but its operand is an excerpt. The closure has the excerpt, the reading and the source: 3 reasons."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "sections": {
+    "sample-serving": "serving",
+    "sample-evidence": "evidence"
+  },
+  "pair": "publication/sec-serving-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "dv",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "derivation",
+              "operands": [
+                {
+                  "$ref": "ex-guard"
+                }
+              ],
+              "method": "sample/method/v1",
+              "result": {
+                "hours": 25
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rs-dv",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": [
+                {
+                  "$ref": "dv"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-serving",
+        "relation_sets": [
+          {
+            "$ref": "rs-dv"
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "section_violation",
+          "section_violation",
+          "section_violation"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "section_violation",
+              "section_violation",
+              "section_violation"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

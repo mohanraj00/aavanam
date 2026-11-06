@@ -1,0 +1,213 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A context with a serving root and an evidence root gives the evidence of a serving subject",
+  "clauses": [
+    "PUB-SEC-5",
+    "PUB-SEC-6",
+    "REL-EVD-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The evidence snapshot has the relation set rs, and rs refers to subjects in the serving unit. An evidence collection has no kind restriction. The result gives the evidence record, and its supports field gives the excerpt."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "sections": {
+    "sample-serving": "serving",
+    "sample-evidence": "evidence"
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u-srv",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ov",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "t-int"
+              },
+              "origin": "sample/fixture/v1",
+              "values": {
+                "source_url": "https://example.org/handbook"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "ov"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "as_ref": "srv",
+      "request": {
+        "collection": "sample-serving",
+        "units": [
+          {
+            "$ref": "u-srv"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "as_ref": "evd",
+      "request": {
+        "collection": "sample-evidence",
+        "relation_sets": [
+          {
+            "$ref": "rs"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "srv"
+          },
+          {
+            "$ref": "evd"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "t-int"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ev-guard"
+              },
+              "relation": "support"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
