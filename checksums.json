@@ -10,6 +10,7 @@
   ".github/workflows/claude-review.yml": "e3b4b21dd1e7778da8ce1a12b3ae5b4f1b51b1b3e7834d562fb0f83c90269c2c",
   ".github/workflows/pr-policy-rerun.yml": "e1b78b385f89117c85a80b78a83f48a4b4cf099256ebbc80d4564661260fc709",
   ".github/workflows/pr-policy.yml": "eb5c5abfbd73f6d0974b064333d46c6d8c6f804e70cb5e88ca6f568cbf0b523c",
+  ".github/workflows/relay-test.yml": "c9a2bd0ba662287c959750823f69c4b073a9a36b553c95c20e24945711aec77c",
   ".gitignore": "d5a38a77383decf6c3b52bcbf7136da1d35fd41aa27331747ef85bc5c1c30507",
   "AGENTS.md": "826236d8504e3118bba83ca71c442362e76396a789559127b910e9f002211d66",
   "CLAUDE.md": "8119c70f3ec98535616d28261251f2c95ee57eaa5e9a4a8466b2b7dc0d098f33",
