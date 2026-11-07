@@ -19,4 +19,5 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: gh api "repos/$REPOSITORY/issues/$PR_NUMBER/comments" -f body="$(printf '@codex review\nHead: %s' "${HEAD_SHA:0:7}")" --jq .html_url
+        run: |
+          gh api "repos/$REPOSITORY/issues/$PR_NUMBER/comments" -f body="$(printf '@codex review\nHead: %s' "${HEAD_SHA:0:7}")" --jq .html_url
