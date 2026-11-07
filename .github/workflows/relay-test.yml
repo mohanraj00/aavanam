@@ -1,0 +1,21 @@
+name: Relay test
+# Temporary test for issue 12. A later PR removes this file.
+# pull_request_target runs this file from the base branch. Do not check out or run the PR head here.
+on:
+  pull_request_target:
+    types: [labeled]
+permissions: {}
+jobs:
+  request:
+    # Only a same-repository PR with the test label starts this job.
+    if: github.event.label.name == 'relay-test' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    environment: codex-relay
+    steps:
+      - name: Post one review request
+        env:
+          GH_TOKEN: ${{ secrets.CODEX_RELAY_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api "repos/$REPOSITORY/issues/$PR_NUMBER/comments" -f body='@codex review' --jq .html_url
