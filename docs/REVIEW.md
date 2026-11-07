@@ -34,6 +34,14 @@ Follow these rules for each request:
 
 Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow, which needs the `CLAUDE_CODE_OAUTH_TOKEN` secret. That workflow checks out `main` and fetches the PR commits as Git objects only, so the PR cannot supply Claude's instructions. Claude reads the diff with `git diff`, `git show` and `git log`, and posts with the action's comment tools. No tool gets a token: the workflow removes credentials from tool subprocesses, runs them in a PID namespace and denies reads of `/proc`. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
 
+### Valid Claude results
+
+A Claude comment is provisional until the `Claude review` job passes. The comment alone, or the action's `success` result, is not a valid review. The job must pass the isolation check and the execution-log check. The log must contain a successful Bash call for exactly `git diff HEAD...pr/head`, a result for every Bash call, no failed Bash call, no permission denial and a successful final result. A later retry does not cancel an earlier shell failure. A missing or unreadable execution log fails the job. The check prints `git diff HEAD...pr/head: success` only after it validates this evidence. Read the findings before approval. A valid review can have findings.
+
+If the job fails, it does not provide a valid review. The validation step prints `NO VALID CLAUDE REVIEW` and adds that text to the job summary. A gate must check the successful job for the requested head, not only the first line of the comment. If a push or a base change follows the request, ask for a new review as the request rules above say.
+
+The Ubuntu runner must permit bubblewrap to create a user namespace. In [run 42338522516](https://github.com/mohanraj00/aavanam/actions/runs/42338522516), Ubuntu 24.04 refused the UID map. The [pinned action's setup](https://github.com/anthropics/claude-code-action/blob/6fed3ca145920b639991cb756090506e1bcaf515/action.yml) handles this AppArmor restriction only when `allowed_non_write_users` is set. This workflow does not set that input, so it must do the setup itself. [The setup script](../tools/prepare_claude_review.sh) permits user namespaces on the ephemeral VM and tests all three Git commands inside bubblewrap. Environment removal, PID isolation and the `/proc` read denial stay enabled. Do not use this script to change a shared host. The Linux PR CI run tests the same setup without a model or a secret.
+
 ### Local fallback: agy
 
 If the GitHub reviewer is not available (no quota, an outage or no integration), run agy on your machine:
