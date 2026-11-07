@@ -21,7 +21,7 @@ WORKFLOW = (ROOT / '.github/workflows/claude-review.yml').read_text()
 
 
 def result(**fields):
-    return json.dumps({'type': 'result', 'is_error': False, 'result': 'A review.', 'permission_denials': [], **fields})
+    return json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'A review.', 'permission_denials': [], **fields})
 
 
 def run(*argv):
@@ -36,7 +36,7 @@ class ResultTest(unittest.TestCase):
         self.assertEqual(claude_review.result_text(result()), 'A review.')
 
     def test_each_failed_check_gives_no_text(self):
-        for raw in (result(is_error=True), result(result=''), result(result='  \n'), result(result=None),
+        for raw in (result(subtype='error_max_turns'), result(type='error'), result(is_error=True), result(result=''), result(result='  \n'), result(result=None),
                     result(permission_denials=[{'tool_name': 'Read'}]), '{"result": "A review."}',
                     '{broken', 'null', '[]', ''):
             with self.subTest(raw=raw):
@@ -153,6 +153,12 @@ class WorkflowTest(unittest.TestCase):
             with self.subTest(old=old, new=new):
                 self.assertIn(old, WORKFLOW)
                 self.assertNotEqual(claude_review.workflow_errors(WORKFLOW.replace(old, new)), [])
+
+    def test_a_checkout_setting_in_one_job_does_not_cover_the_other_job(self):
+        first, second, third = WORKFLOW.split('persist-credentials: false')
+        for changed in (first + 'persist-credentials: true' + second + 'persist-credentials: false' + third,
+                        first + 'persist-credentials: false' + second + 'persist-credentials: true' + third):
+            self.assertNotEqual(claude_review.workflow_errors(changed), [])
 
     def test_the_request_texts_are_the_texts_in_the_review_rules(self):
         rules = (ROOT / 'docs/REVIEW.md').read_text()

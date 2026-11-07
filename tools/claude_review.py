@@ -32,7 +32,8 @@ def result_text(raw):
     """Return the review text of a CLI result, or None if the result is not valid."""
     try:data=json.loads(raw)
     except ValueError:return None
-    if not isinstance(data,dict) or data.get('is_error') is not False or data.get('permission_denials')!=[]:return None
+    if not isinstance(data,dict) or data.get('type')!='result' or data.get('subtype')!='success':return None
+    if data.get('is_error') is not False or data.get('permission_denials')!=[]:return None
     text=data.get('result')
     return text if isinstance(text,str) and text.strip() else None
 
@@ -65,8 +66,12 @@ def workflow_errors(text):
     if len(jobs)!=2 or not re.search(r'^  review:\n',jobs[0],re.M):errors.append('must have the review job and then the post job')
     elif jobs[0].count('environment:')!=1 or 'environment:' in jobs[1]:errors.append('must have the environment on the review job only')
     elif 'secrets.' in jobs[1]:errors.append('must not give a secret to the post job')
-    for need in ['ref: ${{ github.event.repository.default_branch }}','persist-credentials: false','--tools "Read,Grep,Glob"','Read(//proc/**),Grep(//proc/**),Glob(//proc/**)']:
+    for need in ['--tools "Read,Grep,Glob"','Read(//proc/**),Grep(//proc/**),Glob(//proc/**)']:
         if need not in text:errors.append('must keep '+need)
+    # Each job has its own checkout, so one job cannot satisfy this check for the other job.
+    for job in jobs:
+        for need in ['ref: ${{ github.event.repository.default_branch }}','persist-credentials: false']:
+            if need not in job:errors.append('each job must keep '+need)
     return errors
 
 def main(argv=None):

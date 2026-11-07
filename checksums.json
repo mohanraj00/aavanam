@@ -420,7 +420,7 @@
   "conformance/vectors/statuses/put-batch-aborted.json": "7fe2184040071fb36957239843e1763a36d1f47c61c7dc4d631ca6e0a199fa59",
   "conformance/vectors/statuses/put-batch-ok.json": "45f13ace0d3f42dd1128fb8a4bdc68611c04df546f44b09776c1573c4bde864a",
   "conformance/vectors/statuses/unsupported-operation.json": "681bdcff6cddf50cb5531c3e004b45721d9db99760640b2eb666c6626b1f7070",
-  "docs/REVIEW.md": "be108bd6f67e5c32100403fa5cd70255b0ee1a40cc9aac8751baae5afb12e066",
+  "docs/REVIEW.md": "c26b275357b2a9f9c23bf2992d5a39fe787e62a48666adf253c9979f6dc8ca3a",
   "docs/STATUS.md": "73ce87568485cd7af803b1c58a88e7d42fa43f4ca2e464c873ad8f03b1cfd8b6",
   "docs/contracts/01-identities-and-native-mappings.md": "9c96842824ffbd2a59cc5f2e8f0eb894a5494a5f006ef7f0de17341177f792a3",
   "docs/contracts/02-kinds-and-typed-references.md": "6b21854042e2dc24e92226d663e7a8c4fba9390838d5c158e656dc68de4c0272",
@@ -464,7 +464,7 @@
   "src/aavanam/statuses.py": "92ed755814cfba5f8c4000a6b9569d413fc77edde8348080f4691c463d8de984",
   "src/aavanam/store.py": "460b704cfedb30f6f161d306fca09aebb8aae5af6489a3c81990e93540f98d83",
   "tests/support.py": "3ce96765b46f741ab92b238b8dd926e3e791ffc455abe39f597116cb8a22c84f",
-  "tests/test_claude_review.py": "2f7b78e6cc681f10686f1584892a1f567880fe6c9fee40fe0ad2c3b4e63ec46b",
+  "tests/test_claude_review.py": "4bfd1e5ba3edd312bec7dfc3c6f1dc195dcd9cdfe222b2986e51cf006c0e8948",
   "tests/test_gates.py": "078941106df965647d21358791bcf9baeab3051d98513e79b0c09f0032cea8b5",
   "tests/test_publish_races.py": "b2065b391c947f37f37513adf95616c262eaac03a0805eb7b31806c6c032d519",
   "tests/test_sections.py": "18c8285eb37b52a5a1f3e8d55daf2709bf58716d782b84254d2214e76c084a51",
@@ -473,7 +473,7 @@
   "tools/check_project.py": "3b59fff59ab1ac0827f67e019075c720f3e292952f53362dd97d34499731955f",
   "tools/check_spec.py": "0743ae21408f13fe7bd108a5e641ccb31c122f3d036f045e19e750fe7926f798",
   "tools/classify_change.py": "3bcdb727b84612030b2bba3603eb328f59794eb0676f65e2b6d1be3d58ef882d",
-  "tools/claude_review.py": "a6652e2c19ecfcae8f868de4dcd313860afb4d1bd2b88e7d132dba9dfeaf270c",
+  "tools/claude_review.py": "cb2e3fd215eec16d7fe01cafb978362d8f09909198b017cafb2a600151b92709",
   "tools/cross_review.py": "2d3be31a6d7929a827a085fd1b626e8d000529873077ab49a4afd1f1fef33b21",
   "tools/pr_policy.py": "ac1312b707d39dd7a8c6431724c1a5f424cce70f7a708ecacc6760274769fc7d"
 }
