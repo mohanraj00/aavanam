@@ -32,17 +32,34 @@ Follow these rules for each request:
 5. If you push fixes after a review, ask again for the new head. Ask at most 3 times for each PR. After that, ask the maintainer to review.
 6. Fix each real finding, or write on the PR why it is not a defect.
 
-Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow, which needs the `CLAUDE_CODE_OAUTH_TOKEN` secret. That workflow checks out `main` and fetches the PR commits as Git objects only, so the PR cannot supply Claude's instructions. Claude reads the diff with `git diff`, `git show` and `git log`, and posts with the action's comment tools. No tool gets a token: the workflow removes credentials from tool subprocesses, runs them in a PID namespace and denies reads of `/proc`. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
+Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow. The workflow starts only if all of these are true:
 
-### Valid Claude results
+- The comment is on a PR.
+- The comment body is exactly one of the two Claude request texts in the table. GitHub compares these texts with no regard to letter case.
+- The commenter is an owner, a member or a collaborator.
 
-A Claude comment is provisional until the `Claude review` job passes. The comment alone, or the action's `success` result, is not a valid review. The job must pass the isolation check and the execution-log check. The log must contain a successful Bash call for exactly `git diff HEAD...pr/head`, a result for every Bash call, no failed Bash call, no permission denial and a successful final result. A later retry does not cancel an earlier shell failure. A missing or unreadable execution log fails the job. The check prints `git diff HEAD...pr/head: success` only after it validates this evidence. Read the findings before approval. A valid review can have findings.
+A comment or a review with other text does not start the workflow. The comment text selects one of two fixed prompts, and it never goes into a prompt.
 
-The validation step prints the fetched PR head from `git rev-parse pr/head` and records it in the job summary. The log check prints only fixed messages, including when a log is not UTF-8.
+### Claude review design
 
-If the job fails, it does not provide a valid review. The validation step prints `NO VALID CLAUDE REVIEW` and adds that text to the job summary. A gate must check the successful job for the requested head, not only the first line of the comment. If a push or a base change follows the request, ask for a new review as the request rules above say.
+An issue comment event reads the workflow from `main`, so a PR cannot change this workflow for its own review. The workflow has two jobs.
 
-The Ubuntu runner must permit bubblewrap to create a user namespace. In [run 42338522516](https://github.com/mohanraj00/aavanam/actions/runs/42338522516), Ubuntu 24.04 refused the UID map. The [pinned action's setup](https://github.com/anthropics/claude-code-action/blob/6fed3ca145920b639991cb756090506e1bcaf515/action.yml) handles this AppArmor restriction only when `allowed_non_write_users` is set. This workflow does not set that input, so it must do the setup itself. [The setup script](../tools/prepare_claude_review.sh) fails before system changes unless `RUNNER_ENVIRONMENT` is `github-hosted`. It permits user namespaces on the ephemeral VM and tests all three Git commands inside bubblewrap. Environment removal, PID isolation and the `/proc` read denial stay enabled. Do not use this script to change a shared host. The Linux PR CI run tests the same setup without a model or a secret.
+The `review` job has `contents: read` only. It uses the `claude-review` environment, which holds the `CLAUDE_CODE_OAUTH_TOKEN` secret. Only the CLI step gets the secret. The environment needs a deployment branch rule for `main`. The job does these steps:
+
+1. It checks out `main` and fetches the PR commits as Git objects only. It never checks out PR files, so the PR cannot supply instructions, settings or code.
+2. It writes the diff with `git diff --no-ext-diff --no-textconv -U20 origin/main...pr/head`. If the diff is empty, the job fails.
+3. It installs one exact version of the Claude Code CLI and checks the SHA-512 value of the package.
+4. It runs the CLI in restricted mode with only the `Read`, `Grep` and `Glob` tools, no MCP server, no slash command and a turn limit. These tools cannot read `/proc`. The prompt says that the diff is untrusted data.
+5. It checks the JSON result: `is_error` is false, `result` is not empty and `permission_denials` is empty. If a check fails, the job fails.
+6. It keeps the review text and the head SHA in an artifact.
+
+The `post` job has `issues: write` only, with no secret and no environment. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. The first line of the comment names the head SHA and says that the review is advisory. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA.
+
+The `post` job writes as the workflow bot, and the PR gates trust approval records from this bot. Thus the script treats the model text as untrusted. It escapes `&` and `<`, changes each `@` to a character that makes no mention, and limits the length.
+
+### Use of a Claude result
+
+A Claude result is advisory. No gate reads it. A person reads it. The review has no inline comments and no conversation. A push makes a new head, so ask again as the request rules say. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
 
 ### Local fallback: agy
 

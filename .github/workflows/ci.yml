@@ -75,14 +75,6 @@ jobs:
           python3 -c 'import sqlite3; print("SQLite", sqlite3.sqlite_version)'
       - name: Test the reference implementation
         run: python3 -B -m unittest discover -s tests
-      # Test the runner setup without a model or a secret. Claude still reads only trusted base files.
-      - name: Test the isolated review commands
-        if: runner.os == 'Linux' && github.event_name == 'pull_request'
-        env:
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          git fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pr/head"
-          bash tools/prepare_claude_review.sh
       - name: Run all vectors against the reference implementation
         run: python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter
       # The null implementation refuses each call. If it passes all vectors, a refusal vector has no positive pair.
