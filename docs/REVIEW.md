@@ -53,7 +53,7 @@ The `review` job has `contents: read` only. It uses the `claude-review` environm
 5. It checks the JSON result: `type` is `result`, `subtype` is `success`, `is_error` is false, `result` is not empty and `permission_denials` is empty. If a check fails, the job fails.
 6. It keeps the review text and the head SHA in an artifact.
 
-The `post` job has `contents: read` and `issues: write` only, with no secret and no environment. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. The first line of the comment names the head SHA and says that the review is advisory. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA.
+The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. The first line of the comment names the head SHA and says that the review is advisory. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA.
 
 The `post` job writes as the workflow bot, and the PR gates trust approval records from this bot. Thus the script treats the model text as untrusted. It escapes `&` and `<`, changes each `@` to a character that makes no mention, and limits the length.
 

@@ -155,6 +155,19 @@ class WorkflowTest(unittest.TestCase):
                 self.assertIn(old, WORKFLOW)
                 self.assertNotEqual(claude_review.workflow_errors(WORKFLOW.replace(old, new)), [])
 
+    def test_the_post_job_has_exactly_the_comment_permissions(self):
+        block = '      contents: read\n      issues: write\n'
+        self.assertEqual(WORKFLOW.count(block), 1)
+        for new in ('      contents: read\n      issues: write\n      pull-requests: read\n',
+                    '      contents: read\n      issues: write\n      pull-requests: write\n      actions: read\n',
+                    '      issues: write\n      pull-requests: write\n',
+                    '      contents: write\n      issues: write\n      pull-requests: write\n'):
+            with self.subTest(new=new):
+                changed = re.sub(r'      contents: read\n      issues: write\n(?:      #.*\n)?      pull-requests: write\n', new, WORKFLOW)
+                self.assertNotEqual(changed, WORKFLOW)
+                self.assertIn('must give the post job exactly contents: read, issues: write, pull-requests: write',
+                              claude_review.workflow_errors(changed))
+
     def test_a_checkout_setting_in_one_job_does_not_cover_the_other_job(self):
         first, second, third = WORKFLOW.split('persist-credentials: false')
         for changed in (first + 'persist-credentials: true' + second + 'persist-credentials: false' + third,

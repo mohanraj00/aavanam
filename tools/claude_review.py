@@ -27,6 +27,8 @@ PROMPTS={
 FAILED='NO VALID CLAUDE REVIEW'
 HEAD=re.compile(r'[0-9a-f]{40}')
 LIMIT=60000
+# The checkout reads the default branch, and a comment on a PR needs both write permissions.
+POST_PERMISSIONS=['contents: read','issues: write','pull-requests: write']
 
 def result_text(raw):
     """Return the review text of a CLI result, or None if the result is not valid."""
@@ -66,6 +68,10 @@ def workflow_errors(text):
     if len(jobs)!=2 or not re.search(r'^  review:\n',jobs[0],re.M):errors.append('must have the review job and then the post job')
     elif jobs[0].count('environment:')!=1 or 'environment:' in jobs[1]:errors.append('must have the environment on the review job only')
     elif 'secrets.' in jobs[1]:errors.append('must not give a secret to the post job')
+    if len(jobs)==2:
+        block=re.search(r'^    permissions:\n((?:      .*\n)+)',jobs[1],re.M)
+        granted=sorted(x.strip() for x in block.group(1).splitlines() if not x.strip().startswith('#')) if block else []
+        if granted!=POST_PERMISSIONS:errors.append('must give the post job exactly '+', '.join(POST_PERMISSIONS))
     for need in ['claude -p --restricted ','--tools "Read,Grep,Glob"','Read(//proc/**),Grep(//proc/**),Glob(//proc/**)']:
         if need not in text:errors.append('must keep '+need)
     # Each job has its own checkout, so one job cannot satisfy this check for the other job.
