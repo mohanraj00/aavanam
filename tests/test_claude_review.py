@@ -149,6 +149,7 @@ class WorkflowTest(unittest.TestCase):
                 ('      issues: write\n', '      issues: write\n    environment: claude-review\n'),
                 ('          REVIEW_RESULT:', '          SECRET: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\n          REVIEW_RESULT:'),
                 ('Read(//proc/**),', ''),
+                ('claude -p --restricted ', 'claude -p '),
                 ('persist-credentials: false', 'persist-credentials: true')):
             with self.subTest(old=old, new=new):
                 self.assertIn(old, WORKFLOW)

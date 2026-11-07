@@ -66,7 +66,7 @@ def workflow_errors(text):
     if len(jobs)!=2 or not re.search(r'^  review:\n',jobs[0],re.M):errors.append('must have the review job and then the post job')
     elif jobs[0].count('environment:')!=1 or 'environment:' in jobs[1]:errors.append('must have the environment on the review job only')
     elif 'secrets.' in jobs[1]:errors.append('must not give a secret to the post job')
-    for need in ['--tools "Read,Grep,Glob"','Read(//proc/**),Grep(//proc/**),Glob(//proc/**)']:
+    for need in ['claude -p --restricted ','--tools "Read,Grep,Glob"','Read(//proc/**),Grep(//proc/**),Glob(//proc/**)']:
         if need not in text:errors.append('must keep '+need)
     # Each job has its own checkout, so one job cannot satisfy this check for the other job.
     for job in jobs:
