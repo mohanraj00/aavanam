@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -38,6 +39,25 @@ class ClaudeReviewTest(unittest.TestCase):
         self.assertIn('python3 -B tools/check_claude_review.py', guard)
         self.assertIn('exit 1', guard)
 
+    def test_validation_records_the_fetched_head(self):
+        workflow = (ROOT / '.github/workflows/claude-review.yml').read_text()
+        guard = workflow.split('- name: Validate the Claude review\n')[1]
+        self.assertIn('head=$(git rev-parse pr/head)', guard)
+        self.assertIn('printf \'Reviewed PR head: %s\\n\' "$head" | tee -a "$GITHUB_STEP_SUMMARY"', guard)
+
+    def test_setup_refuses_other_runner_environments_before_system_changes(self):
+        for runner in (None, 'self-hosted', 'unknown'):
+            env = {'PATH': '/nonexistent'}
+            if runner is not None:
+                env['RUNNER_ENVIRONMENT'] = runner
+            with self.subTest(runner=runner):
+                result = subprocess.run(
+                    ['/bin/bash', str(ROOT / 'tools/prepare_claude_review.sh')],
+                    env=env, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, 'Claude review setup requires a GitHub-hosted runner.\n')
+                self.assertEqual(result.stderr, '')
+
     def test_workflow_keeps_isolation_and_tests_the_runner_setup(self):
         workflow = (ROOT / '.github/workflows/claude-review.yml').read_text()
         ci = (ROOT / '.github/workflows/ci.yml').read_text()
@@ -62,7 +82,7 @@ class ClaudeReviewTest(unittest.TestCase):
             is_error=True, content='bwrap: setting up uid map: Permission denied')
         result = self.check_log(log)
         self.assertEqual(result.returncode, 1)
-        self.assertIn('NO VALID CLAUDE REVIEW', result.stdout)
+        self.assertEqual(result.stdout, 'NO VALID CLAUDE REVIEW\n')
         self.assertNotIn('Permission denied', result.stdout)  # Do not print raw tool output.
 
     def test_a_failed_retry_still_invalidates_the_review(self):
@@ -109,7 +129,18 @@ class ClaudeReviewTest(unittest.TestCase):
                 [sys.executable, '-B', str(ROOT / 'tools/check_claude_review.py'),
                  source, '--conclusion', 'success'], input=raw, text=True, capture_output=True)
             self.assertEqual(result.returncode, 1)
-            self.assertIn('NO VALID CLAUDE REVIEW', result.stdout)
+            self.assertEqual(result.stdout, 'NO VALID CLAUDE REVIEW\n')
+
+    def test_non_utf8_log_has_only_a_fixed_failure_message(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / 'execution.json'
+            source.write_bytes(b'private log text: \xff\xfe')
+            result = subprocess.run(
+                [sys.executable, '-B', str(ROOT / 'tools/check_claude_review.py'),
+                 str(source), '--conclusion', 'success'], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, 'NO VALID CLAUDE REVIEW\n')
+        self.assertEqual(result.stderr, '')
 
 
 if __name__ == '__main__':

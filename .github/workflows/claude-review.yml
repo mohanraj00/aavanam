@@ -58,6 +58,11 @@ jobs:
           EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
           CONCLUSION: ${{ steps.review.outputs.conclusion }}
         run: |
+          if ! head=$(git rev-parse pr/head); then
+            echo 'NO VALID CLAUDE REVIEW' | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          printf 'Reviewed PR head: %s\n' "$head" | tee -a "$GITHUB_STEP_SUMMARY"
           if ! python3 -B tools/check_claude_review.py "$EXECUTION_FILE" --conclusion "$CONCLUSION"; then
             echo 'NO VALID CLAUDE REVIEW' >> "$GITHUB_STEP_SUMMARY"
             exit 1

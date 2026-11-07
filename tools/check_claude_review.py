@@ -58,12 +58,11 @@ def main():
     parser.add_argument('--conclusion', required=True)
     args = parser.parse_args()
     try:
-        raw = sys.stdin.read() if args.execution_file == '-' else Path(args.execution_file).read_text()
+        raw = sys.stdin.read() if args.execution_file == '-' else Path(args.execution_file).read_text(encoding='utf-8')
         validate(json.loads(raw), args.conclusion)
-    except (OSError, ValueError, TypeError, AttributeError) as error:
+    except (OSError, ValueError, TypeError, AttributeError):
         # Do not print the execution log. Tool output can contain sensitive data.
-        reason = str(error) if isinstance(error, ValueError) and not isinstance(error, json.JSONDecodeError) else 'The execution log cannot be read.'
-        print(INVALID + ': ' + reason)
+        print(INVALID)
         return 1
     print(DIFF + ': success')
     print('Claude shell evidence: valid. Read the review findings before approval.')

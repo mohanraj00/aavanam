@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Prepare the ephemeral Ubuntu runner, then test the isolated read commands (issue 21).
 set -euo pipefail
+if [ "${RUNNER_ENVIRONMENT:-}" != 'github-hosted' ]; then
+    echo 'Claude review setup requires a GitHub-hosted runner.'
+    exit 1
+fi
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends bubblewrap socat
 # This is the same Ubuntu 24.04 setup as the pinned action's non-write-user path.
