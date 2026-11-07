@@ -48,6 +48,7 @@ class ClaudeReviewTest(unittest.TestCase):
         self.assertIn('Read(//proc/**)', workflow)
         self.assertIn('apparmor_restrict_unprivileged_userns=0', setup)
         self.assertIn('bwrap --unshare-user --unshare-pid', setup)
+        self.assertIn('--dev /dev --proc /proc', setup)
         self.assertIn('env -i PATH=/usr/bin:/bin', setup)
 
     def test_required_diff_succeeds(self):

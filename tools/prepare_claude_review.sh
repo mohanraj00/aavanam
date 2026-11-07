@@ -9,7 +9,7 @@ if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
     sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 fi
 env -i PATH=/usr/bin:/bin bwrap --unshare-user --unshare-pid --die-with-parent \
-    --ro-bind / / --proc /proc -- /bin/bash -ec '
+    --ro-bind / / --dev /dev --proc /proc -- /bin/bash -ec '
     git diff HEAD...pr/head > /dev/null
     echo "Isolation check: git diff HEAD...pr/head: success"
     git show --no-patch pr/head > /dev/null
