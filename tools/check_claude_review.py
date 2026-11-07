@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 
 
-DIFF = 'git diff HEAD...pr/head'
+DIFF = 'git diff origin/main...pr/head'
 INVALID = 'NO VALID CLAUDE REVIEW'
 
 
@@ -47,6 +47,18 @@ def validate(messages, conclusion):
         if result is None or result.get('is_error', False) is not False:
             raise ValueError('A shell call failed or has no result.')
         if call.get('input', {}).get('command', '').strip() == DIFF:
+            content = result.get('content')
+            if isinstance(content, str):
+                has_output = bool(content.strip())
+            elif isinstance(content, list):
+                has_output = any(
+                    isinstance(block, dict) and block.get('type') == 'text'
+                    and isinstance(block.get('text'), str) and block['text'].strip()
+                    for block in content)
+            else:
+                has_output = False
+            if not has_output:
+                raise ValueError('The required diff has no output.')
             diff_ok = True
     if not diff_ok:
         raise ValueError('The required diff has no successful shell result.')

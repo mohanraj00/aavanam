@@ -2,6 +2,7 @@
 import copy
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -15,7 +16,7 @@ def execution():
     return [
         {'type': 'assistant', 'message': {'content': [
             {'type': 'tool_use', 'id': 'diff', 'name': 'Bash',
-             'input': {'command': 'git diff HEAD...pr/head'}}]}},
+             'input': {'command': 'git diff origin/main...pr/head'}}]}},
         {'type': 'user', 'message': {'content': [
             {'type': 'tool_result', 'tool_use_id': 'diff', 'content': 'sample diff'}]}},
         {'type': 'result', 'subtype': 'success', 'is_error': False, 'permission_denials': []},
@@ -25,7 +26,7 @@ def execution():
 class ClaudeReviewTest(unittest.TestCase):
     def check_log(self, messages, conclusion='success'):
         return subprocess.run(
-            [sys.executable, '-B', str(ROOT / 'tools/check_claude_review.py'),
+            [sys.executable, '-I', '-B', str(ROOT / 'tools/check_claude_review.py'),
              '-', '--conclusion', conclusion],
             input=json.dumps(messages), text=True, capture_output=True, cwd=ROOT)
 
@@ -36,8 +37,18 @@ class ClaudeReviewTest(unittest.TestCase):
         self.assertIn('if: ${{ always() }}', guard)
         self.assertIn('steps.review.outputs.execution_file', guard)
         self.assertIn('steps.review.outputs.conclusion', guard)
-        self.assertIn('python3 -B tools/check_claude_review.py', guard)
+        self.assertIn('python3 -I -B "$RUNNER_TEMP/check_claude_review.py"', guard)
         self.assertIn('exit 1', guard)
+
+    def test_workflow_keeps_the_validator_before_the_action(self):
+        workflow = (ROOT / '.github/workflows/claude-review.yml').read_text()
+        before, after = workflow.split('      - uses: anthropics/claude-code-action@')
+        self.assertIn('cp tools/check_claude_review.py "$RUNNER_TEMP/check_claude_review.py"', before)
+        steps = re.split(r'(?m)^      - ', after)[1:]
+        self.assertTrue(steps)
+        for step in steps:
+            self.assertNotIn('tools/', step)
+        self.assertIn('First run exactly git diff origin/main...pr/head as one Bash call.', after)
 
     def test_validation_records_the_fetched_head(self):
         workflow = (ROOT / '.github/workflows/claude-review.yml').read_text()
@@ -74,7 +85,30 @@ class ClaudeReviewTest(unittest.TestCase):
     def test_required_diff_succeeds(self):
         result = self.check_log(execution())
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('git diff HEAD...pr/head: success', result.stdout)
+        self.assertIn('git diff origin/main...pr/head: success', result.stdout)
+
+    def test_empty_diff_output_is_invalid(self):
+        for content in ('', ' \n\t', None, [], [{'type': 'text', 'text': ' \n'}],
+                        [{'type': 'image', 'data': 'sample'}]):
+            log = execution()
+            log[1]['message']['content'][0]['content'] = content
+            with self.subTest(content=content):
+                result = self.check_log(log)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, 'NO VALID CLAUDE REVIEW\n')
+        log = execution()
+        del log[1]['message']['content'][0]['content']
+        self.assertEqual(self.check_log(log).returncode, 1)
+
+    def test_diff_output_can_use_text_blocks(self):
+        log = execution()
+        log[1]['message']['content'][0]['content'] = [{'type': 'text', 'text': 'sample diff'}]
+        self.assertEqual(self.check_log(log).returncode, 0)
+
+    def test_old_diff_command_is_invalid(self):
+        log = execution()
+        log[0]['message']['content'][0]['input']['command'] = 'git diff HEAD...pr/head'
+        self.assertEqual(self.check_log(log).returncode, 1)
 
     def test_shell_failure_invalidates_an_action_success(self):
         log = execution()
@@ -96,14 +130,14 @@ class ClaudeReviewTest(unittest.TestCase):
 
     def test_missing_or_failed_evidence_is_not_a_review(self):
         for log in ([], execution()[:1], execution()[1:], execution()[:-1],
-                    {'result': 'success'}, 'git diff HEAD...pr/head: success'):
+                    {'result': 'success'}, 'git diff origin/main...pr/head: success'):
             with self.subTest(log=log):
                 self.assertEqual(self.check_log(log).returncode, 1)
         self.assertEqual(self.check_log(execution(), 'failure').returncode, 1)
 
     def test_text_or_a_different_command_cannot_replace_the_diff(self):
-        for command in ('git show pr/head', 'echo "git diff HEAD...pr/head"',
-                        'git diff HEAD...pr/head || true', 'git diff HEAD...pr/head --stat'):
+        for command in ('git show pr/head', 'echo "git diff origin/main...pr/head"',
+                        'git diff origin/main...pr/head || true', 'git diff origin/main...pr/head --stat'):
             log = execution()
             log[0]['message']['content'][0]['input']['command'] = command
             self.assertEqual(self.check_log(log).returncode, 1)

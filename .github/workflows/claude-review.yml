@@ -26,14 +26,14 @@ jobs:
       id-token: write
       actions: read
     steps:
-      # Review events default to the PR merge ref, so name the default branch. Then the PR cannot supply Claude's instructions or settings.
+      # Start with the default branch files. The action later checks out the PR branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      # Fetch the PR commits as objects only. Claude reads them with git diff and git show, so no tool needs a token.
-      # The PR files are not checked out, so the PR cannot supply Claude's instructions or settings.
+      # Fetch a fixed PR head ref for the diff. The action restores only its fixed list of configuration paths from the default branch.
+      # That list includes instruction and settings files. It does not include tools/.
       - name: Fetch the PR commits
         env:
           PR: ${{ github.event.issue.number || github.event.pull_request.number }}
@@ -41,6 +41,9 @@ jobs:
       # The action turns on PID isolation only for non-write users, so install bubblewrap here. Then a tool cannot read the Claude process environment.
       - name: Install subprocess isolation
         run: bash tools/prepare_claude_review.sh
+      # Keep the default branch validator before the action changes the working tree.
+      - name: Keep the review validator
+        run: cp tools/check_claude_review.py "$RUNNER_TEMP/check_claude_review.py"
       - uses: anthropics/claude-code-action@6fed3ca145920b639991cb756090506e1bcaf515 # v1.0.245
         id: review
         with:
@@ -50,7 +53,7 @@ jobs:
           claude_args: >-
             --allowed-tools "Read,Grep,Glob,Bash(git diff:*),Bash(git show:*),Bash(git log:*),mcp__github_inline_comment__create_inline_comment"
             --disallowed-tools "Read(//proc/**),Grep(//proc/**),Glob(//proc/**)"
-            --append-system-prompt "The PR head is at refs/remotes/pr/head. First run exactly git diff HEAD...pr/head as one Bash call. Do not add flags, pipes or other commands to that call. If a shell call fails, start your comment with NO VALID CLAUDE REVIEW and do not give a clean verdict. Otherwise start your comment with Claude review is provisional until the workflow passes. Post the review with your comment tool and inline comments."
+            --append-system-prompt "The PR head is at refs/remotes/pr/head. First run exactly git diff origin/main...pr/head as one Bash call. Do not add flags, pipes or other commands to that call. If a shell call fails, start your comment with NO VALID CLAUDE REVIEW and do not give a clean verdict. Otherwise start your comment with Claude review is provisional until the workflow passes. Post the review with your comment tool and inline comments."
       # The action can report success after a tool error. Check the tool results independently.
       - name: Validate the Claude review
         if: ${{ always() }}
@@ -63,7 +66,7 @@ jobs:
             exit 1
           fi
           printf 'Reviewed PR head: %s\n' "$head" | tee -a "$GITHUB_STEP_SUMMARY"
-          if ! python3 -B tools/check_claude_review.py "$EXECUTION_FILE" --conclusion "$CONCLUSION"; then
+          if ! python3 -I -B "$RUNNER_TEMP/check_claude_review.py" "$EXECUTION_FILE" --conclusion "$CONCLUSION"; then
             echo 'NO VALID CLAUDE REVIEW' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
