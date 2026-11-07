@@ -49,13 +49,9 @@ for path,code,security in [('README.md',False,False),('SPEC.md',False,False),('d
         ('src/aavanam/.claude/settings.json',True,True),('tests/AGENTS.md',True,True),('tests/CLAUDE.md',True,True),('tests/.claude/settings.json',True,True)]:
     got=classify([path])
     if (got['code'],got['security'])!=(code,security):errors.append('classification changed for %s: code=%s security=%s'%(path,got['code'],got['security']))
-# Review events default to the PR merge ref, so the Claude review must check out the default branch.
-claude=(ROOT/'.github/workflows/claude-review.yml').read_text()
-if 'ref: ${{ github.event.repository.default_branch }}' not in claude:errors.append('claude-review.yml must check out the default branch')
-# PR text can tell Claude to show a credential, so the tools get no token and no gh command.
-for need in ["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1'",'bubblewrap','Read(//proc/**)']:
-    if need not in claude:errors.append('claude-review.yml must keep '+need)
-if 'Bash(gh' in claude:errors.append('claude-review.yml must not allow gh commands')
+# The Claude review has one trigger, read-only tools and the secret only in its review job.
+from claude_review import workflow_errors
+errors+=['claude-review.yml '+x for x in workflow_errors((ROOT/'.github/workflows/claude-review.yml').read_text())]
 # The agy fallback must not load the maintainer's global allow rules or MCP servers.
 review=(ROOT/'tools/cross_review.py').read_text()
 for need in ["env['HOME']=home","'--sandbox'","'allow':[]"]:
