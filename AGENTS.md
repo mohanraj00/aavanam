@@ -28,24 +28,15 @@ Do not add evaluator, emitter, rule-engine, rule-extension or policy-engine dire
 4. Change the spec before the code. Cite clause IDs in vectors, code and PRs.
 5. Write expected outcomes before you run an implementation against them.
 
-After a spec or vector change, run:
+After each change, run:
 
 ```sh
-python3 -B tools/check_spec.py
-python3 -B -m unittest discover -s conformance
+make check
 ```
 
-After a change in `src/`, also run:
+The `check` target in the [Makefile](Makefile) runs the spec check, the conformance tests, the tests in `tests/`, both runners and the project check. The store must pass all vectors. The null implementation must still fail with exit 1.
 
-```sh
-python3 -B -m unittest discover -s tests
-python3 -B conformance/runner.py --adapter null_adapter:NullAdapter
-python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter
-```
-
-The store must pass all vectors. The null implementation must still fail.
-
-After each change, run `python3 -B tools/check_project.py`. After an intended source edit, regenerate the inventory with `python3 -B tools/check_project.py --write-checksums`. Examine the diff of `checksums.json`, then run the project check again. The inventory records bytes. It does not validate behavior or approve a publication.
+After an intended source edit, regenerate the inventory with `python3 -B tools/check_project.py --write-checksums`. Examine the diff of `checksums.json`, then run the project check again. The inventory records bytes. It does not validate behavior or approve a publication.
 
 Keep scratch work, stores, archives and raw runs outside the checkout and outside synced folders, for example iCloud.
 
