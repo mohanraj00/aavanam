@@ -1,42 +1,38 @@
 name: CI
+# The ci-ok skeleton. Copy this file to .github/workflows/ci.yml of the project, then put the project jobs in it.
+# Replace the SHA of the gates action with a full SHA of mohanraj00/.github on main.
+# A docs-only PR skips the project jobs, and ci-ok still passes. The check job always runs.
+# Do not use paths-ignore, because a required check can then stay pending.
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
-  workflow_dispatch:
-permissions:
-  contents: read
+permissions: {}
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       code: ${{ steps.classify.outputs.code }}
     steps:
+      # The classify step reads .github/gates.json from the base branch, so a PR cannot mark its own change as docs.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
-      - name: Classify the changed paths
-        id: classify
-        env:
-          EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
-        run: |
-          case "$EVENT" in
-            pull_request) base="$PR_BASE" ;;
-            push) base="$PUSH_BEFORE" ;;
-            *) base="" ;;
-          esac
-          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            echo "code=true" >> "$GITHUB_OUTPUT"; echo "No usable base: run all checks."; exit 0
-          fi
-          python3 -B tools/classify_change.py "$base" HEAD --github-output "$GITHUB_OUTPUT"
-  # The spec checks run on each change, because a contract change can break a vector citation.
+      - id: classify
+        uses: mohanraj00/.github/gates@be634fd8970fd2d8dc510c2b3f8551dc2c56d7dc # mohanraj00/.github at be634fd
+        with:
+          check: classify
+  # The project check always runs. A contract change can break a vector citation, so the spec checks also run here.
   shared-project:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,6 +46,23 @@ jobs:
         run: python3 -B tools/check_spec.py
       - name: Test the conformance runner
         run: python3 -B -m unittest discover -s conformance
+  # The gate regression cases (an unaccepted fork, a record for an old head or base, an incomplete file list, a review
+  # of another commit) are tests of the pinned gates action. Run them at the same SHA as the gates in each change.
+  # tools/check_project.py requires one SHA for each use of mohanraj00/.github.
+  shared-gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mohanraj00/.github
+          ref: be634fd8970fd2d8dc510c2b3f8551dc2c56d7dc
+          persist-credentials: false
+      - name: Run the gate regression tests of the pinned gates action
+        run: python3 -B -I -m unittest discover -s tests -p test_gate.py
+  # The project suite runs only for a change that is not docs-only.
   suite:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -59,6 +72,8 @@ jobs:
         os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,17 +100,24 @@ jobs:
           status=$?
           tail -n 5 null.txt
           if [ "$status" -ne 1 ]; then echo "::error::The null implementation must fail with exit 1, not $status."; exit 1; fi
+  # The required check. Add each project job to needs. A skipped job passes. A failed or cancelled job fails.
   ci-ok:
-    needs: [changes, shared-project, suite]
+    needs: [changes, shared-project, shared-gates, suite]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
+    permissions: {}
     steps:
-      - name: Require every needed job to pass or be skipped
+      - name: Collect the project jobs
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          echo "Job results: $RESULTS"
-          for r in $RESULTS; do
-            case "$r" in success|skipped) ;; *) exit 1 ;; esac
-          done
+          python3 -B -I -c '
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS"])
+          bad = sorted(k for k, v in needs.items() if v["result"] not in ("success", "skipped"))
+          if needs.get("changes", {}).get("result") != "success":
+              bad = sorted(set(bad) | {"changes"})
+          print("\n".join("%s: %s" % (k, v["result"]) for k, v in sorted(needs.items())))
+          sys.exit("Failed jobs: " + ", ".join(bad) if bad else 0)
+          '

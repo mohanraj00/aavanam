@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "code": ["src/*", "conformance/*", "fixtures/*", "tests/*", "tools/*", ".github/workflows/ci.yml"],
+  "security_sources": ["src/*.py", "conformance/*.py"],
+  "not_security": ["*/test_*.py", "tests/*"],
+  "boundaries": ["tools/*"],
+  "level1": ["tools/claude_review.py", "SPEC.md", "docs/contracts/*", "conformance/*"],
+  "generated": ["checksums.json"]
+}

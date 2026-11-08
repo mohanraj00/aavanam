@@ -57,7 +57,7 @@ Flag these as high priority in a PR review:
 - Private material, credentials or generated binaries.
 - A removed failure case.
 
-End a code review with one line. If `tools/classify_change.py` marks a changed path as security-relevant, write `Security review: needed`, with the reason. If not, write `Security review: not needed`. A security review does not end with this line.
+End a code review with one line. If `.github/gates.json` or the shared categories of the gates mark a changed path as security-relevant, write `Security review: needed`, with the reason. If not, write `Security review: not needed`. A security review does not end with this line.
 
 ## Records and publication
 

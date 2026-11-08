@@ -10,10 +10,14 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0,str(Path(__file__).resolve().parent))
-from classify_change import changed,classify
+from fnmatch import fnmatch
 
 ROOT=Path(__file__).resolve().parents[1]
+# A short copy of the shared security categories of the gates action (gates/gate.py of mohanraj00/.github at the SHA in
+# .github/workflows/gates.yml). The security-review gate decides. This list only selects the local security review.
+AGENT=['AGENTS.md','CLAUDE.md','GEMINI.md','SKILL.md','.agents/*','.claude/*','.codex/*','.gemini/*']
+MANIFESTS=['pyproject.toml','uv.lock','poetry.lock','Pipfile','Pipfile.lock','requirements*.txt','setup.py','setup.cfg']
+SHARED=['.github/*','CONSTITUTION.md','docs/STANDARD.md','docs/REVIEW.md','SECURITY.md']+[y for x in AGENT+MANIFESTS for y in (x,'*/'+x)]
 # Linux limits one argument to 128 KiB, so the diff stays below this many bytes.
 LIMIT=90000
 RULES=('Do not use tools, run commands or read files. This prompt holds the complete rules and diff. Write the review as text only. '
@@ -76,6 +80,21 @@ def review(base,head,kind,timeout,work):
     (record/'stdout.txt').write_text(out);(record/'stderr.txt').write_text(err);(record/'status.json').write_text(json.dumps(status,indent=2)+'\n')
     return (out.strip() if status.get('exit')==0 and out.strip() else None),status
 
+def changed(base,head):
+    """List both ends of each move, so a move out of src/ still counts. -z keeps unusual names unquoted."""
+    return [x for x in git('diff','--no-renames','--name-only','-z',base+'...'+head).split('\0') if x]
+
+def security_paths(base,paths):
+    """Return the security-relevant paths. The rules of .github/gates.json come from the base revision."""
+    try:rules=git('show',base+':.github/gates.json')
+    except subprocess.CalledProcessError:sys.exit('The base %s has no .github/gates.json. Use --security yes or no.'%base[:12])
+    return security(json.loads(rules),paths)
+
+def security(rules,paths):
+    hit=lambda x,keys:any(fnmatch(x,y) for y in keys)
+    return [x for x in paths if hit(x,SHARED+rules.get('boundaries',[]))
+        or (hit(x,rules.get('security_sources',[])) and not hit(x,rules.get('not_security',[])))]
+
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--base',default='origin/main');p.add_argument('--security',choices=['auto','yes','no'],default='auto',help='auto runs it for security-relevant paths')
@@ -89,14 +108,14 @@ if __name__=='__main__':
     work.mkdir(parents=True,exist_ok=True)
     if any(work.iterdir()):sys.exit('work directory is not empty: %s'%work)
     base,head=git('rev-parse',a.base+'^{commit}').strip(),git('rev-parse','HEAD^{commit}').strip()
-    change=classify(changed(base,head,ROOT));kinds=['code']
-    if a.security=='yes' or (a.security=='auto' and change['security']):kinds.append('security')
+    change=security_paths(base,changed(base,head)) if a.security=='auto' else [];kinds=['code']
+    if a.security=='yes' or (a.security=='auto' and change):kinds.append('security')
     version=subprocess.run(['agy','--version'],capture_output=True,text=True,stdin=subprocess.DEVNULL).stdout.strip();failed=False
     for kind in kinds:
         report,status=review(base,head,kind,a.timeout,work)
         print('%s (agy %s):\n\nBase: %s (%s). Head: %s.\n'%('Review' if kind=='code' else 'Security review',version,a.base,base[:12],head[:12]))
         if status['diff_cut']:print('- The diff was cut at %d bytes. Get a manual review of the rest.'%LIMIT)
-        if kind=='security':print('Security-relevant paths: '+(', '.join(change['security_paths']) or 'none (requested)')+'\n')
+        if kind=='security':print('Security-relevant paths: '+(', '.join(change) or 'none (requested)')+'\n')
         why='timed out after %ds'%a.timeout if 'timeout' in status else status.get('launch_error') or 'exit %s'%status.get('exit')
         err=(work/kind/'stderr.txt').read_text().strip()
         if report is None and err:why+=': '+err[-300:]
