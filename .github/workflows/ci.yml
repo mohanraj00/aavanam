@@ -24,7 +24,7 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
       - id: classify
-        uses: mohanraj00/.github/gates@fb951a2ad58ba1283efc2e909d4753202e5cc742 # mohanraj00/.github at fb951a2
+        uses: mohanraj00/.github/gates@be634fd8970fd2d8dc510c2b3f8551dc2c56d7dc # mohanraj00/.github at be634fd
         with:
           check: classify
   # The project check always runs. A contract change can break a vector citation, so the spec checks also run here.
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: mohanraj00/.github
-          ref: fb951a2ad58ba1283efc2e909d4753202e5cc742
+          ref: be634fd8970fd2d8dc510c2b3f8551dc2c56d7dc
           persist-credentials: false
       - name: Run the gate regression tests of the pinned gates action
         run: python3 -B -I -m unittest discover -s tests -p test_gate.py
