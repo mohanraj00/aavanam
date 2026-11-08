@@ -53,6 +53,13 @@ for path,code,sec in [('README.md',False,False),('docs/STATUS.md',False,False),(
     got_sec=bool(security(rules,[path]))
     got_code=got_sec or any(fnmatch(path,x) for x in rules['code']+rules['level1'])
     if (got_code,got_sec)!=(code,sec):errors.append('classification changed for %s: code=%s security=%s'%(path,got_code,got_sec))
+# The gates action, the ci-ok classify step and the gate regression job use one full SHA of mohanraj00/.github.
+pins=set()
+for name in ['gates.yml','ci.yml']:
+    text=(ROOT/'.github/workflows'/name).read_text()
+    pins|=set(re.findall(r'mohanraj00/\.github/gates@(\S+)',text))|set(re.findall(r'repository: mohanraj00/\.github\n\s+ref: (\S+)',text))
+if len(pins)!=1 or not re.fullmatch(r'[0-9a-f]{40}',next(iter(pins),'')):errors.append('the workflows must pin mohanraj00/.github to one full SHA: %s'%sorted(pins))
+if 'test_gate.py' not in (ROOT/'.github/workflows/ci.yml').read_text():errors.append('ci.yml must run the gate regression tests of the pinned gates action')
 # The Claude review has one trigger, read-only tools and the secret only in its review job.
 from claude_review import workflow_errors
 errors+=['claude-review.yml '+x for x in workflow_errors((ROOT/'.github/workflows/claude-review.yml').read_text())]

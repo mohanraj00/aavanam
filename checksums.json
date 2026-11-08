@@ -8,7 +8,7 @@
   ".github/dependabot.yml": "eada67e1b7f73d16a4c240ede6193c4852a2b0887e678a23dc7a3462810502e7",
   ".github/gates.json": "e485870625cc9a8bdd04b90304e75d70d99a1f80b7daba1576789eba6244de5c",
   ".github/pull_request_template.md": "3227026c58bc3da5f1f927b7374e06fd10e1e3407e0315fe96fec3fe596e03de",
-  ".github/workflows/ci.yml": "675b4a7d4b46f7a88ad484a2192bf6c1ddb01128d97d7ebeff121d5756939ed0",
+  ".github/workflows/ci.yml": "417c9c9664531c3ad6f27c0a16b7aed3ecc4be8bb48a4625b80796ba990210a6",
   ".github/workflows/claude-review.yml": "db17e5f29da4412c65fa27152d3df43e09f1ac34f33445c0e429b484decdffce",
   ".github/workflows/gates-rerun.yml": "c1b362ce179447f7ed2cf5ffc79208ac61d643369655fbd6f26aaf409acebce1",
   ".github/workflows/gates.yml": "b066611b6f22f096582af18b036c657b51587e74ab1de1be2ca992668b9ed21a",
@@ -474,7 +474,7 @@
   "tests/test_sections.py": "18c8285eb37b52a5a1f3e8d55daf2709bf58716d782b84254d2214e76c084a51",
   "tests/test_store.py": "30ee44e6e6da1eae03add2dbb85f917a3c64c5f67e649111a8d47aa807713ce0",
   "tests/test_tables.py": "2418a9968a2acb24d9b00bc61f3cfd509a1bc8775e567574f4206f4bc64bec07",
-  "tools/check_project.py": "cfaf6f54613cdc3b08bee3530a993c34727a4ed59b5792e2a8c85da0577ee37b",
+  "tools/check_project.py": "6f1a077d295e99d7be87a4b7ad6a18a610fb2c78e3c8ff8040f4a4ddc4236419",
   "tools/check_spec.py": "0743ae21408f13fe7bd108a5e641ccb31c122f3d036f045e19e750fe7926f798",
   "tools/claude_review.py": "2deb19a527fdfae98fe9a698948f36f35fedf02cf5ec2ce77e903fe34f803953",
   "tools/cross_review.py": "aaf4fc99a4119b1455b11cfc379597f1c779ca70abc7d2a5f4cd08d06dbf3faa"

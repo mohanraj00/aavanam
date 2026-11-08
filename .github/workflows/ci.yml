@@ -46,6 +46,22 @@ jobs:
         run: python3 -B tools/check_spec.py
       - name: Test the conformance runner
         run: python3 -B -m unittest discover -s conformance
+  # The gate regression cases (an unaccepted fork, a record for an old head or base, an incomplete file list, a review
+  # of another commit) are tests of the pinned gates action. Run them at the same SHA as the gates in each change.
+  # tools/check_project.py requires one SHA for each use of mohanraj00/.github.
+  shared-gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mohanraj00/.github
+          ref: fb951a2ad58ba1283efc2e909d4753202e5cc742
+          persist-credentials: false
+      - name: Run the gate regression tests of the pinned gates action
+        run: python3 -B -I -m unittest discover -s tests -p test_gate.py
   # The project suite runs only for a change that is not docs-only.
   suite:
     needs: changes
@@ -86,7 +102,7 @@ jobs:
           if [ "$status" -ne 1 ]; then echo "::error::The null implementation must fail with exit 1, not $status."; exit 1; fi
   # The required check. Add each project job to needs. A skipped job passes. A failed or cancelled job fails.
   ci-ok:
-    needs: [changes, shared-project, suite]
+    needs: [changes, shared-project, shared-gates, suite]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
