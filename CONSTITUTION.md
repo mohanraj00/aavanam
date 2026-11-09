@@ -1,12 +1,14 @@
 # Aavanam constitution
 
-Version 1, 2026-11-05. This document has authority over the specification.
+Version 2, 2026-11-09.
+
+This document has authority over the specification.
 
 ## Purpose
 
 Aavanam is a versioned knowledge-store library. It keeps structured documents, typed data, opaque application rule companions, evidence and observations in immutable, citable snapshots. Each consumer reads the same exact inputs from one context.
 
-## Consumers
+### Consumers
 
 Primary consumers:
 
@@ -17,7 +19,7 @@ Primary consumers:
 
 Human-readable documentation is a secondary consumer. It is a rendered view of the same context. No primary consumer is a later attachment to a text store.
 
-## Ownership boundary
+## Boundaries
 
 Applications own emitters, execution engines, rule extensions, rule semantics, source authority, jurisdiction interpretation, effective-date policy, applicability and acceptance decisions.
 
@@ -39,7 +41,9 @@ Access control and security policy are outside the current functional scope. A c
 8. **Existing storage.** Do not build a database engine. An implementation uses existing storage. The reference implementation uses SQLite and immutable objects.
 9. **The reference implementation proves the spec.** The reference implementation in `src/` uses only the Python standard library and SQLite. Its purpose is to show that the spec can be built and that the conformance vectors pass. An implementation that integrates with a host application uses the tech spec of that application. It passes the same conformance vectors.
 
-## Specification and conformance
+## Evidence
+
+### Specification and conformance
 
 The specification has authority over the implementation. The conformance vectors have authority over the claims. An expected outcome comes from the spec, a fixture definition or a planted fault, never from an implementation run. A change of scope needs a spec change first.
 
@@ -49,8 +53,38 @@ Keep failures with their vectors. If a vector changes, record the reason and kee
 
 Do not add customer material, private product code, domain packs, private interpretations or evaluation corpora. Fixtures are synthetic and neutral. Review each fixture before its first commit.
 
-A tag, a package release or any outreach needs a separate maintainer approval for each step.
+## Governance
+
+<!-- governance:start v1 -->
+This project follows the project standard in `docs/STANDARD.md`. That file is an exact copy from `mohanraj00/.github`. The standard owns the rules for builds, reviews, approvals and CI. A project exception to the standard is valid only when the standard records it.
+
+The documents own these topics:
+
+- `CONSTITUTION.md`: the purpose, the boundaries, the principles, the evidence rules, the contribution rules and the version log.
+- `docs/STANDARD.md`: the builds, the reviews, the approvals and CI.
+- `AGENTS.md`: the layout, the check command and the review guidelines.
+- `CLAUDE.md` and `GEMINI.md`: imports only.
+
+These rules apply to each change:
+
+1. A harness does not review its own change. The Codex security review is the one exception, as the standard says.
+2. The agents use the owner login. An agent never approves a PR and never merges a level 1 PR. An agent never adds the labels `accepted`, `security-reviewed`, `cross-reviewed` or `ready-for-review`.
+3. The owner merges each level 1 PR.
+4. Each tag, release, package publication, visibility change and outreach step needs a separate owner approval.
+<!-- governance:end v1 -->
 
 ## Amendment
 
-Change this constitution when the maintainers change direction or evidence changes a decision. Record the reason in the change.
+Change this constitution when the owner changes direction or evidence changes a decision. A change is a level 1 PR. Record the reason in the change, and add an entry to the version log.
+
+Change the governance block only with a new version of the template in `mohanraj00/.github`.
+
+## Version log
+
+### Version 2, 2026-11-09
+
+Align the sections with the shared constitution template `v1`, and add the governance block, the amendment text and this version log. Reason: align with the shared template.
+
+### Version 1, 2026-11-05
+
+The first version of the constitution. Reason: the start of the project.
