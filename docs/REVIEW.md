@@ -30,7 +30,7 @@ Follow these rules for each request:
 3. Write a security review request as the exact text in the table, with no other text in the comment. If the comment has other text, for example a `Head:` line, Codex does a code review and no security review. The Codex result names the commit that it reviewed.
 4. Ask one time for each head commit. Before you ask, read the PR comments. If a request names the current head, or comes after the last push, do not ask again.
 5. If you push fixes after a review, ask again for the new head. Ask at most 3 times for each PR. After that, ask the maintainer to review. The `gate` job of the Claude review stops a second Claude review of one kind for a head, and a Claude review after 3 of one kind.
-6. Fix each real finding, or write on the PR why it is not a defect.
+6. Fix each real finding, or write on the PR why it is not a defect. For a finding in the gates, use the stop rule of the [standard](STANDARD.md). The gates are the files of `mohanraj00/.github` and their copies in this project. Do not change a copy. File the finding in `mohanraj00/.github`.
 
 The `cross-review` check passes only for a review of the current head from the other harness. A Claude-built PR needs a completed Codex code review. A Codex-built or agy-built PR needs a Claude review marker with `findings=0`. If the review came from the agy fallback or from the maintainer, the maintainer adds the `cross-reviewed` label. The label counts only with an approval record for the current head and base.
 
@@ -107,6 +107,13 @@ If a PR changes one of these paths, the `security-review` check fails until the 
 2. Fix each finding, push, and ask again for the new head.
 3. If the Codex security review of the current head finds no security issues, the check passes. You do not add a label.
 4. A Claude security review is advisory. If it finds no security issues, the maintainer reads it and adds the `security-reviewed` label.
+
+The security review of `mohanraj00/.github` covers the copies of its files. Thus the `security-review` check passes with no review for these changes, after it proves each one:
+
+- an exact copy of a file of `mohanraj00/.github` at the new pin;
+- a change of only the SHA in a pin line of the gates action, if the new SHA is on `main` of `mohanraj00/.github`.
+
+The copy check reads the old pin from `.github/workflows/gates.yml` of the base branch. Each other listed change still needs a review. A repin PR stays level 1.
 
 The [Gates rerun](../.github/workflows/gates-rerun.yml) workflow starts the failed gate again when Codex posts a result, or when the Claude review workflow completes. If the gate run is in progress, the workflow waits for it to complete. GitHub keeps the failed attempt in the run history. The gate trusts only results that the Codex app posts, and only for the commit that the result names. A push makes a new head, so the gate needs a new result. A result names a commit, not a base. Thus, the gate ignores results posted before the last change of the PR base branch. A clean result is a model output, not a proof. A PR can contain text that tries to steer the reviewer. If a change looks wrong to you, do not merge it.
 
