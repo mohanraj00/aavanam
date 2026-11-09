@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -260,6 +261,34 @@ class PromptTest(unittest.TestCase):
 class WorkflowTest(unittest.TestCase):
     def test_the_workflow_has_no_error(self):
         self.assertEqual(claude_review.workflow_errors(WORKFLOW), [])
+
+    def test_the_permission_step_requires_repository_write_access(self):
+        step = re.search(r'^      - name: Require repository write permission\n.*?^        run: \|\n'
+                         r'((?:^ {10,}[^\n]*\n)+)', WORKFLOW, re.M | re.S)
+        self.assertIsNotNone(step)
+        command = step[1]
+        fake_api = '''
+gh() {
+  test "$*" = "api repos/example/store/collaborators/reviewer/permission --jq .permission" || return 1
+  printf '%s\\n' "$FAKE_PERMISSION"
+  return "$FAKE_STATUS"
+}
+'''
+        for permission, api_status, expected in (
+                ('admin', '0', 0), ('maintain', '0', 0), ('write', '0', 0),
+                ('triage', '0', 1), ('read', '0', 1), ('none', '0', 1),
+                ('', '0', 1), ('unknown', '0', 1), ('write', '1', 1)):
+            with self.subTest(permission=permission, api_status=api_status):
+                env = dict(os.environ, REPOSITORY='example/store', COMMENTER='reviewer',
+                           GITHUB_OUTPUT=os.devnull, FAKE_PERMISSION=permission, FAKE_STATUS=api_status)
+                self.assertEqual(subprocess.run(['bash', '-e', '-c', fake_api + command], env=env).returncode, expected)
+
+    def test_the_project_check_requires_the_permission_step(self):
+        changed = re.sub(r'^      - name: Require repository write permission\n.*?(?=^      - id: gate\n)',
+                         '', WORKFLOW, flags=re.M | re.S)
+        self.assertNotEqual(changed, WORKFLOW)
+        self.assertIn('must require repository write permission before the shared gate',
+                      claude_review.workflow_errors(changed))
 
     def test_each_change_that_breaks_the_design_gives_an_error(self):
         for old, new in (
