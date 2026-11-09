@@ -38,7 +38,7 @@ Codex reviews through the Codex GitHub integration. Claude Code reviews through 
 
 - The comment is on a PR.
 - The comment body is exactly one of the two Claude request texts in the table. GitHub compares these texts with no regard to letter case.
-- The commenter is an owner, a member or a collaborator.
+- The commenter is an owner, a member or a collaborator and has repository write permission.
 
 A comment or a review with other text does not start the workflow. The comment text selects one of two fixed prompts, and it never goes into a prompt.
 
@@ -46,7 +46,9 @@ A comment or a review with other text does not start the workflow. The comment t
 
 An issue comment event reads the workflow from `main`, so a PR cannot change this workflow for its own review. The workflow has three jobs. A concurrency group for each PR makes the requests on one PR run one at a time. A new pending request replaces an older pending request, and the older request posts no comment.
 
-The `gate` job runs first, with no environment and no secret. It runs the `claude-review` check of the gates action, at the same SHA as the gates. It has `actions: read`, `contents: read`, `issues: read` and `pull-requests: read` only. It stops the request for these reasons:
+The `gate` job runs first, with no environment and no secret. It has `actions: read`, `contents: read`, `issues: read` and `pull-requests: read` only. It uses the workflow token to get the effective repository permission of the commenter. It stops the request if the API call fails or the permission is outside `admin`, `maintain` and `write`.
+
+It then runs the `claude-review` check of the gates action, at the same SHA as the gates. This check stops the request for these reasons:
 
 - The PR is from a fork, and it has no stage 2 owner approval of the current head and base. The check uses the same code as `acceptance`.
 - A trusted marker of the same kind names the current head and merge base.

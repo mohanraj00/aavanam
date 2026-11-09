@@ -60,8 +60,8 @@ for name in ['gates.yml','ci.yml']:
     pins|=set(re.findall(r'mohanraj00/\.github/gates@(\S+)',text))|set(re.findall(r'repository: mohanraj00/\.github\n\s+ref: (\S+)',text))
 if len(pins)!=1 or not re.fullmatch(r'[0-9a-f]{40}',next(iter(pins),'')):errors.append('the workflows must pin mohanraj00/.github to one full SHA: %s'%sorted(pins))
 if 'test_gate.py' not in (ROOT/'.github/workflows/ci.yml').read_text():errors.append('ci.yml must run the gate regression tests of the pinned gates action')
-# The Claude review has one trigger, read-only tools and the secret only in its review job.
-from claude_review import workflow_errors
+# The gate checks the permission of the requester. Only the review job has the secret.
+from claude_workflow import workflow_errors
 errors+=['claude-review.yml '+x for x in workflow_errors((ROOT/'.github/workflows/claude-review.yml').read_text())]
 # The agy fallback must not load the maintainer's global allow rules or MCP servers.
 review=(ROOT/'tools/cross_review.py').read_text()
