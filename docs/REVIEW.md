@@ -29,7 +29,7 @@ Follow these rules for each request:
 2. For a Codex code review request, write `Head: <sha>` on the next line of the comment, with the short SHA of the PR head commit. Do not add this line to a Claude request. The Claude review starts only for the exact text in the table, and its comment names the head that it reviewed.
 3. Write a security review request as the exact text in the table, with no other text in the comment. If the comment has other text, for example a `Head:` line, Codex does a code review and no security review. The Codex result names the commit that it reviewed.
 4. Ask one time for each head commit. Before you ask, read the PR comments. If a request names the current head, or comes after the last push, do not ask again.
-5. If you push fixes after a review, ask again for the new head. Ask at most 3 times for each PR. After that, ask the maintainer to review.
+5. If you push fixes after a review, ask again for the new head. Ask at most 3 times for each PR. After that, ask the maintainer to review. The `gate` job of the Claude review stops a second Claude review of one kind for a head, and a Claude review after 3 of one kind.
 6. Fix each real finding, or write on the PR why it is not a defect.
 
 The `cross-review` check passes only for a review of the current head from the other harness. A Claude-built PR needs a completed Codex code review. A Codex-built or agy-built PR needs a Claude review marker with `findings=0`. If the review came from the agy fallback or from the maintainer, the maintainer adds the `cross-reviewed` label. The label counts only with an approval record for the current head and base.
@@ -44,24 +44,39 @@ A comment or a review with other text does not start the workflow. The comment t
 
 ### Claude review design
 
-An issue comment event reads the workflow from `main`, so a PR cannot change this workflow for its own review. The workflow has two jobs.
+An issue comment event reads the workflow from `main`, so a PR cannot change this workflow for its own review. The workflow has three jobs. A concurrency group for each PR makes the requests on one PR run one at a time. A new pending request replaces an older pending request, and the older request posts no comment.
+
+The `gate` job runs first, with no environment and no secret. It runs the `claude-review` check of the gates action, at the same SHA as the gates. It has `actions: read`, `contents: read`, `issues: read` and `pull-requests: read` only. It stops the request for these reasons:
+
+- The PR is from a fork, and it has no stage 2 owner approval of the current head and base. The check uses the same code as `acceptance`.
+- A trusted marker of the same kind names the current head and merge base.
+- The PR has 3 trusted markers of the same kind.
+
+On a pass, the `gate` job gives the head, the base and the merge base to the `review` job.
 
 The `review` job has `contents: read` and `pull-requests: read` only. It uses the `claude-review` environment, which holds the `CLAUDE_CODE_OAUTH_TOKEN` secret. Only the CLI step gets the secret. The environment needs a deployment branch rule for `main`. The job does these steps:
 
-1. It checks out `main` and fetches the PR commits as Git objects only. It never checks out PR files, so the PR cannot supply instructions, settings or code.
-2. It reads the base branch of the PR from the API and fetches it. It writes the diff with `git diff --no-ext-diff --no-textconv -U20 pr/base...pr/head`. If the diff is empty, the job fails.
+1. It starts only after the `gate` job passes. It checks out `main` and fetches the PR commits as Git objects only. It never checks out PR files, so the PR cannot supply instructions, settings or code.
+2. It reads the base branch of the PR from the API and fetches it. It writes the diff with `git diff --no-ext-diff --no-textconv -U20 pr/base...pr/head`. If the diff is empty, the job fails. If the head, the base or the merge base is not the one that the `gate` job approved, the job fails. This can occur after a push while the environment waits for approval. Then ask again.
 3. It installs one exact version of the Claude Code CLI and checks the SHA-512 value of the package.
 4. It runs the CLI in restricted mode with only the `Read`, `Grep` and `Glob` tools, no MCP server, no slash command and a turn limit. These tools cannot read `/proc`. The prompt says that the diff is untrusted data.
 5. It checks the JSON result: `type` is `result`, `subtype` is `success`, `is_error` is false, `result` is not empty and `permission_denials` is empty. If a check fails, the job fails.
 6. It keeps the review text and the head SHA in an artifact.
 
-The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. This file is a copy of `gates/claude_review.py` of `mohanraj00/.github`. The comment starts with a fixed marker: `<!-- claude-review:v2 kind=<code|security> head=<sha> base=<sha> findings=<count|unknown> run=<run id> -->`. The script writes the marker outside the model text. `base` is the merge base of the base branch and the head, where the diff of the review starts. The count comes from the first line of the model text, `Findings: <number>`. If that line is not valid, the count is `unknown`. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA.
+The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. This file is a copy of `gates/claude_review.py` of `mohanraj00/.github`. The comment starts with a fixed marker: `<!-- claude-review:v2 kind=<code|security> head=<sha> base=<sha> findings=<count|unknown> run=<run id> -->`. The script writes the marker outside the model text. `base` is the merge base of the base branch and the head, where the diff of the review starts. The count comes from the first line of the model text, `Findings: <number>`. If that line is not valid, the count is `unknown`. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA. If the `gate` job stopped the request, the comment gives the reason of the `gate` job.
 
 The `post` job writes as the workflow bot, and the gates trust approval records and review markers from this bot. Thus the script treats the model text as untrusted. The model text cannot make a marker or an approval record. It escapes `&` and `<`, changes each `@` to a character that makes no mention, and limits the length.
 
 ### Use of a Claude result
 
-The `cross-review` gate reads the marker. It accepts a marker only from an `issue_comment` run of this workflow on the default branch, for the current head and merge base, with `findings=0`. It does not accept a `v1` marker, because that marker names no base. If the base branch moves, ask for a new Claude review. If the first line gives `Findings: 0` and a later line starts with a severity tag or a `path:line` reference, the marker gives `findings=unknown`. A Claude security marker is advisory. The `security-review` gate writes a line about it, but it does not pass for it. A person also reads the text. The review has no inline comments and no conversation. A push makes a new head, so ask again as the request rules say. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
+The `cross-review` gate reads the marker. It accepts a marker only from an `issue_comment` run of this workflow on the default branch, for the current head and merge base, with `findings=0`. It does not accept a `v1` marker, because that marker names no base. A new commit on the base branch does not change the merge base, so the review stays valid. If the base branch of the PR changes, ask for a new Claude review. The marker gives `findings=unknown` if the review text does not agree with the count on its first line:
+
+- `INCOMPLETE REVIEW` is on a line below the first line.
+- A later `Findings: N` line gives a different count.
+- The count is 0, and a later line starts with a severity tag or a `path:line` reference.
+- The count is 0, and a severity tag P0 to P3 is at any position in a later line.
+
+The check reads the text in NFKC form with no format characters. It does not find prose that describes a defect with no severity tag and no `path:line` reference. A Claude security marker is advisory. The `security-review` gate writes a line about it, but it does not pass for it. A person also reads the text. The review has no inline comments and no conversation. A push makes a new head, so ask again as the request rules say. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
 
 ### Local fallback: agy
 
@@ -119,7 +134,7 @@ The owner approval is one of these:
 - the `ready-for-review` label, with its approval record;
 - an approval with the GitHub Approve button. The latest review of each user counts, and a dismissed review does not count. A review does not start the gates, so run the failed `acceptance` job again, for example with `gh run rerun <run-id> --failed`.
 
-Ask for a review of a fork PR only after the owner approval. Before you add the `accepted` label, make sure that:
+Ask for a review of a fork PR only after the owner approval. Before this approval, the `gate` job stops a Claude review of a fork PR. Before you add the `accepted` label, make sure that:
 
 - the PR links an issue with a concrete workflow and completion criteria;
 - the spec, the vectors and the fixtures name no real product, brand, customer or person;
