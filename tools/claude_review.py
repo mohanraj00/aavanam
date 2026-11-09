@@ -65,11 +65,6 @@ POST_PERMISSIONS=['contents: read','issues: write','pull-requests: write']
 # The gate job reads the PR, its reviews, comments and events, the compare API and the workflow runs.
 GATE_PERMISSIONS=['actions: read','contents: read','issues: read','pull-requests: read']
 GATE_ACTION='uses: mohanraj00/.github/gates@'
-PERMISSION_STEP=re.compile(r'^      - name: Require repository write permission\n(.*?)^      - id: gate\n',re.M|re.S)
-PERMISSION_BINDINGS=['        id: permission','          GH_TOKEN: ${{ github.token }}',
-    '          REPOSITORY: ${{ github.repository }}','          COMMENTER: ${{ github.event.comment.user.login }}',
-    '          if ! permission="$(gh api "repos/${REPOSITORY}/collaborators/${COMMENTER}/permission" --jq .permission)"; then',
-    '          case "$permission" in','            admin|maintain|write) ;;','              exit 1']
 GATE_OUTPUTS=['head','base','merge_base']
 GATE_BINDS=['GATE_HEAD: ${{ needs.gate.outputs.head }}\n','GATE_BASE: ${{ needs.gate.outputs.base }}\n',
     'GATE_MERGE_BASE: ${{ needs.gate.outputs.merge_base }}\n','[[ "$GATE_HEAD" =~ ^[0-9a-f]{40}$ && "$GATE_MERGE_BASE" =~ ^[0-9a-f]{40}$ ]]\n',
@@ -150,10 +145,6 @@ def workflow_errors(text):
     else:
         if 'environment:' in gate[1] or 'secrets.' in gate[1]:errors.append('must not give an environment or a secret to the gate job')
         if permissions(gate[1])!=GATE_PERMISSIONS:errors.append('must give the gate job exactly '+', '.join(GATE_PERMISSIONS))
-        permission=PERMISSION_STEP.search(gate[1])
-        if (not permission or any(line not in permission[1].splitlines() for line in PERMISSION_BINDINGS)
-                or 'continue-on-error:' in permission[1] or re.search(r'^        if:',permission[1],re.M)):
-            errors.append('must require repository write permission before the shared gate')
         if GATE_ACTION not in gate[1] or 'check: claude-review\n' not in gate[1]:errors.append('must run the claude-review check of the gates action in the gate job')
         if not re.search(r'^    needs: gate\n',first[1],re.M):errors.append('must make the review job need the gate job')
         if not re.search(r'^    needs: \[gate, review\]\n',jobs[1],re.M):errors.append('must make the post job need the gate job and the review job')

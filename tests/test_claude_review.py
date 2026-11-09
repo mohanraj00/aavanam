@@ -15,6 +15,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import claude_review  # noqa: E402
+from claude_workflow import workflow_errors  # noqa: E402
 
 # The approval record pattern of RECORD in gates/gate.py of mohanraj00/.github at the pinned SHA. The gates read this text.
 BINDING = re.compile(r'<!-- (?:gates|pr-policy):approval label=(\S+) head=([0-9a-f]{40}) base=(\S+) -->')
@@ -260,7 +261,7 @@ class PromptTest(unittest.TestCase):
 
 class WorkflowTest(unittest.TestCase):
     def test_the_workflow_has_no_error(self):
-        self.assertEqual(claude_review.workflow_errors(WORKFLOW), [])
+        self.assertEqual(workflow_errors(WORKFLOW), [])
 
     def test_the_permission_step_requires_repository_write_access(self):
         step = re.search(r'^      - name: Require repository write permission\n.*?^        run: \|\n'
@@ -288,7 +289,7 @@ gh() {
                          '', WORKFLOW, flags=re.M | re.S)
         self.assertNotEqual(changed, WORKFLOW)
         self.assertIn('must require repository write permission before the shared gate',
-                      claude_review.workflow_errors(changed))
+                      workflow_errors(changed))
 
     def test_each_change_that_breaks_the_design_gives_an_error(self):
         for old, new in (
