@@ -10,11 +10,11 @@ Aavanam stores and resolves. It never executes. Applications own their engines, 
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 242, in 16 documents under `docs/contracts/` |
-| Conformance vectors | 394. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 393. The runner exits with 1 |
+| Contract clauses | 248, in 16 documents under `docs/contracts/` |
+| Conformance vectors | 400. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 399. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
-| Reference implementation | 1825 lines of Python over SQLite. The standard library only |
+| Reference implementation | Python over SQLite. The standard library only |
 
 Each refusal vector has a positive pair, so an implementation that refuses all calls fails. No expected value comes from an implementation run. Each vector states its provenance: the spec, a defect reproduced in a pre-build prototype, or a planted fault.
 
@@ -27,6 +27,14 @@ Each refusal vector has a positive pair, so an implementation that refuses all c
 - The code in `src/aavanam/` is not the product runtime. It is the reference implementation: it proves that the spec can be implemented and that each vector is exact. The spec does not fix the language, the storage or the interface of a product implementation.
 
 All 16 contract documents are drafts. Next: lifecycle and discovery, then integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+
+## 0.1 compatibility
+
+Within the 0.1 series, the reference store preserves the documented `aavanam/base/v1` minor version 3 descriptor meanings, canonical reference digests, `aavanam-bundle/v1` transfer format and the outcomes of the 0.1.0 conformance vectors. A later 0.1 version can add compatible behavior and vectors.
+
+The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. The producer seam test is pending, and reserved operations return their specified unsupported status. The source version identifies the draft specification, conformance vectors and reference store together.
+
+See [the changelog](CHANGELOG.md) for the contents of 0.1.0.
 
 ## Run the checks
 
