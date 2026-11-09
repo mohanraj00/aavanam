@@ -61,6 +61,8 @@ class AdmittedFactsTest(unittest.TestCase):
             'code': ('A17', b'Code: A17', [16, 25], [20, 29]),
         }
         seen = set()
+        fixture = json.loads((INVOICE / 'fixture.json').read_text(encoding='utf-8'))
+        fixture_reading = next(d['value'] for d in fixture['descriptors'] if d['as'] == 'reading')
         for mapping_ref in evidence_root['native_mappings']:
             mapping = self.store.descriptor(mapping_ref)
             record = self.store.descriptor(mapping['subject'])
@@ -81,6 +83,8 @@ class AdmittedFactsTest(unittest.TestCase):
             self.assertEqual(excerpt['ranges'], [{'start': byte_range[0], 'end': byte_range[1]}])
             self.assertEqual(self.store.blob(excerpt['payload']['digest']), excerpt_bytes)
             reading = self.store.descriptor(excerpt['parent'])
+            self.assertEqual(reading['coverage_profile'], 'aavanam/coverage/v1')
+            self.assertEqual(reading['coverage_profile'], fixture_reading['coverage_profile'])
             self.assertEqual(self.store.blob(reading['payload']['digest']), self.reading)
             source = self.store.descriptor(reading['source'])
             self.assertEqual(self.store.blob(source['payload']['digest']), self.source)
