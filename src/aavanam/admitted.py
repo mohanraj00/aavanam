@@ -6,12 +6,13 @@ import base64
 from .descriptors import NFC_TEXT, check, decode_nfc, is_selector
 from .jsontext import FormError, canonical, digest, is_digest, parse, revision, valid_string
 from .kinds import BASE_PROFILE
+from .store import COVERAGE, Store
 
 PROFILE = 'aavanam/admitted-facts/v1'
 ITEM_FIELDS = {'field', 'value', 'document_digest', 'text_digest', 'span', 'receipt_digest'}
 
 
-def put_admitted_facts(store, items_json: str, *, source: bytes, reading: bytes, source_media_type: str,
+def put_admitted_facts(store: Store, items_json: str, *, source: bytes, reading: bytes, source_media_type: str,
                        source_locator: str, producer: str, native_scheme: str,
                        serving: str, evidence: str) -> tuple[str, str] | None:
     """Write one document and reading pair in a single put. Return its serving and evidence roots.
@@ -67,7 +68,7 @@ def put_admitted_facts(store, items_json: str, *, source: bytes, reading: bytes,
         return {'digest': key, 'size': len(data), 'media_type': media_type}
 
     source_ref = add('source', payload=payload(source, source_media_type))
-    reading_ref = add('reading', source=source_ref, producer=producer, coverage_profile=PROFILE,
+    reading_ref = add('reading', source=source_ref, producer=producer, coverage_profile=COVERAGE,
                       payload=payload(reading, 'text/plain'))
     columns = ['field', 'value']
     schema = add('schema', schema_profile=PROFILE,

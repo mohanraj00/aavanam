@@ -32,7 +32,7 @@
           "$ref": "source"
         },
         "producer": "example/document-reader/v1",
-        "coverage_profile": "example/unspecified/v1",
+        "coverage_profile": "aavanam/coverage/v1",
         "payload": {
           "$payload": "reading"
         }
