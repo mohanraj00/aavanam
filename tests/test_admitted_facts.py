@@ -2,7 +2,6 @@
 import base64
 import json
 import unittest
-from pathlib import Path
 
 from support import ROOT, Store
 from aavanam.admitted import put_admitted_facts
@@ -14,6 +13,7 @@ SERVING = 'sample-invoice-serving'
 EVIDENCE = 'sample-invoice-evidence'
 LOCATOR = 'https://example.org/invoices/sample'
 PRODUCER_TAG = 'v0.14.0'
+PINNED_EXPORT = EXPORTS / f'producer-{PRODUCER_TAG}.json'
 
 
 class AdmittedFactsTest(unittest.TestCase):
@@ -128,8 +128,8 @@ class AdmittedFactsTest(unittest.TestCase):
         self.assertEqual({self.store.descriptor(i['ref'])['ext']['receipt_digest'] for i in items},
                          {item['receipt_digest'], second_receipt})
 
-    @unittest.skip(f'Pending groundgate {PRODUCER_TAG}. The export of admitted facts has no released wire format.')
+    @unittest.skipUnless(PINNED_EXPORT.is_file(),
+                         f'Pending producer {PRODUCER_TAG}. The versioned admitted-facts export is unreleased.')
     def test_the_pinned_producer_export_gives_the_same_citations(self):
-        # Add the normalized export of the synthetic invoice from this exact release when it exists.
-        path: Path = EXPORTS / f'producer-{PRODUCER_TAG}.json'
-        self.check_citations(json.loads(path.read_text(encoding='utf-8')))
+        # Supply a normalized export of the synthetic invoice from this exact release.
+        self.check_citations(json.loads(PINNED_EXPORT.read_text(encoding='utf-8')))
