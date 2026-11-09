@@ -23,7 +23,7 @@ The topics `CMP` and `STL` have no clauses yet.
 
 **CHG-SEL-1.** The request of `compare` has the fields `context` (CTX-OPN-3), `before` and `after`, two references, and `selector`, a selector (REL-SEL-1). The result has one item. If `before` or `after` is not in the store, the item has status `not_found` and reason `unknown_ref`. If it is in the store but not in the read context, the item has status `not_found` and reason `not_in_context`. STS-ENV-3 gives the envelope status.
 
-**CHG-SEL-2.** If both references are in the read context, the store applies the selector to `before` and to `after` (REL-SEL-2 to REL-SEL-4). If it can apply the selector to both, the item has status `ok` and the field `change`. The value is `unchanged` if the two selected byte sequences are equal, and `changed` if they are not.
+**CHG-SEL-2.** If both references are in the read context, the store applies the selector to `before` and to `after` (REL-SEL-2 to REL-SEL-4, ADP-SEL-4). If it can apply the selector to both, the item has status `ok` and the field `change`. The value is `unchanged` if the two selected byte sequences are equal, and `changed` if they are not.
 
 **CHG-SEL-3.** If the store cannot apply the selector to a target, the item has the status and reason of that outcome. If the outcomes of `before` and `after` have different statuses, the item has the first status in the order of rule 6 of STS-ENV-3, with the reasons of that status. The store MUST NOT report `unchanged` for a selector that it did not apply.
 

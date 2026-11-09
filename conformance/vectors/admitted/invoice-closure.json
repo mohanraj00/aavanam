@@ -1,0 +1,443 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A serving root gives two typed facts and the evidence root keeps both exact citations",
+  "clauses": [
+    "ADP-FACT-1",
+    "ADP-FACT-3",
+    "ADP-FACT-4",
+    "ADP-FACT-5",
+    "BUN-EXP-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The synthetic export has count 2 and code A17. The draft line has no admitted item. The two exact root closures keep the locator and exclude producer receipts and review output."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "admitted-invoice",
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence"
+  },
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "serving"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "serving"
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "serving"
+        },
+        "resources": [
+          {
+            "$ref": "count"
+          },
+          {
+            "$ref": "code"
+          }
+        ],
+        "metadata": [
+          "source_locator"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "count"
+              },
+              "rows": [
+                {
+                  "field": "count",
+                  "value": 2
+                }
+              ],
+              "metadata": {
+                "source_locator": "https://example.org/invoices/sample"
+              },
+              "next": null
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "code"
+              },
+              "rows": [
+                {
+                  "field": "code",
+                  "value": "A17"
+                }
+              ],
+              "metadata": {
+                "source_locator": "https://example.org/invoices/sample"
+              },
+              "next": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "serving"
+        },
+        "subject": {
+          "$ref": "count"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "serving"
+          },
+          {
+            "$ref": "evidence"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "both"
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "both"
+        },
+        "subject": {
+          "$ref": "count"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "evidence-count"
+              },
+              "relation": "support"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "both"
+        },
+        "subject": {
+          "$ref": "code"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "evidence-code"
+              },
+              "relation": "support"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "both"
+        },
+        "roots": [
+          {
+            "$ref": "serving"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "serving"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "unit"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "bindings"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "schema"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "count"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "code"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "locators"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "locator-count"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "locator-code"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "both"
+        },
+        "roots": [
+          {
+            "$ref": "evidence"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "evidence"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "relations"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "evidence-count"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "evidence-code"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "native-count"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "native-code"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "excerpt-count"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "excerpt-code"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "source"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "reading"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "count"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "code"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "schema"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    }
+  ]
+}

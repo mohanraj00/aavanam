@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from .jsontext import is_digest, is_ijson, valid_string
 from .kinds import KINDS, REF_TYPES, SETS, schema
 
 BYTES = 'aavanam/bytes/v1'
+NFC_TEXT = 'aavanam/nfc-text/v1'  # ADP-SEL-4
 LABEL = re.compile(r'[a-z0-9.-]+/[a-z0-9.-]+/v[1-9][0-9]*')  # a completeness label (LCK-CMPL-1)
 
 
@@ -24,13 +26,21 @@ def is_int(value) -> bool:
 
 
 def is_selector(value) -> bool:
-    """A selector of REL-SEL-1. A byte selector also agrees with REL-SEL-3."""
+    """Check the form of a selector (REL-SEL-1, REL-SEL-3, ADP-SEL-4)."""
     if not (isinstance(value, dict) and isinstance(value.get('selector_profile'), str)):
         return False
-    if value['selector_profile'] != BYTES:
+    if value['selector_profile'] not in (BYTES, NFC_TEXT):
         return True
     return (set(value) == {'selector_profile', 'start', 'end'} and is_int(value['start']) and is_int(value['end'])
             and 0 <= value['start'] <= value['end'])
+
+
+def decode_nfc(data: bytes) -> str:
+    """Decode checked reading bytes without changing their coordinates (ADP-SEL-4)."""
+    text = data.decode('utf-8')
+    if not unicodedata.is_normalized('NFC', text):
+        raise ValueError('the reading is not NFC')
+    return text
 
 
 def is_payload(value) -> bool:

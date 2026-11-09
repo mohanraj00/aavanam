@@ -1,0 +1,115 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "NFC offsets count code points across characters with different UTF-8 widths",
+  "clauses": [
+    "ADP-SEL-4",
+    "CHG-SEL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The count span is the same in both readings, despite different byte offsets. The code span differs."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "nfc-comparison"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence"
+  },
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-invoice:evidence"
+          },
+          {
+            "$ref": "nfc-comparison:root"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "citation"
+    },
+    {
+      "operation": "compare",
+      "request": {
+        "context": {
+          "$context": "citation"
+        },
+        "before": {
+          "$ref": "admitted-invoice:reading"
+        },
+        "after": {
+          "$ref": "nfc-comparison:contrast"
+        },
+        "selector": {
+          "selector_profile": "aavanam/nfc-text/v1",
+          "start": 16,
+          "end": 25
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "change": "changed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "compare",
+      "request": {
+        "context": {
+          "$context": "citation"
+        },
+        "before": {
+          "$ref": "admitted-invoice:reading"
+        },
+        "after": {
+          "$ref": "nfc-comparison:contrast"
+        },
+        "selector": {
+          "selector_profile": "aavanam/nfc-text/v1",
+          "start": 7,
+          "end": 15
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "change": "unchanged"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-comparison",
+  "root": "root",
+  "payloads": {
+    "source": {
+      "media_type": "text/plain",
+      "file": "source.txt"
+    },
+    "non-nfc": {
+      "media_type": "text/plain",
+      "file": "decomposed.txt"
+    }
+  },
+  "descriptors": [
+    {
+      "as": "source",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "source",
+        "payload": {
+          "$payload": "source"
+        }
+      }
+    },
+    {
+      "as": "contrast",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "source"
+        },
+        "producer": "example/document-reader/v1",
+        "coverage_profile": "example/unspecified/v1",
+        "payload": {
+          "$payload": "source"
+        }
+      }
+    },
+    {
+      "as": "non-nfc",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "source"
+        },
+        "producer": "example/document-reader/v1",
+        "coverage_profile": "example/unspecified/v1",
+        "payload": {
+          "$payload": "non-nfc"
+        }
+      }
+    },
+    {
+      "as": "comparison",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "derivation",
+        "operands": [
+          {
+            "$ref": "contrast"
+          },
+          {
+            "$ref": "non-nfc"
+          }
+        ],
+        "method": "example/comparison",
+        "result": null
+      }
+    },
+    {
+      "as": "relations",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "relation-set",
+        "members": [
+          {
+            "$ref": "comparison"
+          }
+        ]
+      }
+    },
+    {
+      "as": "root",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-comparison",
+        "relation_sets": [
+          {
+            "$ref": "relations"
+          }
+        ]
+      }
+    }
+  ]
+}

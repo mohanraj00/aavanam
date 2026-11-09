@@ -1,0 +1,117 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A range outside the NFC text gives selector_range",
+  "clauses": [
+    "ADP-SEL-4",
+    "CHG-SEL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The cited clause gives the refusal for this selector and target."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "nfc-comparison"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence"
+  },
+  "pair": "admitted/nfc-offsets",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-invoice:evidence"
+          },
+          {
+            "$ref": "nfc-comparison:root"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "citation"
+    },
+    {
+      "operation": "compare",
+      "request": {
+        "context": {
+          "$context": "citation"
+        },
+        "before": {
+          "$ref": "admitted-invoice:reading"
+        },
+        "after": {
+          "$ref": "nfc-comparison:contrast"
+        },
+        "selector": {
+          "selector_profile": "aavanam/nfc-text/v1",
+          "start": 16,
+          "end": 25
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "change": "changed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "compare",
+      "request": {
+        "context": {
+          "$context": "citation"
+        },
+        "before": {
+          "$ref": "admitted-invoice:reading"
+        },
+        "after": {
+          "$ref": "nfc-comparison:contrast"
+        },
+        "selector": {
+          "selector_profile": "aavanam/nfc-text/v1",
+          "start": 35,
+          "end": 36
+        }
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "selector_range"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "selector_range"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

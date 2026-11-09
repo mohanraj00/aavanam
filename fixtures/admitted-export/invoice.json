@@ -1,0 +1,24 @@
+[
+  {
+    "field": "count",
+    "value": 2,
+    "document_digest": "sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e",
+    "text_digest": "sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795",
+    "span": {
+      "start": 7,
+      "end": 15
+    },
+    "receipt_digest": "sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12"
+  },
+  {
+    "field": "code",
+    "value": "A17",
+    "document_digest": "sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e",
+    "text_digest": "sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795",
+    "span": {
+      "start": 16,
+      "end": 25
+    },
+    "receipt_digest": "sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28"
+  }
+]
