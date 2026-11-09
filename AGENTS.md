@@ -4,7 +4,7 @@ Read [CONSTITUTION.md](CONSTITUTION.md), this file, then [docs/STATUS.md](docs/S
 
 ## Shared harness setup
 
-Codex reads this entry point. `CLAUDE.md` and `GEMINI.md` import the constitution and this file, for Claude Code and agy (Antigravity). Shared skills live in `.agents/skills/`. `.claude/skills` is a relative link to that folder. Edit shared instructions only at their owning path.
+Codex reads this entry point. `CLAUDE.md` and `GEMINI.md` import the constitution and this file, for Claude Code and agy (Antigravity). Shared skills live in `.agents/skills/`. `.claude/skills` is a relative link to that folder. If your harness does not find a skill, read its `SKILL.md` directly. Edit shared instructions only at their owning path.
 
 For spec, vector or reference implementation work, read [.agents/skills/spec-workflow/SKILL.md](.agents/skills/spec-workflow/SKILL.md). The checks are deterministic and need no model account. This setup does not claim the same model performance in each harness.
 
@@ -61,7 +61,7 @@ End a code review with one line. If `.github/gates.json` or the shared categorie
 
 ## Records and publication
 
-Get a specific maintainer approval for each tag, release, package publication and outreach. An engineering task does not approve a promotion or a change to a different repository. Do not claim speed, retrieval quality or production guarantees without evidence. Report security concerns as [SECURITY.md](SECURITY.md) says.
+The governance block of the [constitution](CONSTITUTION.md#governance) owns the approval rule for each tag, release, package publication and outreach. An engineering task does not approve a promotion or a change to a different repository. Do not claim speed, retrieval quality or production guarantees without evidence. Report security concerns as [SECURITY.md](SECURITY.md) says.
 
 ## Writing
 
