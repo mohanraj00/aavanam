@@ -5,8 +5,8 @@
   </picture>
 </p>
 
-<p align="center"><b>Every consumer reads the same snapshot.</b><br>
-A versioned knowledge store for agents, scripts and code emitters.</p>
+<p align="center"><b>A knowledge base store for agents.</b><br>
+Every agent, script and code emitter reads the same snapshot.</p>
 
 ---
 

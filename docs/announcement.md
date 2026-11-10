@@ -8,7 +8,7 @@ Status: draft. Nothing in this file is posted. The owner approves each outreach 
 
 ## Long form
 
-**Aavanam 0.1.0: every consumer reads the same snapshot**
+**Aavanam 0.1.0: a knowledge base store for agents**
 
 I kept seeing the same failure. One body of knowledge, a handbook, say, gets copied into three shapes. The chat agent gets text chunks. The scripts get a CSV. The code generator gets a schema someone pasted into a repo. Six months later the three copies disagree, and nobody can tell which version produced which answer.
 
