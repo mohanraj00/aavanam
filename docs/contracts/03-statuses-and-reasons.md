@@ -98,9 +98,9 @@ The reason table:
 | `unknown_field` | `failed` | A field is not in the schema of the kind (KND-SCH-2) |
 | `field_count` | `failed` | A field has fewer or more values than its count permits (KND-SCH-3) |
 | `field_type` | `failed` | A value does not agree with its value type (KND-SCH-4) |
-| `selector_range` | `failed` | A selector selects outside its target (REL-SEL-4) |
+| `selector_range` | `failed` | A selector selects outside its target (REL-SEL-4, ADP-SEL-4) |
 | `excerpt_mismatch` | `failed` | The bytes of an excerpt do not agree with its ranges in the parent payload (BUN-EXC-3) |
-| `payload_form` | `failed` | A payload does not agree with the form that its data profile gives (DAT-TBL-3) |
+| `payload_form` | `failed` | A payload does not agree with the form that its data or selector profile gives (DAT-TBL-3, ADP-SEL-4) |
 | `values_form` | `failed` | The values of an observation do not agree with the form that its observation type gives (OBS-COV-3) |
 | `bundle_incomplete` | `failed` | A bundle does not have a reference target or payload bytes that the store does not have (BUN-IMP-2) |
 | `native_id_conflict` | `failed` | One native identity has more than one subject in a snapshot (IDN-NAT-3) |

@@ -1,0 +1,312 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-invoice-serving",
+  "root": "serving",
+  "payloads": {
+    "document": {
+      "media_type": "text/plain",
+      "file": "invoice.txt"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "file": "reading.txt"
+    }
+  },
+  "descriptors": [
+    {
+      "as": "source",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "source",
+        "payload": {
+          "$payload": "document"
+        }
+      }
+    },
+    {
+      "as": "reading",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "source"
+        },
+        "producer": "example/document-reader/v1",
+        "coverage_profile": "aavanam/coverage/v1",
+        "payload": {
+          "$payload": "reading"
+        }
+      }
+    },
+    {
+      "as": "schema",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "aavanam/admitted-facts/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"value\"]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "count",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "schema": {
+          "$ref": "schema"
+        },
+        "data_profile": "aavanam/table/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"value\"],\"key\":[\"field\"],\"rows\":[[\"count\",2]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "locator-count",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "count"
+        },
+        "origin": "example/document-reader/v1",
+        "values": {
+          "source_locator": "https://example.org/invoices/sample"
+        }
+      }
+    },
+    {
+      "as": "excerpt-count",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "reading"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "Count: 2"
+        },
+        "payload": {
+          "$text": "Count: 2",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "evidence-count",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "count"
+        },
+        "supports": {
+          "$ref": "excerpt-count"
+        },
+        "origin": "example/document-reader/v1",
+        "ext": {
+          "citation": {
+            "selector_profile": "aavanam/nfc-text/v1",
+            "start": 7,
+            "end": 15
+          },
+          "receipt_digest": "sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12"
+        }
+      }
+    },
+    {
+      "as": "native-count",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "evidence-count"
+        },
+        "native_scheme": "example/admitted-citation/v1",
+        "native_id": "[\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\",\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\",\"sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12\",7,15,\"count\",2]",
+        "checked": {}
+      }
+    },
+    {
+      "as": "code",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "schema": {
+          "$ref": "schema"
+        },
+        "data_profile": "aavanam/table/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"value\"],\"key\":[\"field\"],\"rows\":[[\"code\",\"A17\"]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "locator-code",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "code"
+        },
+        "origin": "example/document-reader/v1",
+        "values": {
+          "source_locator": "https://example.org/invoices/sample"
+        }
+      }
+    },
+    {
+      "as": "excerpt-code",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "reading"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "Code: A17"
+        },
+        "payload": {
+          "$text": "Code: A17",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "evidence-code",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "code"
+        },
+        "supports": {
+          "$ref": "excerpt-code"
+        },
+        "origin": "example/document-reader/v1",
+        "ext": {
+          "citation": {
+            "selector_profile": "aavanam/nfc-text/v1",
+            "start": 16,
+            "end": 25
+          },
+          "receipt_digest": "sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28"
+        }
+      }
+    },
+    {
+      "as": "native-code",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "evidence-code"
+        },
+        "native_scheme": "example/admitted-citation/v1",
+        "native_id": "[\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\",\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\",\"sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28\",16,25,\"code\",\"A17\"]",
+        "checked": {}
+      }
+    },
+    {
+      "as": "bindings",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "count": {
+            "$ref": "count"
+          },
+          "code": {
+            "$ref": "code"
+          }
+        }
+      }
+    },
+    {
+      "as": "unit",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "binding_set": {
+          "$ref": "bindings"
+        }
+      }
+    },
+    {
+      "as": "locators",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay-set",
+        "members": [
+          {
+            "$ref": "locator-count"
+          },
+          {
+            "$ref": "locator-code"
+          }
+        ]
+      }
+    },
+    {
+      "as": "relations",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "relation-set",
+        "members": [
+          {
+            "$ref": "evidence-count"
+          },
+          {
+            "$ref": "evidence-code"
+          }
+        ]
+      }
+    },
+    {
+      "as": "serving",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-invoice-serving",
+        "units": [
+          {
+            "$ref": "unit"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "locators"
+          }
+        ]
+      }
+    },
+    {
+      "as": "evidence",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-invoice-evidence",
+        "relation_sets": [
+          {
+            "$ref": "relations"
+          }
+        ],
+        "native_mappings": [
+          {
+            "$ref": "native-count"
+          },
+          {
+            "$ref": "native-code"
+          }
+        ]
+      }
+    }
+  ]
+}

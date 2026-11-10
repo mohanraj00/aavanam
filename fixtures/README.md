@@ -2,7 +2,7 @@
 
 A fixture is a neutral synthetic collection. Scenario vectors load a fixture into the store. The expected outcomes of a scenario come from the spec and from the fixture definition, never from an implementation run.
 
-The two fixtures are different on purpose:
+The two consumer fixtures are different on purpose:
 
 | | `equipment-handbook` | `product-specification` |
 |---|---|---|
@@ -16,6 +16,8 @@ The two fixtures are different on purpose:
 | Records | Two evidence records | Two evidence records and one overlay |
 
 The artifacts (`checklist.txt`, `acceptance.txt`) and the runtime declarations are opaque. The store does not read them (KND-OPQ-2). They stand for application components that the store does not implement.
+
+The `admitted-invoice` fixture has two admitted facts and two citation records. Its original text has a decomposed accent. The reading has the composed accent, and both have a four-byte character before the cited spans. The `admitted-export/invoice.json` file gives the documented fields of the proposed producer export in a neutral projection. Its receipt digests are synthetic. The `nfc-comparison` fixture gives two readings for the selector checks.
 
 ## Fixture file
 

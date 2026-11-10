@@ -735,15 +735,24 @@ class Store:
         return self.result('observations', items, context)
 
     def select(self, ref: str, selector: dict) -> bytes | dict:
-        """Apply a selector to a target: the bytes, or a refused item (REL-SEL-2 to REL-SEL-4)."""
+        """Apply a selector to a target (REL-SEL-2 to REL-SEL-4, ADP-SEL-4)."""
         desc = self.descriptor(ref)
-        if selector['selector_profile'] != d.BYTES or 'payload' not in d.KINDS[desc['kind']]:
+        profile = selector['selector_profile']
+        if profile not in (d.BYTES, d.NFC_TEXT) or (profile == d.NFC_TEXT and desc['kind'] != 'reading'):
             return refused(['unsupported_selector'], [ref])
         if 'payload' not in desc:
             return refused(['unsupported_selector'], [ref])
         data = self.blob(desc['payload']['digest'])
         if data is None:
             return refused(['payload_missing'], [ref])
+        if profile == d.NFC_TEXT:
+            try:
+                text = d.decode_nfc(data)
+            except ValueError:
+                return refused(['payload_form'], [ref])
+            if selector['end'] > len(text):
+                return refused(['selector_range'], [ref])
+            return text[selector['start']:selector['end']].encode('utf-8')
         if selector['end'] > len(data):
             return refused(['selector_range'], [ref])
         return data[selector['start']:selector['end']]
