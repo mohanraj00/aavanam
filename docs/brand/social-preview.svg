@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Aavanam social preview">
+  <title>Aavanam</title>
+  <rect width="1280" height="640" fill="#F7F4EC"/>
+  <g transform="translate(110 160) scale(4.6)">
+  <path d="M32 34 L56 44 L32 54 L8 44 Z" fill="#9CCFC8"/>
+  <path d="M32 22 L56 32 L32 42 L8 32 Z" fill="#14807A"/>
+  <path d="M32 10 L56 20 L32 30 L8 20 Z" fill="#0F3D3E"/>
+  <circle cx="32" cy="20" r="3.5" fill="#E3A33B"/>
+  </g>
+  <g font-family="'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif">
+    <text x="460" y="300" font-size="96" font-weight="600" fill="#0F3D3E">aavanam</text>
+    <text x="464" y="368" font-size="32" fill="#14807A">Every consumer reads the same snapshot.</text>
+    <text x="464" y="424" font-size="24" fill="#4A5B5B">Versioned knowledge store · Python standard library + SQLite</text>
+  </g>
+  <rect x="0" y="616" width="1280" height="24" fill="#0F3D3E"/>
+</svg>
