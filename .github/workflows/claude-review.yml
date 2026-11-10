@@ -39,11 +39,29 @@ jobs:
       issues: read
       pull-requests: read
     outputs:
-      reason: ${{ steps.gate.outputs.reason }}
+      reason: ${{ steps.permission.outputs.reason || steps.gate.outputs.reason }}
       head: ${{ steps.gate.outputs.head }}
       base: ${{ steps.gate.outputs.base }}
       merge_base: ${{ steps.gate.outputs.merge_base }}
     steps:
+      - name: Require repository write permission
+        id: permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          if ! permission="$(gh api "repos/${REPOSITORY}/collaborators/${COMMENTER}/permission" --jq .permission)"; then
+            echo 'reason=The gate could not check the repository permission of the commenter.' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          case "$permission" in
+            admin|maintain|write) ;;
+            *)
+              echo 'reason=The commenter needs repository write permission.' >> "$GITHUB_OUTPUT"
+              exit 1
+              ;;
+          esac
       - id: gate
         uses: mohanraj00/.github/gates@3af13286de74e18657601060d200a7b9cc667c8d # Replace with the SHA of the gates action of the project.
         with:
