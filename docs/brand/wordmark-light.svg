@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" width="280" height="64" role="img" aria-label="Aavanam">
   <title>Aavanam</title>
-  <path d="M32 34 L56 44 L32 54 L8 44 Z" fill="#9CCFC8"/>
-  <path d="M32 22 L56 32 L32 42 L8 32 Z" fill="#14807A"/>
-  <path d="M32 10 L56 20 L32 30 L8 20 Z" fill="#0F3D3E"/>
-  <circle cx="32" cy="20" r="3.5" fill="#E3A33B"/>
-  <text x="72" y="43" fill="#0F3D3E" font-family="'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="600" letter-spacing="0.5">aavanam</text>
+  <path d="M32 34 L56 44 L32 54 L8 44 Z" fill="#A9B0B3"/>
+  <path d="M32 22 L56 32 L32 42 L8 32 Z" fill="#50595E"/>
+  <path d="M32 10 L56 20 L32 30 L8 20 Z" fill="#12181B"/>
+  <circle cx="32" cy="20" r="3.5" fill="#56C2DB"/>
+  <text x="72" y="43" fill="#12181B" font-family="'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="600" letter-spacing="-0.3">aavanam</text>
 </svg>

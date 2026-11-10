@@ -4,7 +4,7 @@ Status: draft. Nothing in this file is posted. The owner approves each outreach 
 
 ## Short form
 
-> Aavanam 0.1.0 is out. It's a small versioned knowledge store: put a document, a table and the evidence between them into one immutable snapshot, and your chat agent, your scripts and your code generator all read the same bytes. Each run can lock the exact inputs it used. Spec first, 400 conformance vectors, reference implementation in plain Python and SQLite. https://github.com/mohanraj00/aavanam
+> Aavanam 0.1.0 is out. It's a small versioned knowledge store: put a document, a table and the evidence between them into one immutable snapshot, and your chat agent, your scripts and your code generator all read the same bytes. Each run can lock the exact inputs it used. Spec first, 400 conformance vectors, and a small reference implementation you can read end to end. https://github.com/mohanraj00/aavanam
 
 ## Long form
 
@@ -20,7 +20,7 @@ A few things it deliberately does not do:
 - It doesn't guess. Search never fills in a missing value, and "unknown" never turns into a default.
 - It doesn't claim more than it knows. A lock is complete over the references it declares, and says so.
 
-0.1.0 is a first marker, not a product. The 16 contract documents are drafts. There are 400 conformance vectors, and the reference implementation passes all of them; a null implementation fails 399 of them, which is the point. The reference store is the Python standard library over SQLite, so you can read every line of it in an afternoon.
+0.1.0 is a first marker, not a product. The 16 contract documents are drafts. There are 400 conformance vectors, and the reference implementation passes all of them; a null implementation fails 399 of them, which is the point. The spec does not fix a language or a storage engine. The 0.1.0 reference store happens to be the Python standard library over SQLite, so you can read every line of it in an afternoon.
 
 The README has a short example that stores a short manual and a table, reads them from an agent and a script, and locks a run. It runs in the test suite, so it stays true.
 

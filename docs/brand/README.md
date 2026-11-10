@@ -1,6 +1,6 @@
 # Brand kit
 
-The mark shows three stacked sheets: the versions of a collection. The dot on the top sheet is the lock: one exact point that a run can name.
+The mark shows three stacked sheets: the versions of a collection. The sheets use only the neutral ink tones. The dot on the top sheet is the lock: one exact point that a run can name.
 
 ## Files
 
@@ -24,14 +24,20 @@ The owner uploads the PNG in the repository settings. That upload is an outreach
 
 ## Palette
 
-| Name | Light background | Dark background | Use |
-|---|---|---|---|
-| Ink | `#0F3D3E` | `#E8F1EF` | The top sheet, the name and the body text. |
-| Teal | `#14807A` | `#4FB8AE` | The middle sheet and the tagline. |
-| Mist | `#9CCFC8` | `#2E6F69` | The bottom sheet. |
-| Amber | `#E3A33B` | `#F2B84B` | The lock dot. Use it only for one small accent. |
-| Paper | `#F7F4EC` | `#0E1A1B` | The background. |
-| Slate | `#4A5B5B` | `#A9B8B6` | Secondary text. |
+Aavanam uses the same neutral base as the sibling projects entelos and groundgate. Each project in the family owns one accent. The accent of Aavanam is Seal, and the mark uses it only for the lock dot. Seal is a different hue from the entelos Telos green and the groundgate evidence yellow.
+
+| Name | Hex | Use |
+|---|---|---|
+| Ink 900 | `#12181B` | Text on paper. The top sheet on light. The dark ground. |
+| Ink 500 | `#50595E` | Secondary text. The middle sheet on light, the bottom sheet on dark. |
+| Ink 300 | `#A9B0B3` | The bottom sheet on light, the middle sheet on dark. Not for text on paper. |
+| Line 200 | `#D5D9D8` | Hairline borders. Never text. |
+| Paper 50 | `#F5F5F0` | The light ground. |
+| Light on dark | `#EEF0EC` | Text on ink. The top sheet on dark. |
+| Seal | `#56C2DB` | The lock dot on the ink top sheet (light mark). |
+| Seal deep | `#0B6E8A` | The lock dot on the light top sheet (dark mark). Links on paper. |
+
+The design canvas of this kit is a private Claude Design artifact of the owner. The SVG files in this folder are the source of record.
 
 ## Type
 
