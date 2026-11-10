@@ -475,7 +475,7 @@
   "fixtures/product-specification/runtime-b.json": "6ff6837da9e66f201431f1b086e8b5645da25a0278c2e4d002bd6c64524a61ee",
   "fixtures/product-specification/specification.md": "0ba706a0a22cec3f51cd205a6ad98c5a9fbdd7fdcbb44ee2f199cef0fa4277e8",
   "fixtures/product-specification/specification.txt": "61a663db1fb81cff130eae0cfcfb00d2ab6afca28b1b4433420611f1cacace26",
-  "pyproject.toml": "60d1ae0354f55a6d8560ac84396249e76abeeffe699c4c6e1415054e4ddcadbf",
+  "pyproject.toml": "f821c146709b709c3a05b2031535878f739f0ee1afcf7429fb8c2b452cdda94a",
   "src/aavanam/__init__.py": "2663475e0c1d57149b3f12cd8cad9f71cbad13c3662e6db62fbd10f4f796b025",
   "src/aavanam/admitted.py": "0da897c16eee521a8cfc1eb25cc582d8459c277f9044418b45665822ee433a80",
   "src/aavanam/descriptors.py": "ab98e8faa3fa155cb24037d60cec64967196065c82a853aa451f5cf0514353de",
