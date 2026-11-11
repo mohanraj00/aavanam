@@ -1,0 +1,588 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A logical ID that no head contains gives absent in each item",
+  "clauses": [
+    "LIF-ITM-1",
+    "LIF-ITM-4",
+    "LIF-HST-1",
+    "LIF-HST-2",
+    "LIF-HST-3",
+    "LIF-HST-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "a1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "a2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "b": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"bolt\"]}"
+    },
+    "c": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"clamp\"]}"
+    },
+    "x": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"other\"]}"
+    },
+    "rc": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\"}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a1"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "a2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a2"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "b"
+              },
+              "logical_id": "schema-b"
+            }
+          },
+          {
+            "as": "c",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "c"
+              },
+              "logical_id": "schema-c"
+            }
+          },
+          {
+            "as": "x",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "x"
+              },
+              "logical_id": "schema-b"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rc",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "subjects": [
+                {
+                  "$ref": "a1"
+                }
+              ],
+              "payload": {
+                "$payload": "rc"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a1"
+          },
+          {
+            "$ref": "b"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s2"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a2"
+          },
+          {
+            "$ref": "c"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s3"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "catalog",
+        "schemas": [
+          {
+            "$ref": "x"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "o1"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "s1"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k1"
+        },
+        "receipt": {
+          "$ref": "rc"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "s1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "o1"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "catalog"
+            }
+          }
+        ]
+      },
+      "as_ref": "ko"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "ko"
+        },
+        "receipt": {
+          "$ref": "rc"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "ko"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "o1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "s2"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": {
+          "$ref": "s1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k2"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k2"
+        },
+        "receipt": {
+          "$ref": "rc"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k2"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "s2"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "s3"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": {
+          "$ref": "s2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k3"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k3"
+        },
+        "receipt": {
+          "$ref": "rc"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k3"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "s3"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "item_history",
+      "request": {
+        "collection": "handbook",
+        "logical_id": "schema-z"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              },
+              "previous_head": null,
+              "head": {
+                "$ref": "s1"
+              },
+              "revisions": [],
+              "change": "absent"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k2"
+              },
+              "previous_head": {
+                "$ref": "s1"
+              },
+              "head": {
+                "$ref": "s2"
+              },
+              "revisions": [],
+              "change": "absent"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k3"
+              },
+              "previous_head": {
+                "$ref": "s2"
+              },
+              "head": {
+                "$ref": "s3"
+              },
+              "revisions": [],
+              "change": "absent"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k1"
+        },
+        {
+          "$ref": "rc"
+        }
+      ],
+      [
+        {
+          "$ref": "ko"
+        },
+        {
+          "$ref": "rc"
+        }
+      ],
+      [
+        {
+          "$ref": "k2"
+        },
+        {
+          "$ref": "rc"
+        }
+      ],
+      [
+        {
+          "$ref": "k3"
+        },
+        {
+          "$ref": "rc"
+        }
+      ]
+    ]
+  }
+}

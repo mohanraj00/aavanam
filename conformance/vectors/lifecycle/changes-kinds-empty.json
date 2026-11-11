@@ -1,0 +1,287 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Changes with an empty kinds list fail with field_count",
+  "clauses": [
+    "LIF-CHG-1",
+    "KND-SCH-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "sch": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "r1": {
+      "media_type": "text/plain",
+      "text": "sample rule body, version 1\n"
+    },
+    "r2": {
+      "media_type": "text/plain",
+      "text": "sample rule body, version 2\n"
+    },
+    "keep": {
+      "media_type": "text/plain",
+      "text": "sample rule body that does not change\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sch",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "sch"
+              },
+              "logical_id": "schema-limits"
+            }
+          },
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "payload": {
+                "$payload": "r1"
+              },
+              "logical_id": "rule-limit"
+            }
+          },
+          {
+            "as": "r2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "payload": {
+                "$payload": "r2"
+              },
+              "logical_id": "rule-limit"
+            }
+          },
+          {
+            "as": "keep",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "payload": {
+                "$payload": "keep"
+              },
+              "logical_id": "rule-keep"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "logical_id": "bindings-main",
+              "bindings": {
+                "rule": {
+                  "$ref": "r1"
+                },
+                "keep": {
+                  "$ref": "keep"
+                },
+                "data": {
+                  "$ref": "sch"
+                }
+              }
+            }
+          },
+          {
+            "as": "b2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "logical_id": "bindings-main",
+              "bindings": {
+                "rule": {
+                  "$ref": "r2"
+                },
+                "keep": {
+                  "$ref": "keep"
+                },
+                "data": {
+                  "$ref": "sch"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "logical_id": "unit-main",
+              "binding_set": {
+                "$ref": "b1"
+              }
+            }
+          },
+          {
+            "as": "u2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "logical_id": "unit-main",
+              "binding_set": {
+                "$ref": "b2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "rules",
+        "units": [
+          {
+            "$ref": "u1"
+          }
+        ],
+        "schemas": [
+          {
+            "$ref": "sch"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "rules",
+        "units": [
+          {
+            "$ref": "u2"
+          }
+        ],
+        "schemas": [
+          {
+            "$ref": "sch"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s2"
+    },
+    {
+      "operation": "snapshot_changes",
+      "request": {
+        "before": {
+          "$ref": "s1"
+        },
+        "after": {
+          "$ref": "s2"
+        },
+        "kinds": []
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_count"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lifecycle/changes-kinds-ok"
+}
