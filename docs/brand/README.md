@@ -10,17 +10,16 @@ The mark shows three stacked sheets: the versions of a collection. The sheets us
 | [mark-dark.svg](mark-dark.svg) | The mark on a dark background. |
 | [wordmark-light.svg](wordmark-light.svg) | The mark and the name on a light background. The README uses it. |
 | [wordmark-dark.svg](wordmark-dark.svg) | The mark and the name on a dark background. The README uses it in dark mode. |
-| [social-preview.svg](social-preview.svg) | The source of the social preview. |
-| [social-preview.png](social-preview.png) | The GitHub social preview, 1280 x 640. |
+| [social-preview.svg](social-preview.svg) | The source of the GitHub social preview, 1280 x 640. |
 
-The SVG files are the source. The PNG is a render of `social-preview.svg`, because GitHub accepts only a raster image for a social preview. To make the PNG again after a change to the SVG, use a browser in headless mode at 1280 x 640, for example:
+The SVG files are the source. GitHub accepts only a raster image for a social preview, so the owner makes a PNG from `social-preview.svg` before the upload. The repository does not keep the PNG, because `AGENTS.md` does not permit generated binaries. Write the PNG to a folder outside the checkout. Use a browser in headless mode at 1280 x 640, for example:
 
 ```sh
 chrome --headless --hide-scrollbars --force-device-scale-factor=1 --window-size=1280,640 \
-  --screenshot=docs/brand/social-preview.png "file://$PWD/docs/brand/social-preview.svg"
+  --screenshot="$OUT/social-preview.png" "file://$PWD/docs/brand/social-preview.svg"
 ```
 
-The owner uploads the PNG in the repository settings. That upload is an outreach step and needs owner approval.
+`$OUT` is a folder outside the checkout. The owner uploads the PNG in the repository settings. That upload is an outreach step and needs owner approval.
 
 ## Palette
 

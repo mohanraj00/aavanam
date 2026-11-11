@@ -32,5 +32,5 @@ https://github.com/mohanraj00/aavanam
 
 - [ ] The owner approves the text.
 - [ ] The owner approves each channel.
-- [ ] The owner uploads `docs/brand/social-preview.png` as the social preview of the repository.
+- [ ] The owner renders `docs/brand/social-preview.svg` to a PNG outside the checkout, as `docs/brand/README.md` says, and uploads it as the social preview of the repository.
 - [ ] The links and the vector counts agree with the release.
