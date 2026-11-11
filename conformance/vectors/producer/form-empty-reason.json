@@ -1,0 +1,55 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer_forget with an empty reason fails",
+  "clauses": [
+    "PRD-SEC-3",
+    "STS-MAL-1",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the request has the form fault that gives field_type."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_forget",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "reason": ""
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/forget-ok"
+}

@@ -110,7 +110,7 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.1.0 is the first public marker. All 18 contract documents are drafts. Documents 17 and 18 add lifecycle and discovery for v0.2. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.1.0 is the first public marker. All 19 contract documents are drafts. Documents 17 and 18 add lifecycle and discovery for v0.2. Document 19 adds producer storage for v0.2. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|

@@ -1,0 +1,82 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read context gives a descriptor of its closure",
+  "clauses": [
+    "PRD-ISO-1",
+    "QRY-GET-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The pair of context-cannot-read gets a fixture source in place of the producer key."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "src"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

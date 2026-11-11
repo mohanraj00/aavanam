@@ -1,0 +1,59 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A second put of the same key and the same bytes is ok and does not change the store",
+  "clauses": [
+    "PRD-OBJ-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "PRD-OBJ-2 gives the same item and no change."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

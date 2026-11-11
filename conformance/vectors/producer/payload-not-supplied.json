@@ -1,0 +1,77 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Producer bytes do not supply the bytes of a payload",
+  "clauses": [
+    "PRD-ISO-2",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the runner does not send the payload bytes. The producer has the same bytes under the payload digest."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "invoice": {
+      "media_type": "text/plain",
+      "text": "Synthetic invoice text: total 120.00 units.",
+      "stored": false
+    }
+  },
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "invoice"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "payload_missing"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "payload_missing"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/payload-supplied-ok"
+}

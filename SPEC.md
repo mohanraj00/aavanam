@@ -1,6 +1,6 @@
 # Aavanam specification
 
-Status: draft. Documents 01 to 18 are in the `draft` state. No clause is normative yet.
+Status: draft. Documents 01 to 19 are in the `draft` state. No clause is normative yet.
 
 This file is the index. The normative text is in `docs/contracts/`. The [constitution](CONSTITUTION.md) has authority over this specification. This specification has authority over the implementation.
 
@@ -26,6 +26,7 @@ This file is the index. The normative text is in `docs/contracts/`. The [constit
 | RSV | [16 Reserved profiles](docs/contracts/16-reserved-profiles.md) | Features in the spec but not built, with their unsupported responses |
 | LIF | [17 Lifecycle](docs/contracts/17-lifecycle.md) | Items across snapshots, changes between two snapshots, history of a logical ID |
 | DSC | [18 Discovery](docs/contracts/18-discovery.md) | Exact item listing in a read context by kind and logical ID |
+| PRD | [19 Producer storage](docs/contracts/19-producer-storage.md) | The producer section: opaque objects, logs that only grow, removal records |
 
 The conformance vector format and the runner are in [conformance/](conformance/README.md). Vectors cite the clause IDs in these documents.
 
@@ -51,7 +52,7 @@ The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RE
 
 A profile is a named set of clauses and kinds, with a version. The base profile is `aavanam/base/v1`. Each clause belongs to the base profile unless its document names a different profile.
 
-The base profile is at minor version 4. Minor version 1 adds the kind `activation` to minor version 0 (KND-REG-5). Minor version 2 adds storage sections (PUB-SEC-1) and the reason `section_violation`. Minor version 3 adds the NFC text selector (ADP-SEL-4) and the admitted-facts adapter profile (ADP-FACT-1). Minor version 4 adds the lifecycle operations of document 17 and the discovery operation of document 18. A minor version does not change the profile identity. Thus a descriptor of each minor version has `descriptor_profile` `aavanam/base/v1`.
+The base profile is at minor version 5. Minor version 1 adds the kind `activation` to minor version 0 (KND-REG-5). Minor version 2 adds storage sections (PUB-SEC-1) and the reason `section_violation`. Minor version 3 adds the NFC text selector (ADP-SEL-4) and the admitted-facts adapter profile (ADP-FACT-1). Minor version 4 adds the lifecycle operations of document 17 and the discovery operation of document 18. Minor version 5 adds the producer section (PRD-SEC-1), its operations and its reasons. A minor version does not change the profile identity. Thus a descriptor of each minor version has `descriptor_profile` `aavanam/base/v1`.
 
 - A compatible addition to a profile increments the minor version in the profile document.
 - An incompatible change makes a new major version, for example `aavanam/base/v2`. Old objects keep their old profile identity. A transformation makes new objects.

@@ -1,0 +1,31 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A forget of a key with no object is not_found",
+  "clauses": [
+    "PRD-RMV-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The store has no producer data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_forget",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "reason": "the tenant asked"
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_producer_key"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/forget-ok"
+}

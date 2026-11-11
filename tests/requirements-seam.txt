@@ -1,0 +1,2 @@
+# The pinned groundgate release of the seam test (tests/test_groundgate_seam.py).
+groundgate==0.11.0 --hash=sha256:11c4f969d01c9de5c2898474a56909bf868746851cb621c545264ee5a4bdd89f

@@ -90,6 +90,15 @@ jobs:
           python3 -c 'import sqlite3; print("SQLite", sqlite3.sqlite_version)'
       - name: Test the reference implementation
         run: python3 -B -m unittest discover -s tests
+      # The tests above run with the standard library only, so the seam test skips there. Then install the pinned
+      # producer release with its hash, and require the seam test to run (PRD-PRO-1).
+      - name: Install the pinned groundgate release of the seam test
+        run: |
+          python3 -m pip install --require-hashes --only-binary :all: --no-deps -r tests/requirements-seam.txt
+      - name: Run the seam test against the pinned groundgate release
+        env:
+          AAVANAM_SEAM: "1"
+        run: python3 -B -m unittest discover -s tests -p test_groundgate_seam.py
       - name: Run all vectors against the reference implementation
         run: python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter
       # The null implementation refuses each call. If it passes all vectors, a refusal vector has no positive pair.

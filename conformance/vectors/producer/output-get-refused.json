@@ -1,0 +1,32 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer_get on a local output store is unsupported",
+  "clauses": [
+    "PRD-SEC-1",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The store has no producer section, and the store checks the role before the request."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_get",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text"
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "producer_section_absent"
+        ],
+        "items": [],
+        "store_unchanged": true
+      },
+      "store": "output"
+    }
+  ],
+  "pair": "producer/put-get-ok"
+}
