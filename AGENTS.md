@@ -66,3 +66,5 @@ The governance block of the [constitution](CONSTITUTION.md#governance) owns the 
 ## Writing
 
 Docs, issues, commits and comments use ASD-STE100 Simplified Technical English. Normative clauses use RFC 2119 keywords. Do not use em dashes or filler words.
+
+One exception applies. The top section of `README.md`, from the start to the end of "What it is not", and `docs/announcement.md` use the voice of the maintainer, in plain English. These parts are for first-time readers. The rest of `README.md`, the contracts, the spec, the vectors, the internal docs, the commits and the PR bodies keep ASD-STE100. The exception does not permit em dashes, filler words or claims without evidence.

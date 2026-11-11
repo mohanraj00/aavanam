@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Aavanam mark">
+  <title>Aavanam mark</title>
+  <path d="M32 34 L56 44 L32 54 L8 44 Z" fill="#50595E"/>
+  <path d="M32 22 L56 32 L32 42 L8 32 Z" fill="#A9B0B3"/>
+  <path d="M32 10 L56 20 L32 30 L8 20 Z" fill="#EEF0EC"/>
+  <circle cx="32" cy="20" r="3.5" fill="#0B6E8A"/>
+</svg>
