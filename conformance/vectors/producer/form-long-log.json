@@ -1,0 +1,44 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer_append with a log name of 9 parts fails",
+  "clauses": [
+    "PRD-SEC-3",
+    "STS-MAL-1",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the request has the form fault that gives field_type."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/run-writer",
+        "log": [
+          "p",
+          "p",
+          "p",
+          "p",
+          "p",
+          "p",
+          "p",
+          "p",
+          "p"
+        ],
+        "sequence": 1,
+        "entry": "eyJhbnN3ZXIiOiJ5ZXMifQ=="
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/append-read-ok"
+}

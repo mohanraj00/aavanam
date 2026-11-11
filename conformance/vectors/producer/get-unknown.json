@@ -1,0 +1,30 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A get of a key with no object and no removal record is not_found",
+  "clauses": [
+    "PRD-OBJ-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The store has no producer data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_get",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text"
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_producer_key"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/put-get-ok"
+}

@@ -16,6 +16,7 @@ import sqlite3
 import threading
 import uuid
 from collections import deque
+from datetime import datetime, timezone
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
@@ -53,6 +54,12 @@ CREATE TABLE IF NOT EXISTS heads (collection TEXT PRIMARY KEY, snapshot TEXT NOT
 CREATE TABLE IF NOT EXISTS publications (candidate TEXT PRIMARY KEY, receipt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS gates (collection TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS sections (collection TEXT PRIMARY KEY, section TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS producer_objects (producer TEXT NOT NULL, key TEXT NOT NULL, data BLOB NOT NULL,
+    PRIMARY KEY (producer, key));
+CREATE TABLE IF NOT EXISTS producer_entries (producer TEXT NOT NULL, log TEXT NOT NULL, sequence INTEGER NOT NULL,
+    entry BLOB NOT NULL, PRIMARY KEY (producer, log, sequence));
+CREATE TABLE IF NOT EXISTS producer_removals (producer TEXT NOT NULL, sequence INTEGER NOT NULL, key TEXT NOT NULL,
+    time TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY (producer, sequence));
 """
 
 
@@ -175,6 +182,31 @@ def is_refs(value, empty: bool = False) -> bool:
     return isinstance(value, list) and (empty or bool(value)) and all(is_digest(r) for r in value)
 
 
+def is_name(most: int):
+    """A string of 1 to `most` characters that the store can keep (PRD-SEC-3)."""
+    return lambda value: is_text(value) and 1 <= len(value) <= most
+
+
+def is_b64(value) -> bool:
+    """Base64 text (RFC 4648 section 4) (PRD-SEC-3)."""
+    try:
+        base64.b64decode(value, validate=True)
+        return isinstance(value, str)
+    except (binascii.Error, ValueError, TypeError):
+        return False
+
+
+def is_log(value) -> bool:
+    """A log name: a list of 1 to 8 strings of 1 to 512 characters (PRD-SEC-3)."""
+    return isinstance(value, list) and 1 <= len(value) <= 8 and all(map(is_name(512), value))
+
+
+# The request fields of the producer section (PRD-SEC-3)
+PRODUCER = {'producer': (True, is_name(256))}
+PRODUCER_KEY = {**PRODUCER, 'key': (True, is_name(512))}
+PRODUCER_LOG = {**PRODUCER, 'log': (True, is_log)}
+
+
 def b64(data: bytes) -> str:
     return base64.b64encode(data).decode('ascii')
 
@@ -205,6 +237,8 @@ class Store:
         self.broken = False  # a rollback failed, so the connection can show a partial write
         self.db = sqlite3.connect(path, timeout=60, isolation_level=None, check_same_thread=False)
         self.db.executescript(SCHEMA)
+        self.db.execute('PRAGMA secure_delete = ON')  # a removed producer object leaves no bytes in a free page (PRD-RMV-3)
+        self.clock = lambda: datetime.now(timezone.utc)  # the store clock of a removal record (PRD-RMV-1)
         columns = [c for (_, c, *_) in self.db.execute('PRAGMA table_info(contexts)')]
         if 'capabilities' not in columns:  # a context of an older store file has each capability (CTX-PRJ-2)
             self.db.execute('ALTER TABLE contexts ADD COLUMN capabilities TEXT NOT NULL DEFAULT ' +
@@ -336,7 +370,10 @@ class Store:
     def fingerprint(self) -> str:
         h = hashlib.sha256()
         for table, key in (('objects', 'ref'), ('blobs', 'digest'), ('candidates', 'id'),
-                           ('heads', "collection || ' ' || snapshot"), ('publications', "candidate || ' ' || receipt || ' ' || coalesce(activation, '')")):
+                           ('heads', "collection || ' ' || snapshot"), ('publications', "candidate || ' ' || receipt || ' ' || coalesce(activation, '')"),
+                           ('producer_objects', "producer || ' ' || key || ' ' || hex(data)"),
+                           ('producer_entries', "producer || ' ' || log || ' ' || sequence || ' ' || hex(entry)"),
+                           ('producer_removals', "producer || ' ' || sequence || ' ' || key || ' ' || time || ' ' || reason")):
             for (value,) in self.db.execute(f'SELECT {key} FROM {table} ORDER BY {key}'):
                 h.update(f'{table}:{value}\n'.encode())
         return h.hexdigest()
@@ -393,6 +430,8 @@ class Store:
                     raise sqlite3.DatabaseError('the connection is not usable')
                 if self.role == 'device' and (operation in WRITES or operation == 'import' and self.has_objects()):
                     raise fail('read_only_store')  # BUN-IMP-6: after STS-MAL-4, before the request
+                if operation.startswith('producer_') and self.role != 'writer':
+                    raise fail('producer_section_absent')  # PRD-SEC-1: after STS-MAL-4, before the request
                 if not isinstance(request, dict):
                     raise fail('field_type')
                 return detached(method(request))  # a caller cannot change the cached descriptors (CTX-OPN-2)
@@ -1290,6 +1329,94 @@ class Store:
         withdrawn = {w['target'] for _, w in self.records(members, {'retraction', 'supersession'})}
         gaps += [('withdrawn', r) for r, _ in checks if r in withdrawn]
         return out + [item(entry='gap', subject=root, gap=g, ref=r) for g, r in gaps]
+
+    # The producer section (document 17). The store keeps the bytes and never parses them (PRD-SEC-4).
+
+    def producer_write(self, change) -> dict:
+        """Run `change()` in one write transaction, so a second open of the store sees all of it or none (STS-MAL-2)."""
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            result = change()
+            self.db.execute('COMMIT')
+            return result
+        except BaseException:
+            self.rollback()
+            raise
+
+    def producer_object(self, producer: str, key: str) -> bytes | None:
+        row = self.db.execute('SELECT data FROM producer_objects WHERE producer = ? AND key = ?', (producer, key)).fetchone()
+        return None if row is None else bytes(row[0])
+
+    def producer_absent(self, producer: str, key: str) -> Failure:
+        """The not_found outcome of a key with no object (PRD-OBJ-3, PRD-RMV-2)."""
+        removed = self.db.execute('SELECT 1 FROM producer_removals WHERE producer = ? AND key = ?', (producer, key)).fetchone()
+        return fail('producer_removed' if removed else 'unknown_producer_key')
+
+    def op_producer_put(self, request: dict) -> dict:
+        strict(request, {**PRODUCER_KEY, 'data': (True, is_b64)})
+        producer, key, data = request['producer'], request['key'], unb64(request['data'])
+
+        def change():
+            kept = self.producer_object(producer, key)
+            if kept is None:  # PRD-OBJ-1, PRD-OBJ-4
+                self.db.execute('INSERT INTO producer_objects VALUES (?, ?, ?)', (producer, key, data))
+            elif kept != data:
+                raise fail('producer_key_conflict')  # PRD-OBJ-2
+        self.producer_write(change)
+        return self.envelope('producer_put', 'ok', [], [item(key=key, size=len(data))])
+
+    def op_producer_get(self, request: dict) -> dict:
+        strict(request, PRODUCER_KEY)
+        producer, key = request['producer'], request['key']
+        data = self.producer_object(producer, key)
+        if data is None:
+            raise self.producer_absent(producer, key)
+        return self.envelope('producer_get', 'ok', [], [item(key=key, data=b64(data))])  # PRD-OBJ-3
+
+    def op_producer_forget(self, request: dict) -> dict:
+        strict(request, {**PRODUCER_KEY, 'reason': (True, is_name(1024))})
+        producer, key, why = request['producer'], request['key'], request['reason']
+
+        def change():  # the removal and its record in one transaction (PRD-RMV-1)
+            if self.producer_object(producer, key) is None:
+                raise self.producer_absent(producer, key)  # PRD-RMV-2
+            (count,) = self.db.execute('SELECT count(*) FROM producer_removals WHERE producer = ?', (producer,)).fetchone()
+            time = self.clock().astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            self.db.execute('DELETE FROM producer_objects WHERE producer = ? AND key = ?', (producer, key))
+            self.db.execute('INSERT INTO producer_removals VALUES (?, ?, ?, ?, ?)', (producer, count + 1, key, time, why))
+            return {'sequence': count + 1, 'key': key, 'time': time, 'reason': why}
+        return self.envelope('producer_forget', 'ok', [], [item(**self.producer_write(change))])
+
+    def op_producer_removals(self, request: dict) -> dict:
+        strict(request, PRODUCER)
+        rows = self.db.execute('SELECT sequence, key, time, reason FROM producer_removals WHERE producer = ? ORDER BY sequence',
+                               (request['producer'],))
+        return self.envelope('producer_removals', 'ok', [],
+                             [item(sequence=s, key=k, time=t, reason=r) for s, k, t, r in rows])  # PRD-RMV-4
+
+    @staticmethod
+    def log_name(log: list[str]) -> str:
+        return json.dumps(log, ensure_ascii=False, separators=(',', ':'))  # one text for one name (PRD-LOG-1)
+
+    def op_producer_append(self, request: dict) -> dict:
+        strict(request, {**PRODUCER_LOG, 'sequence': (True, lambda v: is_count(v, 1)), 'entry': (True, is_b64)})
+        producer, log, sequence = request['producer'], self.log_name(request['log']), request['sequence']
+        entry = unb64(request['entry'])
+
+        def change():  # the check and the write in one transaction, so two writers cannot both add one number (PRD-LOG-2)
+            (count,) = self.db.execute('SELECT count(*) FROM producer_entries WHERE producer = ? AND log = ?',
+                                       (producer, log)).fetchone()
+            if sequence != count + 1:
+                raise fail('log_moved')
+            self.db.execute('INSERT INTO producer_entries VALUES (?, ?, ?, ?)', (producer, log, sequence, entry))
+        self.producer_write(change)
+        return self.envelope('producer_append', 'ok', [], [item(sequence=sequence)])
+
+    def op_producer_read(self, request: dict) -> dict:
+        strict(request, PRODUCER_LOG)
+        rows = self.db.execute('SELECT sequence, entry FROM producer_entries WHERE producer = ? AND log = ? ORDER BY sequence',
+                               (request['producer'], self.log_name(request['log'])))
+        return self.envelope('producer_read', 'ok', [], [item(sequence=s, entry=b64(bytes(e))) for s, e in rows])  # PRD-LOG-3
 
     def op_render(self, request: dict) -> dict:
         strict(request, {'context': (True, is_str), 'roots': (True, lambda v: is_refs(v, empty=True)),

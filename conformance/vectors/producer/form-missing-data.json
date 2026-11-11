@@ -1,0 +1,32 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer_put with no data fails",
+  "clauses": [
+    "PRD-SEC-3",
+    "STS-MAL-1",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the request has the form fault that gives field_count."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text"
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_count"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/put-get-ok"
+}
