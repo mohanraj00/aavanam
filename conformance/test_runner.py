@@ -410,14 +410,6 @@ class RunVectorTest(unittest.TestCase):
         for bundle, words in cases:
             problems = runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': bundle}), 't', {'steps': [step]})
             self.assertTrue(problems and words in problems[0], (words, problems))
-        dropped = runner.Expander('t', {})
-        dropped.bundles['x'] = good
-        self.assertNotIn('withheld', dropped.value({'$bundle': 'x', 'fault': 'drop_withheld'}, {}))
-        self.assertIn('withheld', good)
-        dropped.bundles['y'] = {**good, 'withheld': None}
-        del dropped.bundles['y']['withheld']
-        with self.assertRaises(runner.VectorError):
-            dropped.value({'$bundle': 'y', 'fault': 'drop_withheld'}, {})
 
     def test_export_compares_canonical_descriptors(self):
         ok = {'status': 'ok', 'reasons': []}

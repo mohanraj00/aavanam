@@ -1,18 +1,16 @@
 {
   "format": "aavanam-vector/v1",
-  "title": "A device imports a bundle with withheld bytes, and a new export from the device withholds them",
+  "title": "An import of a bundle with no withheld bytes is ok",
   "clauses": [
-    "BUN-MAN-1",
-    "BUN-IMP-1",
     "BUN-IMP-2",
     "BUN-IMP-3",
-    "BUN-IMP-9",
+    "BUN-RED-4",
     "BUN-RED-5",
-    "BUN-CLS-3"
+    "BUN-RED-6"
   ],
   "provenance": {
     "type": "spec",
-    "note": "The bundle withholds the reading and excerpt bytes. BUN-IMP-9 skips the payload bytes step and BUN-EXC-3 for them, so the import is ok. The device does not have the bytes, so an export with no permit withholds them (BUN-RED-5). The values come from the statements in the bundle."
+    "note": "The positive pair of import-withheld-refused. The export has no permit, so it withholds no object (BUN-RED-4). Each item has withheld false, and the bundle has no field withheld (BUN-RED-5, BUN-RED-6). Each descriptor has its bytes in the bundle, so the import is ok (BUN-IMP-3)."
   },
   "profile": "aavanam/base/v1",
   "payloads": {
@@ -239,9 +237,6 @@
           {
             "$ref": "snap"
           }
-        ],
-        "permit": [
-          "redistributable"
         ]
       },
       "expect": {
@@ -270,7 +265,7 @@
               },
               "redistribution": "undeclared",
               "license": null,
-              "withheld": true
+              "withheld": false
             }
           },
           {
@@ -282,7 +277,7 @@
               },
               "redistribution": "undeclared",
               "license": null,
-              "withheld": true
+              "withheld": false
             }
           },
           {
@@ -364,115 +359,6 @@
           }
         ]
       }
-    },
-    {
-      "operation": "open_context",
-      "as_context": "c",
-      "request": {
-        "roots": [
-          {
-            "$ref": "snap"
-          }
-        ]
-      },
-      "expect": {
-        "status": "ok",
-        "reasons": []
-      },
-      "store": "device"
-    },
-    {
-      "operation": "export",
-      "request": {
-        "context": {
-          "$context": "c"
-        },
-        "roots": [
-          {
-            "$ref": "snap"
-          }
-        ]
-      },
-      "expect": {
-        "status": "ok",
-        "reasons": [],
-        "unordered": true,
-        "items": [
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "src"
-              },
-              "redistribution": "redistributable",
-              "license": "sample-license-1",
-              "withheld": false
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "rd"
-              },
-              "redistribution": "undeclared",
-              "license": null,
-              "withheld": true
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "ex"
-              },
-              "redistribution": "undeclared",
-              "license": null,
-              "withheld": true
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "o-src"
-              },
-              "redistribution": "no_payload",
-              "license": null,
-              "withheld": false
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "o-note"
-              },
-              "redistribution": "no_payload",
-              "license": null,
-              "withheld": false
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "snap"
-              },
-              "redistribution": "no_payload",
-              "license": null,
-              "withheld": false
-            }
-          }
-        ]
-      },
-      "store": "device"
     }
   ]
 }

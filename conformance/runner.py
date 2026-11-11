@@ -82,10 +82,6 @@ class Expander:
             del payloads[min(payloads)]
         elif fault == 'format':
             value['format'] = 'sample/bundle/v1'
-        elif fault == 'drop_withheld':
-            if not isinstance(value, dict) or 'withheld' not in value:
-                raise VectorError(f'{self.vid}: bundle {name} has no field withheld to drop')
-            del value['withheld']
         elif fault is not None:
             raise VectorError(f'{self.vid}: unknown bundle fault {fault}')
         return value

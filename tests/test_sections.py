@@ -66,11 +66,11 @@ class SectionTest(unittest.TestCase):
         members = put_ref(store, {'descriptor_profile': BASE, 'kind': 'relation-set', 'members': [evidence]})
         write, target = store.write, [SERVING]
 
-        def declare_then_write(objects, blobs, *rest):  # a different open declares after the check of call()
+        def declare_then_write(objects, blobs):  # a different open declares after the check of call()
             other = Store(self.path)
             other.section(target[0], 'serving')
             other.close()
-            write(objects, blobs, *rest)
+            write(objects, blobs)
         store.write = declare_then_write
         before = store.fingerprint()
         result = store.call('create_snapshot', {'collection': SERVING, 'relation_sets': [members]})
