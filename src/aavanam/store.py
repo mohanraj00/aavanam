@@ -47,6 +47,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS objects (ref TEXT PRIMARY KEY, kind TEXT NOT NULL, descriptor TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS edges (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY (source, target));
 CREATE TABLE IF NOT EXISTS blobs (digest TEXT PRIMARY KEY, data BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS deferred (digest TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (digest, ref));
 CREATE TABLE IF NOT EXISTS contexts (id TEXT PRIMARY KEY, roots TEXT NOT NULL, capabilities TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_members (context TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (context, ref));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, collection TEXT NOT NULL,
@@ -69,6 +70,14 @@ class Failure(Exception):
 
 SECTIONS = ('serving', 'evidence')  # PUB-SEC-1
 NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
+
+
+class DeferredFailure(Exception):
+    """A check that an import did not do for withheld bytes failed when a write added the bytes (BUN-IMP-9)."""
+
+    def __init__(self, found: dict[str, list[str]]):
+        super().__init__('deferred check')
+        self.found = found  # the reason codes of each revision of the batch that adds the bytes
 
 
 class SectionViolation(Exception):
@@ -343,7 +352,7 @@ class Store:
                 h.update(f'{table}:{value}\n'.encode())
         return h.hexdigest()
 
-    def write(self, objects: dict[str, dict], blobs: dict[str, bytes]) -> None:
+    def write(self, objects: dict[str, dict], blobs: dict[str, bytes], deferred=()) -> None:
         """Write the objects and bytes in one transaction: all or none (STS-MAL-2)."""
         self.db.execute('BEGIN IMMEDIATE')
         try:
@@ -357,14 +366,49 @@ class Store:
             found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
             if any(found.values()):
                 raise SectionViolation(found)
+            found = self.deferred_failures(objects, blobs)  # BUN-IMP-9: in the transaction, after a concurrent import
+            if found:
+                raise DeferredFailure(found)
             for ref, desc in objects.items():
                 self.db.execute('INSERT OR IGNORE INTO objects VALUES (?, ?, ?)', (ref, desc['kind'], canonical(desc)))
                 self.db.executemany('INSERT OR IGNORE INTO edges VALUES (?, ?)', {(ref, t) for _, t in d.references(desc)})
             self.db.executemany('INSERT OR IGNORE INTO blobs VALUES (?, ?)', blobs.items())
+            self.db.executemany('DELETE FROM deferred WHERE digest = ?', [(k,) for k in blobs])
+            self.db.executemany('INSERT OR IGNORE INTO deferred VALUES (?, ?)', deferred)
             self.db.execute('COMMIT')
         except BaseException:
             self.rollback()
             raise
+
+    def deferred_refs(self, key: str) -> set[str]:
+        """The objects that an import kept without the bytes of `key` or of their parent (BUN-IMP-9)."""
+        out = {r for (r,) in self.db.execute('SELECT ref FROM deferred WHERE digest = ?', (key,))}
+        return out | self.device.deferred_refs(key) if self.device else out
+
+    def deferred_failures(self, objects: dict[str, dict], blobs: dict[str, bytes]) -> dict[str, list[str]]:
+        """BUN-IMP-9: do the checks that an import did not do, for the bytes that this write adds to the store."""
+        new = {k: b for k, b in blobs.items() if self.blob(k) is None}
+
+        def lookup(ref):
+            return objects.get(ref) or self.descriptor(ref)
+
+        def data_of(key):
+            return new[key] if key in new else self.blob(key)
+
+        found: dict[str, list[str]] = {}
+        for key in new:
+            for ref in sorted(self.deferred_refs(key)):
+                desc = lookup(ref)
+                parent = [lookup(desc['parent'])['payload']] if desc['kind'] == 'excerpt' else []
+                absent = {p['digest'] for p in d.payloads(desc) + parent if data_of(p['digest']) is None}
+                try:
+                    self.step_payloads(desc, lookup, data_of, False, absent)
+                    self.step_content(desc, lookup, data_of, False, absent)
+                except d.Refusal as e:
+                    for carrier, c in objects.items():
+                        if key in {p['digest'] for p in d.payloads(c)}:
+                            found.setdefault(carrier, []).extend(e.codes)
+        return found
 
     def rollback(self) -> None:
         """End an open transaction. A failure of the rollback does not cross the API (STS-MAL-1)."""
@@ -671,7 +715,7 @@ class Store:
                 out.add(revision(value))
         return out
 
-    def commit_batch(self, operation: str, checked: list, data: dict[str, bytes], whole: list[dict] = ()) -> dict:
+    def commit_batch(self, operation: str, checked: list, data: dict[str, bytes], whole: list[dict] = (), withheld=frozenset()) -> dict:
         """Write the batch if each descriptor passed, or return the refusal (STS-ENV-5, STS-MAL-2)."""
         bad = [c for c in checked if 'status' in c] + list(whole)
         if bad:
@@ -680,8 +724,14 @@ class Store:
                     'items': [c if 'status' in c else refused(['batch_aborted']) for c in checked]}
         objects = {revision(c): c for c in checked}
         blobs = {p['digest']: data[p['digest']] for c in checked for p in d.payloads(c) if p['digest'] in data}
+        deferred = set()  # BUN-IMP-9: the objects that the import keeps without bytes
+        for ref, c in objects.items():
+            parent = [(objects.get(c['parent']) or self.descriptor(c['parent']))['payload']] if c['kind'] == 'excerpt' else []
+            deferred |= {(p['digest'], ref) for p in d.payloads(c) + parent if p['digest'] in withheld}
         try:
-            self.write(objects, blobs)
+            self.write(objects, blobs, deferred)
+        except DeferredFailure as e:  # STS-ENV-4: the store did not change
+            return self.commit_batch(operation, [refused(e.found[revision(c)]) if revision(c) in e.found else c for c in checked], data, whole)
         except SectionViolation as e:  # STS-ENV-4: the store did not change
             return self.commit_batch(operation, [refused(['section_violation'] * len(e.found[revision(c)]), e.found[revision(c)]) if e.found.get(revision(c)) else c for c in checked], data, whole)
         except Failure:
@@ -861,7 +911,7 @@ class Store:
         """The form of BUN-RED-1."""
         return (isinstance(values, dict) and set(values) == {'license', 'redistribution'}
                 and (values['license'] is None or (isinstance(values['license'], str) and values['license'] != ''))
-                and values['redistribution'] in DECLARED)
+                and isinstance(values['redistribution'], str) and values['redistribution'] in DECLARED)
 
     def redistribution(self, ref: str, statements: list[dict]) -> tuple[str, str | None]:
         """The redistribution value and the license value of an object (BUN-RED-2). No value is inherited (BUN-RED-3)."""
@@ -919,7 +969,7 @@ class Store:
         checked = self.check_batch(bundle['descriptors'], data, incomplete=True, withheld=withheld)
         present = self.revisions(bundle['descriptors'])  # a root with a failed check is present (BUN-IMP-2)
         absent = [refused(['bundle_incomplete'], [r]) for r in bundle['roots'] if r not in present]
-        out = self.commit_batch('import', checked, data, absent)
+        out = self.commit_batch('import', checked, data, absent, withheld)
         if out['status'] != 'ok':  # BUN-IMP-4
             return self.envelope('import', out['status'], out['reasons'], [])
         return self.envelope('import', 'ok', [], out['items'])
