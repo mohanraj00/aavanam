@@ -1,2 +1,4 @@
-# The pinned groundgate release of the seam test (tests/test_groundgate_seam.py).
-groundgate==0.11.0 --hash=sha256:11c4f969d01c9de5c2898474a56909bf868746851cb621c545264ee5a4bdd89f
+# The pinned groundgate of the seam tests (tests/test_groundgate_seam.py).
+# Draft pin: the groundgate main commit with the facts@1 export (groundgate#584). This line has no hash.
+# Issue #54 replaces it with the 0.14 release and its hash before the PR is ready for review.
+groundgate @ git+https://github.com/mohanraj00/groundgate@f8ef05a903254999f9518d4ca54020ef4de75fcc

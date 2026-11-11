@@ -90,12 +90,14 @@ jobs:
           python3 -c 'import sqlite3; print("SQLite", sqlite3.sqlite_version)'
       - name: Test the reference implementation
         run: python3 -B -m unittest discover -s tests
-      # The tests above run with the standard library only, so the seam test skips there. Then install the pinned
-      # producer release with its hash, and require the seam test to run (PRD-PRO-1).
-      - name: Install the pinned groundgate release of the seam test
+      # The tests above run with the standard library only, so the seam tests skip there. Then install the pinned
+      # producer, and require the seam tests to run (PRD-PRO-1, ADP-FACT-1).
+      # Draft pin (#54): a groundgate commit, with no hash. Before review, pin the 0.14 release with
+      # --require-hashes --only-binary :all: again.
+      - name: Install the pinned groundgate of the seam tests
         run: |
-          python3 -m pip install --require-hashes --only-binary :all: --no-deps -r tests/requirements-seam.txt
-      - name: Run the seam test against the pinned groundgate release
+          python3 -m pip install --no-deps -r tests/requirements-seam.txt
+      - name: Run the seam tests against the pinned groundgate
         env:
           AAVANAM_SEAM: "1"
         run: python3 -B -m unittest discover -s tests -p test_groundgate_seam.py
