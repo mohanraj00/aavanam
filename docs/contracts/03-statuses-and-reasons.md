@@ -162,12 +162,15 @@ The operation table:
 | `publications` | 13 | `ok`, `failed` |
 | `export` | 11 | `ok`, `not_found`, `unsupported`, `failed` |
 | `import` | 11 | `ok`, `incompatible`, `unsupported`, `failed` |
-| `producer_put` | 17 | `ok`, `incompatible`, `unsupported`, `failed` |
-| `producer_get` | 17 | `ok`, `not_found`, `unsupported`, `failed` |
-| `producer_forget` | 17 | `ok`, `not_found`, `unsupported`, `failed` |
-| `producer_removals` | 17 | `ok`, `unsupported`, `failed` |
-| `producer_append` | 17 | `ok`, `incompatible`, `unsupported`, `failed` |
-| `producer_read` | 17 | `ok`, `unsupported`, `failed` |
+| `snapshot_changes` | 17 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
+| `item_history` | 17 | `ok`, `failed` |
+| `list_items` | 18 | `ok`, `partial`, `unsupported`, `failed` |
+| `producer_put` | 19 | `ok`, `incompatible`, `unsupported`, `failed` |
+| `producer_get` | 19 | `ok`, `not_found`, `unsupported`, `failed` |
+| `producer_forget` | 19 | `ok`, `not_found`, `unsupported`, `failed` |
+| `producer_removals` | 19 | `ok`, `unsupported`, `failed` |
+| `producer_append` | 19 | `ok`, `incompatible`, `unsupported`, `failed` |
+| `producer_read` | 19 | `ok`, `unsupported`, `failed` |
 | `workspace_open` | 16 | `unsupported` |
 | `workspace_append` | 16 | `unsupported` |
 | `workspace_read` | 16 | `unsupported` |
@@ -204,4 +207,4 @@ In step 1, a number is outside I-JSON if it is not finite as an IEEE 754 double,
 
 The store stops at the first check that fails. The result gives the reasons of that check only, with one reason for each affected value. Thus each descriptor has one status, and vectors can expect one result for each input.
 
-**STS-MAL-4.** The store MUST check the operation before its input. If the operation has no row in the operation table, the result is `unsupported` with reason `unsupported_operation`. If its row gives only `unsupported`, the result is `unsupported` with reason `reserved_profile`. In these two cases, the store does not check the input, and STS-MAL-1 does not apply. Next, a device store checks its role (BUN-IMP-6). If it gives `read_only_store`, the store does not check the input either. Then a store that is not a writer store checks its role for an operation of document 17 (PRD-SEC-1). If it gives `producer_section_absent`, the store does not check the input.
+**STS-MAL-4.** The store MUST check the operation before its input. If the operation has no row in the operation table, the result is `unsupported` with reason `unsupported_operation`. If its row gives only `unsupported`, the result is `unsupported` with reason `reserved_profile`. In these two cases, the store does not check the input, and STS-MAL-1 does not apply. Next, a device store checks its role (BUN-IMP-6). If it gives `read_only_store`, the store does not check the input either. Then a store that is not a writer store checks its role for an operation of document 19 (PRD-SEC-1). If it gives `producer_section_absent`, the store does not check the input.

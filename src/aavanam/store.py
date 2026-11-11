@@ -20,14 +20,15 @@ from datetime import datetime, timezone
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
-from .kinds import BASE_PROFILE
+from .kinds import BASE_PROFILE, KINDS
 from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
 COVERAGE = 'aavanam/coverage/v1'
 RENDER_PROFILE = 'aavanam/render/v1'
 # The operations whose row in the operation table has `partial` (STS-ENV-3)
-PARTIAL = {'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render', 'compare', 'impact'}
+PARTIAL = {'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render', 'compare', 'impact',
+           'snapshot_changes', 'list_items'}
 LOCK_KINDS = {'execution_inputs': 'execution-lock', 'build_inputs': 'build-lock'}
 # The capability table (CTX-PRJ-1): each capability and the operations that need it
 CAPABILITIES = {'aavanam/data/v1': ('query_data',), 'aavanam/lexical/v1': ('search',),
@@ -41,6 +42,8 @@ LOG_COLUMNS = ('activation', 'collection', 'previous_head', 'head')
 MEMBER_FIELDS = ('units', 'schemas', 'relation_sets', 'overlay_sets', 'observations', 'native_mappings')
 # The operations that write to a store, refused on a device store (BUN-IMP-6)
 WRITES = ('put', 'create_snapshot', 'create_candidate', 'publish')
+# The operations that read the store and its catalog, not a read context (LIF-ITM-4)
+STORE_READS = ('snapshot_changes', 'item_history')
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS objects (ref TEXT PRIMARY KEY, kind TEXT NOT NULL, descriptor TEXT NOT NULL);
@@ -421,7 +424,8 @@ class Store:
         if method is None:
             return self.envelope(operation, 'unsupported', [reason('unsupported_operation')])
         self.called = True
-        context = request.get('context') if isinstance(request, dict) and isinstance(request.get('context'), str) else None
+        context = (request.get('context') if isinstance(request, dict) and isinstance(request.get('context'), str)
+                   and operation not in STORE_READS else None)  # LIF-ITM-4
         # A local output store reads its device store, so it waits for a device call, for example an import (CTX-OPN-2).
         # The order is always the device store, then the output store.
         with self.device.mutex if self.device else contextlib.nullcontext(), self.mutex:
@@ -1301,6 +1305,96 @@ class Store:
         return self.result('publications', [item(candidate=c, receipt=r, activation=a, previous_head=p, head=h)
                                             for c, r, a, p, h in rows])
 
+    # Lifecycle and discovery (documents 17 and 18)
+
+    @staticmethod
+    def known_kinds(request: dict) -> None:
+        """Step 4 of LIF-CHG-1 and step 5 of DSC-LST-1: one unknown_kind for each name that is not a base kind."""
+        unknown = [k for k in request.get('kinds', []) if k not in KINDS]
+        if unknown:
+            raise Failure('unsupported', [reason('unknown_kind') for _ in unknown])
+
+    def content(self, snapshot: str | None) -> set[str]:
+        """The closure of the snapshot without the snapshot (LIF-ITM-1). A null snapshot has no content."""
+        return self.closure([snapshot]) - {snapshot} if snapshot else set()
+
+    def item_keys(self, refs) -> dict[tuple, list[str]]:
+        """The revisions of each item key, in ascending order (LIF-ITM-2). The key sorts in the item order (LIF-ITM-3)."""
+        out: dict[tuple, list[str]] = {}
+        for ref in sorted(refs):
+            desc = self.descriptor(ref)
+            lid = desc.get('logical_id')
+            out.setdefault((desc['kind'], lid is None, ref if lid is None else lid), []).append(ref)
+        return out
+
+    @staticmethod
+    def page(request: dict, entries: list) -> tuple[list, bool]:
+        """The entries from `offset`, at most `limit`, and whether a declared bound stopped the operation (STS-ENV-3)."""
+        offset, limit = request.get('offset', 0), request.get('limit')
+        rest = entries[offset:]
+        return (rest[:limit], len(rest) > limit) if limit is not None else (rest, False)
+
+    def op_snapshot_changes(self, request: dict) -> dict:
+        strict(request, {'before': (True, is_digest), 'after': (True, is_digest),
+                         'kinds': (False, lambda v: isinstance(v, list) and all(is_str(k) for k in v)),
+                         'offset': (False, is_count), 'limit': (False, lambda v: is_count(v, 1))},
+               sets=('kinds',), many=('kinds',))  # LIF-CHG-1
+        self.known_kinds(request)
+        refused_items = []
+        for ref in (request['before'], request['after']):  # LIF-CHG-2
+            kind = self.kind(ref)
+            if kind is None:
+                refused_items.append(item('not_found', [reason('unknown_ref', [ref])], ref=ref))
+            elif kind != 'snapshot':
+                refused_items.append(item('unsupported', [reason('unsupported_target_kind', [ref])], ref=ref))
+        if refused_items:
+            return self.result('snapshot_changes', refused_items)
+        before, after = self.item_keys(self.content(request['before'])), self.item_keys(self.content(request['after']))
+        kinds = request.get('kinds')
+        entries = []
+        for key in sorted(set(before) | set(after)):  # LIF-CHG-3
+            old, new = before.get(key, []), after.get(key, [])
+            if old == new or (kinds is not None and key[0] not in kinds):
+                continue
+            change = 'added' if not old else 'removed' if not new else 'replaced'
+            entries.append(item(kind=key[0], logical_id=None if key[1] else key[2], change=change, before=old, after=new))
+        items, bounded = self.page(request, entries)  # LIF-CHG-4
+        return self.result('snapshot_changes', items, None, bounded)
+
+    def op_item_history(self, request: dict) -> dict:
+        strict(request, {'collection': (True, is_str), 'logical_id': (True, lambda v: is_str(v) and v != '')})  # LIF-HST-1
+        lid = request['logical_id']
+
+        def revisions(snapshot):  # LIF-HST-3
+            return [{'ref': r, 'kind': self.kind(r)} for r in sorted(self.content(snapshot))
+                    if self.descriptor(r).get('logical_id') == lid]
+        items = []
+        rows = self.db.execute('SELECT candidate, previous_head, head FROM publications WHERE collection = ? ORDER BY rowid',
+                               (request['collection'],)).fetchall()
+        for candidate, previous, head in rows:  # LIF-HST-2
+            old, new = [r['ref'] for r in revisions(previous)], revisions(head)
+            refs = [r['ref'] for r in new]
+            change = ('absent' if not old and not refs else 'added' if not old else 'removed' if not refs
+                      else 'unchanged' if old == refs else 'replaced')  # LIF-HST-4
+            items.append(item(candidate=candidate, previous_head=previous, head=head, revisions=new, change=change))
+        return self.result('item_history', items)
+
+    def op_list_items(self, request: dict) -> dict:
+        strict(request, {'context': (True, is_str), 'kinds': (False, lambda v: isinstance(v, list) and all(is_str(k) for k in v)),
+                         'logical_ids': (False, lambda v: isinstance(v, list) and all(is_str(k) and k != '' for k in v)),
+                         'offset': (False, is_count), 'limit': (False, lambda v: is_count(v, 1))},
+               sets=('kinds', 'logical_ids'), many=('kinds', 'logical_ids'))  # DSC-LST-1
+        context, members = self.members(request)  # context_expired before unknown_kind
+        self.known_kinds(request)
+        kinds, lids = request.get('kinds'), request.get('logical_ids')
+        entries = []
+        for key, refs in sorted(self.item_keys(members).items()):  # DSC-LST-2, DSC-LST-3
+            lid = None if key[1] else key[2]
+            if (kinds is None or key[0] in kinds) and (lids is None or lid in lids):
+                entries.extend(item(ref=r, kind=key[0], logical_id=lid) for r in refs)
+        items, bounded = self.page(request, entries)
+        return self.result('list_items', items, context, bounded)
+
     # Rendering (document 14)
 
     def render_root(self, root: str, members: set[str]) -> list[dict]:
@@ -1330,7 +1424,7 @@ class Store:
         gaps += [('withdrawn', r) for r, _ in checks if r in withdrawn]
         return out + [item(entry='gap', subject=root, gap=g, ref=r) for g, r in gaps]
 
-    # The producer section (document 17). The store keeps the bytes and never parses them (PRD-SEC-4).
+    # The producer section (document 19). The store keeps the bytes and never parses them (PRD-SEC-4).
 
     def producer_write(self, change) -> dict:
         """Run `change()` in one write transaction, so a second open of the store sees all of it or none (STS-MAL-2)."""
