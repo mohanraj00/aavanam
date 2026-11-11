@@ -82,6 +82,10 @@ class Expander:
             del payloads[min(payloads)]
         elif fault == 'format':
             value['format'] = 'sample/bundle/v1'
+        elif fault == 'drop_withheld':
+            if not isinstance(value, dict) or 'withheld' not in value:
+                raise VectorError(f'{self.vid}: bundle {name} has no field withheld to drop')
+            del value['withheld']
         elif fault is not None:
             raise VectorError(f'{self.vid}: unknown bundle fault {fault}')
         return value
@@ -362,15 +366,19 @@ def unique_keys(pairs: list) -> dict:
 
 
 def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, stored: dict[str, str]) -> list[str]:
-    """Check the bundle of an export result (BUN-MAN-1, BUN-EXP-1 and BUN-EXP-2)."""
+    """Check the bundle of an export result (BUN-MAN-1, BUN-EXP-1, BUN-EXP-2 and BUN-RED-5)."""
     if operation != 'export':
         return []
     bundle = actual.get('bundle')
     if expect['status'] != 'ok':
         return [] if bundle is None else ['a refused export has a bundle (BUN-EXP-1)']
-    if not isinstance(bundle, dict) or set(bundle) != {'format', 'roots', 'descriptors', 'payloads'}:
+    if not isinstance(bundle, dict) or set(bundle) - {'withheld'} != {'format', 'roots', 'descriptors', 'payloads'}:
         return ['bundle does not have the fields of BUN-MAN-1']
     problems = []
+    withheld = bundle.get('withheld', [])
+    if not isinstance(withheld, list) or ('withheld' in bundle and not withheld) or not all(isinstance(w, str) for w in withheld) \
+            or len(set(withheld)) != len(withheld):
+        return ['bundle withheld is not a list of one or more different digests (BUN-MAN-1)']
     if bundle['format'] != 'aavanam-bundle/v1':
         problems.append(f'bundle format is {bundle["format"]!r} (BUN-MAN-1)')
     if not isinstance(bundle['roots'], list) or sorted(map(str, bundle['roots'])) != sorted(map(str, request.get('roots', []))):
@@ -399,8 +407,14 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
         for p in payload_objects(value, schemas):
             if isinstance(p, dict) and isinstance(p.get('digest'), str):
                 wanted[p['digest']] = p.get('size')
-    if set(wanted) != set(payloads):
-        problems.append('bundle payloads are not the byte closure of its descriptors (BUN-EXP-2)')
+    if set(wanted) != set(payloads) | set(withheld) or set(payloads) & set(withheld):
+        problems.append('bundle payloads and withheld digests are not the byte closure of its descriptors (BUN-EXP-2, BUN-RED-5)')
+    flagged = [i.get('fields', {}) for i in expect.get('items', [])]
+    if flagged and all('withheld' in f and f.get('ref') in stored for f in flagged):
+        mine = {p['digest'] for f in flagged if f['withheld'] is True
+                for p in payload_objects(json.loads(stored[f['ref']]), schemas) if isinstance(p, dict)}
+        if mine != set(withheld):
+            problems.append('bundle withheld digests are not the payload digests of the withheld items (BUN-RED-5)')
     for digest, text in payloads.items():
         try:
             data = base64.b64decode(text, validate=True)

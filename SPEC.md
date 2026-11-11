@@ -49,7 +49,7 @@ The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RE
 
 A profile is a named set of clauses and kinds, with a version. The base profile is `aavanam/base/v1`. Each clause belongs to the base profile unless its document names a different profile.
 
-The base profile is at minor version 3. Minor version 1 adds the kind `activation` to minor version 0 (KND-REG-5). Minor version 2 adds storage sections (PUB-SEC-1) and the reason `section_violation`. Minor version 3 adds the NFC text selector (ADP-SEL-4) and the admitted-facts adapter profile (ADP-FACT-1). A minor version does not change the profile identity. Thus a descriptor of each minor version has `descriptor_profile` `aavanam/base/v1`.
+The base profile is at minor version 4. Minor version 1 adds the kind `activation` to minor version 0 (KND-REG-5). Minor version 2 adds storage sections (PUB-SEC-1) and the reason `section_violation`. Minor version 3 adds the NFC text selector (ADP-SEL-4) and the admitted-facts adapter profile (ADP-FACT-1). Minor version 4 adds the redistribution observation type (BUN-RED-1), the export field `permit` and the bundle field `withheld` (BUN-RED-5). A minor version does not change the profile identity. Thus a descriptor of each minor version has `descriptor_profile` `aavanam/base/v1`.
 
 - A compatible addition to a profile increments the minor version in the profile document.
 - An incompatible change makes a new major version, for example `aavanam/base/v2`. Old objects keep their old profile identity. A transformation makes new objects.
