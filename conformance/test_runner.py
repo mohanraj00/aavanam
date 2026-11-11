@@ -390,6 +390,27 @@ class RunVectorTest(unittest.TestCase):
         with self.assertRaises(runner.VectorError):
             runner.Expander('t', {}).value({'$bundle': 'x'}, {})
 
+    def test_withheld_bundle_checks(self):
+        # BUN-MAN-1 and BUN-RED-5: a withheld digest is in `withheld` and not in `payloads`.
+        ok = {'status': 'ok', 'reasons': []}
+        step = {'operation': 'export', 'request': {'roots': ['r']}, 'expect': ok}
+        text, digest = source(b'a')
+        good = {'format': 'aavanam-bundle/v1', 'roots': ['r'], 'descriptors': [text], 'payloads': {}, 'withheld': [digest]}
+        self.assertEqual(runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': good}), 't', {'steps': [step]}), [])
+        cases = [({**good, 'withheld': []}, 'one or more different digests'), ({**good, 'withheld': [digest, digest]}, 'one or more'),
+                 ({**good, 'payloads': {digest: 'YQ=='}}, 'byte closure'), ({**good, 'withheld': []} | {'payloads': {}}, 'one or more')]
+        for bundle, words in cases:
+            problems = runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': bundle}), 't', {'steps': [step]})
+            self.assertTrue(problems and words in problems[0], (words, problems))
+        dropped = runner.Expander('t', {})
+        dropped.bundles['x'] = good
+        self.assertNotIn('withheld', dropped.value({'$bundle': 'x', 'fault': 'drop_withheld'}, {}))
+        self.assertIn('withheld', good)
+        dropped.bundles['y'] = {**good, 'withheld': None}
+        del dropped.bundles['y']['withheld']
+        with self.assertRaises(runner.VectorError):
+            dropped.value({'$bundle': 'y', 'fault': 'drop_withheld'}, {})
+
     def test_export_compares_canonical_descriptors(self):
         ok = {'status': 'ok', 'reasons': []}
         refs = ['sha256:' + c * 64 for c in 'abc']
@@ -476,8 +497,12 @@ def echo(vector: dict) -> list[dict]:
         if op == 'export' and e['status'] == 'ok':
             texts = [stored[i['ref']] for i in items]
             digests = {p['digest'] for t in texts for p in runner.payload_objects(json.loads(t), fields)}
+            withheld = {p['digest'] for i in items if i.get('withheld') is True
+                        for p in runner.payload_objects(json.loads(stored[i['ref']]), fields)}  # BUN-RED-5
             result['bundle'] = {'format': 'aavanam-bundle/v1', 'roots': request['roots'], 'descriptors': texts,
-                                'payloads': {d: sent[d] for d in digests}}
+                                'payloads': {d: sent[d] for d in digests - withheld}}
+            if withheld:
+                result['bundle']['withheld'] = sorted(withheld)
             if 'as_bundle' in step:
                 expander.bundles[step['as_bundle']] = result['bundle']
         if op == 'render':

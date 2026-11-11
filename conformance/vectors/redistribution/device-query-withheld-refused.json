@@ -1,0 +1,356 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A device query of a table whose bytes the bundle withheld gives payload_missing",
+  "clauses": [
+    "BUN-IMP-9",
+    "BUN-RED-4",
+    "BUN-RED-5",
+    "QRY-DAT-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The table is no_redistribution, and permit has only redistributable. The device keeps the descriptor without the bytes (BUN-IMP-9). QRY-DAT-2 step 5 gives payload_missing, and rule 6 of STS-ENV-3 gives the envelope."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", 1]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o-s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "redistributable"
+              }
+            }
+          },
+          {
+            "as": "o-t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "t"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-2",
+                "redistribution": "no_redistribution"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-licensed",
+              "observations": [
+                {
+                  "$ref": "o-s"
+                },
+                {
+                  "$ref": "o-t"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ],
+        "permit": [
+          "redistributable"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s"
+              },
+              "redistribution": "redistributable",
+              "license": "sample-license-1",
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t"
+              },
+              "redistribution": "no_redistribution",
+              "license": "sample-license-2",
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-s"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-t"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "snap"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          }
+        ]
+      },
+      "as_bundle": "x"
+    },
+    {
+      "operation": "import",
+      "store": "device",
+      "request": {
+        "bundle": {
+          "$bundle": "x"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      },
+      "store": "device"
+    },
+    {
+      "operation": "query_data",
+      "store": "device",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "t"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "payload_missing"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "payload_missing"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "redistribution/device-query-ok"
+}

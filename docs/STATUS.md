@@ -6,7 +6,7 @@ The specification has 16 contract documents in the `draft` state. The reference 
 
 - Specification and conformance: the vector format, the runner, a null implementation and the vectors of each contract document.
 - Core: the reference implementation over SQLite, the typed references, the snapshots, the input locks, lookup, rendering and the producer adapter contract.
-- Transfer and composition: export, import, device stores and composed contexts, with end-to-end acceptance vectors.
+- Transfer and composition: export, import, device stores and composed contexts, with end-to-end acceptance vectors. An export reports the license and the redistribution status of each item, and withholds the bytes that its target does not permit.
 - Activation gate: gated collections, the `activation` kind, the activation checks of `publish` and the `publications` read.
 
 ## Next
