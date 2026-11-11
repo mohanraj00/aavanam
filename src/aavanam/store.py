@@ -73,7 +73,7 @@ NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
 
 
 class DeferredFailure(Exception):
-    """A check that an import did not do for withheld bytes failed when a write added the bytes (BUN-IMP-9)."""
+    """A check that an import did not do for withheld bytes failed when a write added the bytes (BUN-IMP-10)."""
 
     def __init__(self, found: dict[str, list[str]]):
         super().__init__('deferred check')
@@ -366,7 +366,7 @@ class Store:
             found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
             if any(found.values()):
                 raise SectionViolation(found)
-            found = self.deferred_failures(objects, blobs)  # BUN-IMP-9: in the transaction, after a concurrent import
+            found = self.deferred_failures(objects, blobs)  # BUN-IMP-10: in the transaction, after a concurrent import
             if found:
                 raise DeferredFailure(found)
             for ref, desc in objects.items():
@@ -381,12 +381,12 @@ class Store:
             raise
 
     def deferred_refs(self, key: str) -> set[str]:
-        """The objects that an import kept without the bytes of `key` or of their parent (BUN-IMP-9)."""
+        """The objects that an import kept without the bytes of `key` or of their parent (BUN-IMP-10)."""
         out = {r for (r,) in self.db.execute('SELECT ref FROM deferred WHERE digest = ?', (key,))}
         return out | self.device.deferred_refs(key) if self.device else out
 
     def deferred_failures(self, objects: dict[str, dict], blobs: dict[str, bytes]) -> dict[str, list[str]]:
-        """BUN-IMP-9: do the checks that an import did not do, for the bytes that this write adds to the store."""
+        """BUN-IMP-10: do the checks that an import did not do, for the bytes that this write adds to the store."""
         new = {k: b for k, b in blobs.items() if self.blob(k) is None}
 
         def lookup(ref):
@@ -724,7 +724,7 @@ class Store:
                     'items': [c if 'status' in c else refused(['batch_aborted']) for c in checked]}
         objects = {revision(c): c for c in checked}
         blobs = {p['digest']: data[p['digest']] for c in checked for p in d.payloads(c) if p['digest'] in data}
-        deferred = set()  # BUN-IMP-9: the objects that the import keeps without bytes
+        deferred = set()  # BUN-IMP-10: the objects that the import keeps without bytes
         for ref, c in objects.items():
             parent = [(objects.get(c['parent']) or self.descriptor(c['parent']))['payload']] if c['kind'] == 'excerpt' else []
             deferred |= {(p['digest'], ref) for p in d.payloads(c) + parent if p['digest'] in withheld}
