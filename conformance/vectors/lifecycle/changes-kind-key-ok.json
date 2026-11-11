@@ -1,0 +1,282 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "One logical ID with a different kind in each snapshot gives one removed and one added item, in kind order",
+  "clauses": [
+    "LIF-ITM-1",
+    "LIF-ITM-2",
+    "LIF-ITM-3",
+    "LIF-ITM-4",
+    "LIF-CHG-1",
+    "LIF-CHG-3",
+    "LIF-CHG-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "sa": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\"]}"
+    },
+    "sb": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"bolt\"]}"
+    },
+    "ra": {
+      "media_type": "text/plain",
+      "text": "sample narrative\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sa",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "sa"
+              },
+              "logical_id": "shared-name"
+            }
+          },
+          {
+            "as": "sb",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "sb"
+              },
+              "logical_id": "schema-b"
+            }
+          },
+          {
+            "as": "ra",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/rule-companion/v1",
+              "payload": {
+                "$payload": "ra"
+              },
+              "logical_id": "shared-name"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "bs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "logical_id": "bindings",
+              "bindings": {
+                "text": {
+                  "$ref": "ra"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "logical_id": "unit",
+              "binding_set": {
+                "$ref": "bs"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "sa"
+          },
+          {
+            "$ref": "sb"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "sb"
+          }
+        ],
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s2"
+    },
+    {
+      "operation": "snapshot_changes",
+      "request": {
+        "before": {
+          "$ref": "s1"
+        },
+        "after": {
+          "$ref": "s2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "kind": "artifact",
+              "logical_id": "shared-name",
+              "change": "added",
+              "before": [],
+              "after": [
+                {
+                  "$ref": "ra"
+                }
+              ]
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "kind": "binding-set",
+              "logical_id": "bindings",
+              "change": "added",
+              "before": [],
+              "after": [
+                {
+                  "$ref": "bs"
+                }
+              ]
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "kind": "knowledge-unit",
+              "logical_id": "unit",
+              "change": "added",
+              "before": [],
+              "after": [
+                {
+                  "$ref": "u"
+                }
+              ]
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "kind": "schema",
+              "logical_id": "shared-name",
+              "change": "removed",
+              "before": [
+                {
+                  "$ref": "sa"
+                }
+              ],
+              "after": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

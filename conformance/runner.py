@@ -412,6 +412,9 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
     return problems
 
 
+STORE_READS = {'snapshot_changes', 'item_history'}  # the operations that read no read context (LIF-ITM-4)
+
+
 def context_problems(operation: str, step: dict, request: dict, expect: dict, actual: dict) -> list[str]:
     """Return the problems of the envelope field `context` (CTX-OPN-2, CTX-OPN-3)."""
     if NOT_READ & set(expect['reasons']):
@@ -422,6 +425,9 @@ def context_problems(operation: str, step: dict, request: dict, expect: dict, ac
             return [f'context is {context!r}, not a context identity (CTX-OPN-2)']
         if expect['status'] != 'ok' and context is not None:
             return [f'context is {context!r}, not null (CTX-OPN-2)']
+    elif operation in STORE_READS:
+        if context is not None:
+            return [f'context is {context!r}, not null (LIF-ITM-4)']
     elif is_context_handle(step.get('request', {}).get('context')) and same(context) != same(request['context']):
         return [f'context is {context!r}, not the request context (CTX-OPN-3)']
     return []

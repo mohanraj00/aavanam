@@ -157,6 +157,9 @@ The operation table:
 | `publications` | 13 | `ok`, `failed` |
 | `export` | 11 | `ok`, `not_found`, `unsupported`, `failed` |
 | `import` | 11 | `ok`, `incompatible`, `unsupported`, `failed` |
+| `snapshot_changes` | 17 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
+| `item_history` | 17 | `ok`, `failed` |
+| `list_items` | 18 | `ok`, `partial`, `unsupported`, `failed` |
 | `workspace_open` | 16 | `unsupported` |
 | `workspace_append` | 16 | `unsupported` |
 | `workspace_read` | 16 | `unsupported` |

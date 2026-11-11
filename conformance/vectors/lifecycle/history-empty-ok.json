@@ -1,0 +1,29 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "The history of a collection with no publication is ok and has no items",
+  "clauses": [
+    "LIF-HST-1",
+    "LIF-HST-5",
+    "LIF-ITM-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "item_history",
+      "request": {
+        "collection": "handbook",
+        "logical_id": "schema-a"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ]
+}
