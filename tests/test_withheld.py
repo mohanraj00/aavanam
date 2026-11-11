@@ -72,6 +72,43 @@ class DeferredCheckTest(unittest.TestCase):
         self.assertEqual(store.call('import', {'bundle': bundle})['status'], 'ok')
         self.assertEqual(codes(put(store, other['descriptor'], other['payloads'])), ('failed', ['size_mismatch']))
 
+    def test_parent_bytes_that_an_earlier_import_withheld_are_in_the_record(self):
+        store = Store()
+        bundle, _, other = crafted_bundle('xyz')
+        reading = json.loads(bundle['descriptors'][1])['payload']['digest']
+        first = {**bundle, 'roots': [revision(json.loads(bundle['descriptors'][1]))], 'descriptors': bundle['descriptors'][:2],
+                 'withheld': [reading]}
+        first['payloads'] = {k: v for k, v in bundle['payloads'].items() if k != reading}
+        self.assertEqual(store.call('import', {'bundle': first})['status'], 'ok')
+        # the parent is in the store, so the second bundle does not list its digest in `withheld` (BUN-IMP-2, BUN-IMP-10)
+        second = {**bundle, 'descriptors': bundle['descriptors'][2:], 'payloads': {}}
+        self.assertEqual(store.call('import', {'bundle': second})['status'], 'ok')
+        self.assertEqual(codes(put(store, other['descriptor'], other['payloads'])), ('ok', []))  # the parent bytes are not in the store
+        _, rd_data = payload('abcdef')
+        parent = {'descriptor_profile': BASE, 'kind': 'source', 'logical_id': 'sample-parent', 'payload': payload('abcdef')[0]}
+        before = store.fingerprint()
+        self.assertEqual(codes(put(store, parent, rd_data)), ('failed', ['excerpt_mismatch']))
+        self.assertEqual(store.fingerprint(), before)  # STS-ENV-4
+
+    def test_output_store_refuses_bytes_for_a_descriptor_of_the_device_store(self):
+        src_obj, src_data = payload('xyz')
+        rd_obj, rd_data = payload('abcdef')
+        src = {'descriptor_profile': BASE, 'kind': 'source', 'payload': src_obj}
+        rd = {'descriptor_profile': BASE, 'kind': 'reading', 'source': revision(src), 'producer': 'sample/reader/v1',
+              'coverage_profile': 'aavanam/coverage/v1', 'payload': rd_obj}
+        ex = {'descriptor_profile': BASE, 'kind': 'excerpt', 'parent': revision(rd), 'ranges': [{'start': 0, 'end': 3}], 'payload': src_obj}
+        bundle = {'format': 'aavanam-bundle/v1', 'roots': [revision(ex)], 'descriptors': [canonical(x) for x in (src, rd, ex)],
+                  'payloads': rd_data, 'withheld': [src_obj['digest']]}
+        device = Store(role='device')
+        self.assertEqual(device.call('import', {'bundle': bundle})['status'], 'ok')
+        before = device.output.fingerprint()
+        result = put(device.output, src, src_data)  # the device store already has this descriptor (BUN-IMP-8, BUN-IMP-10)
+        self.assertEqual(codes(result), ('failed', ['excerpt_mismatch']))
+        self.assertEqual(codes(result['items'][0])[1], ['excerpt_mismatch'])
+        self.assertEqual(device.output.fingerprint(), before)
+        self.assertIsNone(device.output.blob(src_obj['digest']))
+        device.close()
+
 
 if __name__ == '__main__':
     unittest.main()

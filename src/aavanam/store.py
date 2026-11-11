@@ -359,6 +359,7 @@ class Store:
             # A second connection can import after the check of call(), so check again in the transaction (BUN-IMP-6)
             if self.role == 'device' and self.db.execute('SELECT 1 FROM objects LIMIT 1').fetchone():
                 raise fail('read_only_store')
+            batch = objects  # BUN-IMP-10: a descriptor that the device store has also gets the reason of a failed check
             if self.role == 'output':  # the objects and bytes of the device store are already here (BUN-IMP-8)
                 objects = {r: o for r, o in objects.items() if self.device.descriptor(r) is None}
                 blobs = {k: b for k, b in blobs.items() if self.device.blob(k) is None}
@@ -366,7 +367,7 @@ class Store:
             found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
             if any(found.values()):
                 raise SectionViolation(found)
-            found = self.deferred_failures(objects, blobs)  # BUN-IMP-10: in the transaction, after a concurrent import
+            found = self.deferred_failures(batch, blobs)  # BUN-IMP-10: in the transaction, after a concurrent import
             if found:
                 raise DeferredFailure(found)
             for ref, desc in objects.items():
@@ -726,8 +727,12 @@ class Store:
         blobs = {p['digest']: data[p['digest']] for c in checked for p in d.payloads(c) if p['digest'] in data}
         deferred = set()  # BUN-IMP-10: the objects that the import keeps without bytes
         for ref, c in objects.items():
-            parent = [(objects.get(c['parent']) or self.descriptor(c['parent']))['payload']] if c['kind'] == 'excerpt' else []
-            deferred |= {(p['digest'], ref) for p in d.payloads(c) + parent if p['digest'] in withheld}
+            own = {p['digest'] for p in d.payloads(c)}
+            deferred |= {(k, ref) for k in own & withheld}
+            if c['kind'] == 'excerpt':  # each digest of the skipped check that has no bytes, also from an earlier import
+                needed = own | {(objects.get(c['parent']) or self.descriptor(c['parent']))['payload']['digest']}
+                if needed & withheld:
+                    deferred |= {(k, ref) for k in needed if k not in data and self.blob(k) is None}
         try:
             self.write(objects, blobs, deferred)
         except DeferredFailure as e:  # STS-ENV-4: the store did not change
