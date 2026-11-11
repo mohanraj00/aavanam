@@ -1,0 +1,86 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read context cannot read a producer object, also if its key has the form of a reference",
+  "clauses": [
+    "PRD-ISO-1",
+    "PRD-ISO-2",
+    "QRY-GET-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The producer key is the SHA-256 digest of the producer bytes, in the form of a reference. PRD-ISO-2 gives the result for a reference that is not in the store."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9"
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "producer/context-read-ok"
+}

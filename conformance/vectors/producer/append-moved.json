@@ -1,0 +1,63 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An append with a sequence that is already used is incompatible",
+  "clauses": [
+    "PRD-LOG-2",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Two writers read the same empty log. The second append uses sequence 1 again."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/run-writer",
+        "log": [
+          "answers",
+          "k-packet",
+          "k-reviewer"
+        ],
+        "sequence": 1,
+        "entry": "eyJhbnN3ZXIiOiJ5ZXMifQ=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/run-writer",
+        "log": [
+          "answers",
+          "k-packet",
+          "k-reviewer"
+        ],
+        "sequence": 1,
+        "entry": "eyJhbnN3ZXIiOiJubyJ9"
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "log_moved"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/append-read-ok"
+}

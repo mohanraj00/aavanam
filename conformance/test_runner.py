@@ -333,6 +333,14 @@ class RunVectorTest(unittest.TestCase):
         empty = {**envelope('open_context', 'ok', []), 'context': ''}
         self.assertEqual(runner.run_vector(Scripted(empty, {**envelope('get', 'ok', []), 'context': ''}), 't', vector), [])
 
+    def test_store_reads_have_no_context(self):
+        step = {'operation': 'item_history', 'request': {'collection': 'handbook', 'logical_id': 'a'},
+                'expect': {'status': 'ok', 'reasons': []}}
+        self.assertEqual(runner.run_vector(Scripted(envelope('item_history', 'ok', [])), 't', {'steps': [step]}), [])
+        result = {**envelope('item_history', 'ok', []), 'context': 'ctx-1'}
+        problems = runner.run_vector(Scripted(result), 't', {'steps': [step]})
+        self.assertEqual(problems, ["step 1 (item_history): context is 'ctx-1', not null (LIF-ITM-4)"])
+
     def test_context_of_refusals(self):
         refused = {'operation': 'open_context', 'request': {},
                    'expect': {'status': 'not_found', 'reasons': ['unknown_ref']}}
@@ -511,7 +519,7 @@ def echo(vector: dict) -> list[dict]:
             result['document_id'] = runner.digest(runner.canonical(result['document']).encode()) if ok else None
         if op in runner.LOCK_OPERATIONS and e['status'] == 'ok':
             result['lock'] = runner.revision(runner.lock_descriptor(op, request), fields)
-        if op != 'put' and 'as_context' not in step and 'context' in request:
+        if op != 'put' and op not in runner.STORE_READS and 'as_context' not in step and 'context' in request:  # LIF-ITM-4
             result['context'] = request['context']
         results.append(result)
     return results

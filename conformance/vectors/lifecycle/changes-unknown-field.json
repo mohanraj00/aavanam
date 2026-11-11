@@ -1,0 +1,207 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A snapshot_changes request with a context field fails, because the operation reads no read context",
+  "clauses": [
+    "LIF-CHG-1",
+    "LIF-ITM-4",
+    "STS-MAL-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "a1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "a2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    },
+    "b": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"bolt\"]}"
+    },
+    "c": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"clamp\"]}"
+    },
+    "n": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"note\"]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a1"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "a2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a2"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "b"
+              },
+              "logical_id": "schema-b"
+            }
+          },
+          {
+            "as": "c",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "c"
+              },
+              "logical_id": "schema-c"
+            }
+          },
+          {
+            "as": "n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "n"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a1"
+          },
+          {
+            "$ref": "b"
+          },
+          {
+            "$ref": "n"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a2"
+          },
+          {
+            "$ref": "b"
+          },
+          {
+            "$ref": "c"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s2"
+    },
+    {
+      "operation": "snapshot_changes",
+      "request": {
+        "before": {
+          "$ref": "s1"
+        },
+        "after": {
+          "$ref": "s2"
+        },
+        "context": "c"
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "unknown_field"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lifecycle/changes-ok"
+}

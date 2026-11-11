@@ -1,0 +1,32 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer_removals on a device store is unsupported",
+  "clauses": [
+    "PRD-SEC-1",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The request has an unknown field. The role check comes first (PRD-SEC-1)."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_removals",
+      "request": {
+        "producer": "not checked",
+        "extra": 1
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "producer_section_absent"
+        ],
+        "items": [],
+        "store_unchanged": true
+      },
+      "store": "device"
+    }
+  ],
+  "pair": "producer/put-get-ok"
+}

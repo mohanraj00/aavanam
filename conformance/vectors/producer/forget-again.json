@@ -1,0 +1,76 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A second forget of a removed key is not_found and adds no record",
+  "clauses": [
+    "PRD-RMV-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The pair forgets the key one time."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_forget",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "reason": "the tenant asked"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1,
+              "key": "k-text",
+              "reason": "the tenant asked"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_forget",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "reason": "the tenant asked"
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "producer_removed"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/forget-ok"
+}

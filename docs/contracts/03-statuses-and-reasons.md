@@ -59,6 +59,8 @@ The reason table:
 | `missing_target` | `not_found` | A reference target is not in the store (KND-REF-2) |
 | `unknown_ref` | `not_found` | An exact reference in the request is not in the store |
 | `unknown_candidate` | `not_found` | The catalog has no candidate with the identity in the request (PUB-HED-3) |
+| `unknown_producer_key` | `not_found` | The producer has no object and no removal record with the key (PRD-OBJ-3) |
+| `producer_removed` | `not_found` | The producer removed the object with the key, and it has no object with the key now (PRD-OBJ-3) |
 | `not_in_context` | `not_found` | The object is in the store but not in the read context |
 | `payload_missing` | `not_found` | The bytes of a payload are not in the store |
 | `unbound_role` | `unresolved` | A declared role has no binding in the BindingSet |
@@ -82,6 +84,8 @@ The reason table:
 | `lock_outside_snapshot` | `incompatible` | An object in the covered set of the lock of the activation is not in the closure of the snapshot of the candidate (PUB-ACT-3) |
 | `change_outside_lock` | `incompatible` | A member that the candidate adds or replaces is not in the covered set of the lock of the activation (PUB-ACT-3) |
 | `removal_refused` | `incompatible` | The members that the candidate removes are not exactly the `removed` of the activation, or a gated collection has a removal (PUB-ACT-3) |
+| `producer_key_conflict` | `incompatible` | The producer has an object with the key and different bytes (PRD-OBJ-2) |
+| `log_moved` | `incompatible` | The sequence in the request is not the number of entries in the log plus 1 (PRD-LOG-2) |
 | `unknown_kind` | `unsupported` | The kind is not registered (KND-REG-3) |
 | `unsupported_target_kind` | `unsupported` | A reference target has a kind that its field does not permit (KND-REF-3) |
 | `unsupported_operation` | `unsupported` | The operation is not in the supported profile |
@@ -91,6 +95,7 @@ The reason table:
 | `unsupported_dependents` | `unsupported` | The kind of dependents is not supported (CHG-IMP-1) |
 | `capability_unavailable` | `unsupported` | The read context does not have a capability that the operation or the lock needs (CTX-PRJ-4, LCK-CAP-2) |
 | `read_only_store` | `unsupported` | The store is a device store, and the operation writes to it (BUN-IMP-6) |
+| `producer_section_absent` | `unsupported` | The store is not a writer store, so it has no producer section (PRD-SEC-1) |
 | `reserved_profile` | `unsupported` | The feature is reserved in document 16 and not specified |
 | `malformed_json` | `failed` | The input is not valid JSON |
 | `duplicate_key` | `failed` | A JSON object has a key more than one time |
@@ -157,6 +162,15 @@ The operation table:
 | `publications` | 13 | `ok`, `failed` |
 | `export` | 11 | `ok`, `not_found`, `unsupported`, `failed` |
 | `import` | 11 | `ok`, `incompatible`, `unsupported`, `failed` |
+| `snapshot_changes` | 17 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
+| `item_history` | 17 | `ok`, `failed` |
+| `list_items` | 18 | `ok`, `partial`, `unsupported`, `failed` |
+| `producer_put` | 19 | `ok`, `incompatible`, `unsupported`, `failed` |
+| `producer_get` | 19 | `ok`, `not_found`, `unsupported`, `failed` |
+| `producer_forget` | 19 | `ok`, `not_found`, `unsupported`, `failed` |
+| `producer_removals` | 19 | `ok`, `unsupported`, `failed` |
+| `producer_append` | 19 | `ok`, `incompatible`, `unsupported`, `failed` |
+| `producer_read` | 19 | `ok`, `unsupported`, `failed` |
 | `workspace_open` | 16 | `unsupported` |
 | `workspace_append` | 16 | `unsupported` |
 | `workspace_read` | 16 | `unsupported` |
@@ -193,4 +207,4 @@ In step 1, a number is outside I-JSON if it is not finite as an IEEE 754 double,
 
 The store stops at the first check that fails. The result gives the reasons of that check only, with one reason for each affected value. Thus each descriptor has one status, and vectors can expect one result for each input.
 
-**STS-MAL-4.** The store MUST check the operation before its input. If the operation has no row in the operation table, the result is `unsupported` with reason `unsupported_operation`. If its row gives only `unsupported`, the result is `unsupported` with reason `reserved_profile`. In these two cases, the store does not check the input, and STS-MAL-1 does not apply. Next, a device store checks its role (BUN-IMP-6). If it gives `read_only_store`, the store does not check the input either.
+**STS-MAL-4.** The store MUST check the operation before its input. If the operation has no row in the operation table, the result is `unsupported` with reason `unsupported_operation`. If its row gives only `unsupported`, the result is `unsupported` with reason `reserved_profile`. In these two cases, the store does not check the input, and STS-MAL-1 does not apply. Next, a device store checks its role (BUN-IMP-6). If it gives `read_only_store`, the store does not check the input either. Then a store that is not a writer store checks its role for an operation of document 19 (PRD-SEC-1). If it gives `producer_section_absent`, the store does not check the input.

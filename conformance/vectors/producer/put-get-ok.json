@@ -1,0 +1,59 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer object is kept under its key and given back as the same bytes",
+  "clauses": [
+    "PRD-SEC-2",
+    "PRD-OBJ-1",
+    "PRD-OBJ-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The item fields come from PRD-OBJ-1 and PRD-OBJ-3: the key, the byte count and the base64 text of the bytes."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_get",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

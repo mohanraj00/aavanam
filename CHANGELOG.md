@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Report the license and the redistribution status of each export item (BUN-RED-1 to BUN-RED-6). An export for a target withholds the payload bytes that the target does not permit, and keeps each descriptor. The base profile is at minor version 4.
+- Report the license and the redistribution status of each export item (BUN-RED-1 to BUN-RED-6). An export for a target withholds the payload bytes that the target does not permit, and keeps each descriptor. The base profile is at minor version 6.
 
 ## 0.1.0
 

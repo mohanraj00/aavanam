@@ -7,6 +7,8 @@ REASON_STATUS = {
     'missing_target': 'not_found',
     'unknown_ref': 'not_found',
     'unknown_candidate': 'not_found',
+    'unknown_producer_key': 'not_found',  # PRD-OBJ-3
+    'producer_removed': 'not_found',  # PRD-OBJ-3
     'not_in_context': 'not_found',
     'payload_missing': 'not_found',
     'unbound_role': 'unresolved',
@@ -30,6 +32,8 @@ REASON_STATUS = {
     'lock_outside_snapshot': 'incompatible',
     'change_outside_lock': 'incompatible',
     'removal_refused': 'incompatible',
+    'producer_key_conflict': 'incompatible',  # PRD-OBJ-2
+    'log_moved': 'incompatible',  # PRD-LOG-2
     'unknown_kind': 'unsupported',
     'unsupported_target_kind': 'unsupported',
     'unsupported_operation': 'unsupported',
@@ -39,6 +43,7 @@ REASON_STATUS = {
     'unsupported_dependents': 'unsupported',
     'capability_unavailable': 'unsupported',
     'read_only_store': 'unsupported',
+    'producer_section_absent': 'unsupported',  # PRD-SEC-1
     'reserved_profile': 'unsupported',
     'malformed_json': 'failed',
     'duplicate_key': 'failed',

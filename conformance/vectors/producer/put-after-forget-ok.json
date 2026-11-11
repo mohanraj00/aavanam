@@ -1,0 +1,124 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A put after a forget adds the object again, and the removal record stays",
+  "clauses": [
+    "PRD-OBJ-4",
+    "PRD-RMV-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "PRD-OBJ-4 adds the object again. PRD-RMV-4 keeps the record."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_forget",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "reason": "the tenant asked"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1,
+              "key": "k-text",
+              "reason": "the tenant asked"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_get",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_removals",
+      "request": {
+        "producer": "example/run-writer"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1,
+              "key": "k-text",
+              "reason": "the tenant asked"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

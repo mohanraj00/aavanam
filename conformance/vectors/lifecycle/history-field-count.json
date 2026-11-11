@@ -1,0 +1,30 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An item_history request with no logical_id fails with field_count",
+  "clauses": [
+    "LIF-HST-1",
+    "STS-MAL-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "item_history",
+      "request": {
+        "collection": "handbook"
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_count"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lifecycle/history-empty-ok"
+}

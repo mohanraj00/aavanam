@@ -1,0 +1,31 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An item_history request with an empty logical_id fails with field_type",
+  "clauses": [
+    "LIF-HST-1",
+    "STS-MAL-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "item_history",
+      "request": {
+        "collection": "handbook",
+        "logical_id": ""
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lifecycle/history-empty-ok"
+}

@@ -1,0 +1,162 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An item key with two revisions in one snapshot is replaced if the list of revisions changes",
+  "clauses": [
+    "LIF-ITM-1",
+    "LIF-ITM-2",
+    "LIF-ITM-3",
+    "LIF-ITM-4",
+    "LIF-CHG-1",
+    "LIF-CHG-3",
+    "LIF-CHG-4",
+    "LIF-CHG-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "a1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
+    },
+    "a2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"torque\"]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a1"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "a2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a2"
+              },
+              "logical_id": "schema-a"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a1"
+          },
+          {
+            "$ref": "a2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s2"
+    },
+    {
+      "operation": "snapshot_changes",
+      "request": {
+        "before": {
+          "$ref": "s1"
+        },
+        "after": {
+          "$ref": "s2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "kind": "schema",
+              "logical_id": "schema-a",
+              "change": "replaced",
+              "before": [
+                {
+                  "$ref": "a1"
+                },
+                {
+                  "$ref": "a2"
+                }
+              ],
+              "after": [
+                {
+                  "$ref": "a1"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

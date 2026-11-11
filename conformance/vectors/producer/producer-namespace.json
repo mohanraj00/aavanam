@@ -1,0 +1,53 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A producer does not read the objects of a different producer",
+  "clauses": [
+    "PRD-SEC-2",
+    "PRD-OBJ-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The get names a different producer. The pair names the same producer."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "k-text",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "k-text",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_get",
+      "request": {
+        "producer": "example/other-writer",
+        "key": "k-text"
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_producer_key"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/put-get-ok"
+}

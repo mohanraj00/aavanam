@@ -1,0 +1,32 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An item_history request with a kind field fails with unknown_field",
+  "clauses": [
+    "LIF-HST-1",
+    "STS-MAL-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "item_history",
+      "request": {
+        "collection": "handbook",
+        "logical_id": "schema-a",
+        "kind": "schema"
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "unknown_field"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lifecycle/history-empty-ok"
+}

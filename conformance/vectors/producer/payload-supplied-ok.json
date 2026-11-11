@@ -1,0 +1,70 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A put of a source with its payload bytes is ok when the producer has the same bytes",
+  "clauses": [
+    "PRD-ISO-2",
+    "KND-OPQ-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The pair of payload-not-supplied sends the payload bytes."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "invoice": {
+      "media_type": "text/plain",
+      "text": "Synthetic invoice text: total 120.00 units."
+    }
+  },
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/run-writer",
+        "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+        "data": "U3ludGhldGljIGludm9pY2UgdGV4dDogdG90YWwgMTIwLjAwIHVuaXRzLg=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:8a3a994ce72a364d6d3be551a0ea737e28f172dd2f7c983ba6347b82d34173f9",
+              "size": 43
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "invoice"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}
