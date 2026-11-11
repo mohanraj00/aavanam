@@ -8,7 +8,7 @@
   ".github/dependabot.yml": "eada67e1b7f73d16a4c240ede6193c4852a2b0887e678a23dc7a3462810502e7",
   ".github/gates.json": "e485870625cc9a8bdd04b90304e75d70d99a1f80b7daba1576789eba6244de5c",
   ".github/pull_request_template.md": "3227026c58bc3da5f1f927b7374e06fd10e1e3407e0315fe96fec3fe596e03de",
-  ".github/workflows/ci.yml": "88da8f2181c74d90b87684dc25ed3290ae8105f07e4f5082b8135f9151eb5e36",
+  ".github/workflows/ci.yml": "76e60d547f9c86ea5e9747f9f10dd6c75b9ae8f2cd4e5c1c8abfa6a7cd04fcf3",
   ".github/workflows/claude-review.yml": "2b07eb5ede72f08a8937d40fd0da29b47df20ce742802ae0ab55fea5a898bcdb",
   ".github/workflows/gates-rerun.yml": "31e3569b0c69153be7483375f2dce21849473cc3b1a7f8aaa9e83bd7e3077d05",
   ".github/workflows/gates.yml": "be370afd6b6e7c9621079ae5893a24978189dd4039e57e506ebada6bf195c65d",
