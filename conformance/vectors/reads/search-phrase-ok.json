@@ -1,0 +1,329 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A query of two words matches the two words in order across each separator, also byte 0",
+  "clauses": [
+    "CRD-TXT-3",
+    "CRD-TXT-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The separators of the query have no effect, so \"PUMP-seal\" has the words of \"pump seal\". The locator spans the separators between the matched words."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "d3": {
+      "media_type": "text/plain",
+      "text": "pump -- seal; pump\u0000seal; pumpseal; Pump, SEAL\n"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "d3",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/document/v1",
+              "payload": {
+                "$payload": "d3"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "d3": {
+                  "$ref": "d3"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-manual",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "query": "pump seal"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 0,
+                "end": 12
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 14,
+                "end": 23
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 35,
+                "end": 45
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "query": "PUMP-seal"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 0,
+                "end": 12
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 14,
+                "end": 23
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 35,
+                "end": 45
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "query": "pumpseal"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d3"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 25,
+                "end": 33
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

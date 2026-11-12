@@ -59,7 +59,7 @@ class Expander:
         if name not in self.payloads:
             raise VectorError(f'{self.vid}: unknown payload {name}')
         decl = self.payloads[name]
-        data = decl['text'].encode()
+        data = decl['text'].encode() if 'text' in decl else base64.b64decode(decl['base64'], validate=True)
         value = {'digest': digest(data), 'media_type': decl['media_type'], 'size': len(data)}
         if fault == 'digest':
             value['digest'] = digest(data + b' fault')

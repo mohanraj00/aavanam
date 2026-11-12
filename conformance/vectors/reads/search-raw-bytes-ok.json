@@ -1,0 +1,203 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A payload that is not valid UTF-8 is scanned as bytes",
+  "clauses": [
+    "CRD-TXT-2",
+    "CRD-TXT-3",
+    "CRD-TXT-7"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The payload has the bytes 255 and 254 after \"seal \", so \"\\xff\\xfeseal\" is one word. \"seal\\xc3\" is one word. The byte 128 is a word of its own. Thus seal matches only at the bytes 0 to 4 and 20 to 24."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "d7": {
+      "media_type": "text/plain",
+      "base64": "c2VhbCD//nNlYWwgc2VhbMMggCBzZWFsCg=="
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "d7",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/document/v1",
+              "payload": {
+                "$payload": "d7"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "d7": {
+                  "$ref": "d7"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-manual",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "query": "seal"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d7"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 0,
+                "end": 4
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d7"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 20,
+                "end": 24
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

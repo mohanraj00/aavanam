@@ -4,6 +4,7 @@
 
 - Report the license and the redistribution status of each export item (BUN-RED-1 to BUN-RED-6). An export for a target withholds the payload bytes that the target does not permit, and keeps each descriptor. The base profile is at minor version 6.
 - Add the operation `read` of document 20 (CRD-READ-1 to CRD-SRV-5). It gives the descriptor and the exact bytes of one member of a read context, with an optional selector, and the new selector profile `aavanam/row/v1`. The base profile is at minor version 7.
+- Add the operation `search_text` of document 20 (CRD-TXT-1 to CRD-LOC-1). It gives the byte locations of a word sequence in the text artifacts of a read context, in a stable order, with an ASCII case rule and a byte word rule. It never gives Evidence material. A vector payload can also be base64 bytes. The base profile is at minor version 8.
 
 ## 0.1.0
 

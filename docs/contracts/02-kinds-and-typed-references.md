@@ -234,6 +234,6 @@ The field table. The targets column applies only to the value types `ref` and `r
 
 **KND-OPQ-1.** The store MUST check that the bytes of each `payload` agree with its `digest` and `size`. The store MUST NOT parse a payload, unless the profile of its kind requires this (for example a data profile in document 04). This exception applies only to the kinds `schema`, `data-resource`, `reading` and `excerpt`.
 
-**KND-OPQ-2.** The store MUST NOT parse, load, import, interpret, execute, evaluate, compile or render an `artifact`, `runtime-profile` or `receipt` payload. No profile can change this. The value of `artifact_type` is an application name. The store compares it only as a string.
+**KND-OPQ-2.** The store MUST NOT parse, load, import, interpret, execute, evaluate, compile or render an `artifact`, `runtime-profile` or `receipt` payload. No profile can change this. The value of `artifact_type` is an application name. The store compares it only as a string. A byte comparison of a payload is not a parse. Thus the word rule of a text search (CRD-TXT-7) does not break this clause or KND-OPQ-1.
 
 **KND-OPQ-3.** The store MUST keep the `ext` value as opaque data in the canonical encoding. If the store does not support an extension namespace in `ext`, it keeps the value and does not apply its meaning.
