@@ -57,10 +57,14 @@ snap = store.call('create_snapshot', {'collection': 'pump-manual', 'units': [uni
 print('snapshot', snap['status'])
 snap = snap['items'][0]['ref']
 
-# Consumer 1, a response agent: search the text, then find what backs the table.
+# Consumer 1, a response agent: search the text, quote it, then find what backs the table.
 agent = store.call('open_context', {'roots': [snap]})['context']
 hit = store.call('search', {'context': agent, 'query': 'seal'})['items'][0]
 print('agent found', hit['kind'], hit['ref'] == reading)
+cite = {'selector_profile': 'aavanam/bytes/v1', 'start': 10, 'end': 43}
+quote = store.call('read', {'context': agent, 'ref': hit['ref'], 'selector': cite})['items'][0]
+print('agent quotes', repr(base64.b64decode(quote['data']).decode()),
+      'from bytes', quote['selector']['start'], 'to', quote['selector']['end'], 'of the', quote['kind'])
 support = store.call('evidence', {'context': agent, 'subject': table})['items']
 print('agent cites', [s['relation'] for s in support])
 
@@ -79,6 +83,7 @@ Output:
 ```text
 snapshot ok
 agent found reading True
+agent quotes 'Replace the seal every 500 hours.' from bytes 10 to 43 of the reading
 agent cites ['support']
 script reads seal interval_h = 500
 lock ok 3 objects
