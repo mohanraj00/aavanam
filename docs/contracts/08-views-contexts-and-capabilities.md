@@ -52,6 +52,7 @@ This document defines views, read contexts, projected contexts with functional c
 | `aavanam/lexical/v1` | `search` |
 | `aavanam/locks/v1` | `execution_inputs`, `build_inputs` |
 | `aavanam/export/v1` | `export` |
+| `aavanam/text/v1` | `search_text` |
 
 **CTX-PRJ-2.** The request of `open_context` can have the field `capabilities`, a set of capability names (KND-SCH-5). If the request has no `capabilities`, the context has each capability of the table. If the request has `capabilities`, the context is a projected context. It has only the capabilities of the request. An empty list gives a projected context with no capability.
 

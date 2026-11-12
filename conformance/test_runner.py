@@ -277,6 +277,15 @@ class ExpanderTest(unittest.TestCase):
         request, _ = absent.request('put', {'descriptors': [{'value': {'payload': {'$payload': 'p'}}}]})
         self.assertEqual(request['payloads'], {})
 
+    def test_base64_payload(self):
+        raw = b'seal \xff\x00'
+        e = runner.Expander('t', {'payloads': {'p': {'media_type': 'text/plain', 'base64': base64.b64encode(raw).decode()}}})
+        request, _ = e.request('put', {'descriptors': [{'value': {'payload': {'$payload': 'p'}}}]})
+        self.assertEqual(request['payloads'], {runner.digest(raw): base64.b64encode(raw).decode()})
+        self.assertTrue(runner.check_spec.is_base64('c2VhbA=='))
+        for bad in ('c2VhbA', 'c2VhbA=', 'c2Vh bA==', 7, '***='):
+            self.assertFalse(runner.check_spec.is_base64(bad), bad)
+
     def test_raw_and_handles(self):
         e = runner.Expander('t', {})
         request, names = e.request('put', {'descriptors': [{'raw': '{'}, {'as': 'x', 'value': {'a': {'$absent': 'y'}}}]})

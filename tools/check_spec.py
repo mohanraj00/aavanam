@@ -1,6 +1,8 @@
 """Check the SPEC.md index, the clause IDs, the registry tables and the conformance vectors."""
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import re
@@ -445,9 +447,10 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
             errors.append(f'{where}: a spike vector needs a provenance source')
         payloads = v.get('payloads', {})
         if not isinstance(payloads, dict) or not all(
-                isinstance(p, dict) and isinstance(p.get('text'), str) and isinstance(p.get('media_type'), str)
-                and isinstance(p.get('stored', True), bool) for p in payloads.values()):
-            errors.append(f'{where}: each payload needs text and media_type')
+                isinstance(p, dict) and isinstance(p.get('media_type'), str) and isinstance(p.get('stored', True), bool)
+                and (isinstance(p.get('text'), str)) != ('base64' in p) and ('base64' not in p or is_base64(p['base64']))
+                for p in payloads.values()):
+            errors.append(f'{where}: each payload needs media_type and one of text or base64')
             payloads = {}
         steps = v.get('steps')
         if not isinstance(steps, list) or not steps:
@@ -722,6 +725,14 @@ def valid_text(text: str) -> bool:
     except UnicodeEncodeError:
         return False
     return not any(0xFDD0 <= ord(c) <= 0xFDEF or ord(c) & 0xFFFE == 0xFFFE for c in text)
+
+
+def is_base64(value) -> bool:
+    """A base64 text of RFC 4648 section 4, in its canonical form."""
+    try:
+        return isinstance(value, str) and base64.b64encode(base64.b64decode(value, validate=True)).decode() == value
+    except (binascii.Error, ValueError):
+        return False
 
 
 def payload_object(data: bytes, media_type: str) -> dict:

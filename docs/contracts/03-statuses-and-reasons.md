@@ -166,6 +166,7 @@ The operation table:
 | `item_history` | 17 | `ok`, `failed` |
 | `list_items` | 18 | `ok`, `partial`, `unsupported`, `failed` |
 | `read` | 20 | `ok`, `not_found`, `unsupported`, `failed` |
+| `search_text` | 20 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
 | `producer_put` | 19 | `ok`, `incompatible`, `unsupported`, `failed` |
 | `producer_get` | 19 | `ok`, `not_found`, `unsupported`, `failed` |
 | `producer_forget` | 19 | `ok`, `not_found`, `unsupported`, `failed` |

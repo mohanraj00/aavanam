@@ -97,7 +97,7 @@ A vector has three stores: `writer`, `device` and `output`. They have the roles 
 
 An `execution_inputs` or `build_inputs` step can have `lock_store`. This is the store that keeps the lock, for example the output store of a device consumer. The default is the store of the step. The lock checks read the lock in this store (LCK-EXE-4, LCK-BLD-3). A step on `device` writes its lock to `output` (BUN-IMP-7), so it has `"lock_store": "output"`.
 
-A payload declaration has `media_type` and `text`. The bytes are the UTF-8 encoding of `text`. If the declaration has `"stored": false`, the runner does not send the bytes.
+A payload declaration has `media_type` and one of `text` or `base64`. The bytes are the UTF-8 encoding of `text`, or the bytes that the base64 text (RFC 4648 section 4) gives. Use `base64` for bytes that are not valid UTF-8. If the declaration has `"stored": false`, the runner does not send the bytes.
 
 ## Scenarios
 
