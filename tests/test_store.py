@@ -186,7 +186,8 @@ class StoreTest(unittest.TestCase):
             db.commit()
             db.close()
             store = Store(path)
-            self.assertEqual(len(store.context_of({'context': 'ctx:old'})[2]), 4)  # each capability (CTX-PRJ-2)
+            table = ['aavanam/data/v1', 'aavanam/export/v1', 'aavanam/lexical/v1', 'aavanam/locks/v1', 'aavanam/text/v1']
+            self.assertEqual(store.context_of({'context': 'ctx:old'})[2], table)  # each capability (CTX-PRJ-1, CTX-PRJ-2)
             store.close()
 
     def test_exported_number_round_trip(self):

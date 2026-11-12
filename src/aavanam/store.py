@@ -12,6 +12,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import threading
 import uuid
@@ -30,11 +31,12 @@ DECLARED = {'redistributable', 'no_redistribution', 'unknown'}  # BUN-RED-1
 RENDER_PROFILE = 'aavanam/render/v1'
 # The operations whose row in the operation table has `partial` (STS-ENV-3)
 PARTIAL = {'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render', 'compare', 'impact',
-           'snapshot_changes', 'list_items'}
+           'snapshot_changes', 'list_items', 'search_text'}
 LOCK_KINDS = {'execution_inputs': 'execution-lock', 'build_inputs': 'build-lock'}
 # The capability table (CTX-PRJ-1): each capability and the operations that need it
 CAPABILITIES = {'aavanam/data/v1': ('query_data',), 'aavanam/lexical/v1': ('search',),
-                'aavanam/locks/v1': ('execution_inputs', 'build_inputs'), 'aavanam/export/v1': ('export',)}
+                'aavanam/locks/v1': ('execution_inputs', 'build_inputs'), 'aavanam/export/v1': ('export',),
+                'aavanam/text/v1': ('search_text',)}
 NEEDS = {op: cap for cap, ops in CAPABILITIES.items() for op in ops}
 SKEW_POLICIES = ('reject', 'permit')  # CTX-SKW-3
 ROLES = ('writer', 'device', 'output')  # BUN-IMP-5
@@ -171,6 +173,27 @@ def is_text(value) -> bool:
 
 def is_str(value) -> bool:
     return isinstance(value, str)
+
+
+WORD = re.compile(rb'[A-Za-z0-9\x80-\xff]+')  # CRD-TXT-3 rule 1: a maximal sequence of word bytes
+
+
+def words(data: bytes) -> list[tuple[int, int, bytes]]:
+    """The start, the end and the folded form of each word (CRD-TXT-3). bytes.lower folds only A to Z."""
+    return [(m.start(), m.end(), m.group().lower()) for m in WORD.finditer(data)]
+
+
+def is_query(value) -> bool:
+    """A query of CRD-TXT-1: 1 to 1024 Unicode scalar values, with 1 to 32 words."""
+    if not (isinstance(value, str) and 1 <= len(value) <= 1024) or any(0xD800 <= ord(c) <= 0xDFFF for c in value):
+        return False
+    return 1 <= len(WORD.findall(value.encode('utf-8'))) <= 32
+
+
+def is_text_media(media_type: str) -> bool:
+    """CRD-TXT-2: the part before the first `;`, without ASCII spaces at its ends, with A to Z folded, is text/<more>."""
+    part = media_type.split(';', 1)[0].strip(' ').encode('utf-8').lower()
+    return part.startswith(b'text/') and len(part) > len(b'text/')
 
 
 def is_names(value) -> bool:
@@ -1117,6 +1140,33 @@ class Store:
         bounded = limit is not None and len(rest) > limit
         items = [item(ref=r, kind=k, count=-c) for c, r, k in (rest[:limit] if limit is not None else rest)]  # QRY-LEX-3
         return self.result('search', items, context, bounded)
+
+    def op_search_text(self, request: dict) -> dict:
+        strict(request, {'context': (True, is_str), 'query': (True, is_query), 'offset': (False, is_count),
+                         'limit': (False, lambda v: is_count(v, 1))})  # CRD-TXT-1 steps 1 to 3
+        context, members = self.members(request, 'search_text')  # steps 4 and 5
+        roots = json.loads(self.db.execute('SELECT roots FROM contexts WHERE id = ?', (context,)).fetchone()[0])
+        closures = {s: self.closure([s]) for s in sorted(set(roots)) if self.kind(s) == 'snapshot'}  # CRD-TXT-6 rule 2
+        query = [w for _, _, w in words(request['query'].encode('utf-8'))]
+        n, items = len(query), []
+        for ref, desc in self.records(members, {'artifact'}):  # CRD-TXT-2, CRD-ORD-1: ascending ref
+            if not is_text_media(desc['payload']['media_type']):
+                continue
+            data = self.blob(desc['payload']['digest'])
+            if data is None:
+                items.append(refused(['payload_missing'], [ref]))  # CRD-TXT-5
+                continue
+            snapshots = [s for s, closure in closures.items() if ref in closure]
+            found = words(data)
+            folded = [w for _, _, w in found]
+            for i in range(len(found) - n + 1):  # CRD-TXT-4: each word start, so matches can overlap
+                if folded[i:i + n] == query:
+                    selector = {'selector_profile': d.BYTES, 'start': found[i][0], 'end': found[i + n - 1][1]}
+                    items.append(item(ref=ref, snapshots=snapshots, selector=selector))
+        offset, limit = request.get('offset', 0), request.get('limit')
+        rest = items[offset:]
+        bounded = limit is not None and len(rest) > limit  # CRD-ORD-2
+        return self.result('search_text', rest[:limit] if limit is not None else rest, context, bounded)
 
     def distances(self, start, members: set[str], forward: bool) -> dict[str, int]:
         """The smallest number of reference steps from the start objects, in the read context (QRY-BDL-3, CHG-IMP-4)."""
