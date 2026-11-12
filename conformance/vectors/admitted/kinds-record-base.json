@@ -1,0 +1,85 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A key query on a base admitted-facts table gives unknown_column",
+  "clauses": [
+    "ADP-FXT-1",
+    "ADP-FACT-3",
+    "QRY-DAT-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The base admitted-facts table has only the columns field and value (ADP-FACT-3). The extension adds the column key (ADP-FXT-6)."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "admitted-kinds"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence",
+    "sample-delivery-serving": "serving",
+    "sample-delivery-evidence": "evidence"
+  },
+  "pair": "admitted/kinds-record",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-kinds:serving"
+          },
+          {
+            "$ref": "admitted-invoice:serving"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "admitted-invoice:count"
+          }
+        ],
+        "where": {
+          "key": "2"
+        }
+      },
+      "expect": {
+        "status": "unresolved",
+        "reasons": [
+          "unknown_column"
+        ],
+        "items": [
+          {
+            "status": "unresolved",
+            "reasons": [
+              "unknown_column"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

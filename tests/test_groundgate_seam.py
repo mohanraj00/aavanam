@@ -7,18 +7,16 @@ CI installs the pin from `tests/requirements-seam.txt` and sets AAVANAM_SEAM=1, 
 Without AAVANAM_SEAM=1, an absent package skips this test, because the reference implementation uses only the
 standard library (constitution principle 9).
 """
-import hashlib
 import json
 import os
 import tempfile
 import unittest
-import unicodedata
 from importlib import metadata
 from types import SimpleNamespace
 
 from support import ROOT, Store
 
-from aavanam.admitted import put_admitted_facts
+from aavanam.admitted import put_export_facts
 from aavanam.chained import ChainedLogStore
 from aavanam.jsontext import canonical
 
@@ -99,63 +97,18 @@ INVOICE_CANDIDATES = [
 SERVING = 'sample-invoice-serving'
 EVIDENCE = 'sample-invoice-evidence'
 LOCATOR = 'https://example.org/invoices/sample'
-FACT_FIELDS = {'field', 'key', 'value', 'unit', 'citation'}
-CITATION_FIELDS = {'source', 'ref', 'url', 'source_sha256', 'text_sha256', 'span', 'receipt_sha256'}
+# The reader declaration of facts@1 (ADP-FXT-2). The digest forms are those of groundgate SPEC 6 and
+# docs/design/store.md, section 4. The spans count UTF-8 bytes (groundgate SPEC 2.2). It is data, not glue code.
+DECLARATION = {
+    'format': 'facts@1', 'identity_member': 'packet_sha256', 'span_unit': 'utf8-bytes',
+    'source_digest': {'form': 'aavanam/prefixed-sha256/v1', 'scheme': 'example/source-object/v1',
+                      'prefix': 'groundgate-object/1:source@1\0'},
+    'text_digest': {'form': 'aavanam/prefixed-jcs-sha256/v1', 'scheme': 'example/document-digest/v1',
+                    'prefix': 'groundgate/0.12:document\0', 'member': 'text'},
+}
 # The expected facts come from the facts@1 contract (groundgate SPEC 5.1): the canonical value string of each
-# admitted decision, and the cited text. The code-point spans are those of the fixture in fixtures/admitted-export.
-EXPECTED = {'count': ('2', b'Count: 2', (7, 15)), 'code': ('A17', b'Code: A17', (16, 25))}
-
-
-def store_key(kind, data):
-    """The groundgate store key (groundgate docs/design/store.md, section 4)."""
-    return 'sha256:' + hashlib.sha256(b'groundgate-object/1:' + kind.encode('ascii') + b'\0' + data).hexdigest()
-
-
-def document_digest(text):
-    """The groundgate document digest (groundgate SPEC 2.1 and 6)."""
-    body = canonical({'text': text}).encode('utf-8')
-    return 'sha256:' + hashlib.sha256(b'groundgate/0.12:document\0' + body).hexdigest()
-
-
-def items_from_export(export, source, reading):
-    """Read a facts@1 export into the items of ADP-FACT-1. Refuse each fact that the profile cannot keep.
-
-    The application does this step, because the producer format is not an aavanam format. The export digests use
-    groundgate schemes, so check them against the supplied bytes, then give the plain SHA-256 digests.
-    The export spans count UTF-8 bytes (groundgate SPEC 2.2). ADP-SEL-4 counts code points.
-    """
-    if set(export) != {'format', 'packet_sha256', 'facts'} or export['format'] != 'facts@1':
-        raise ValueError('the export is not facts@1')
-    text = reading.decode('utf-8')
-    if unicodedata.normalize('NFC', text) != text:
-        raise ValueError('the reading is not NFC')
-    items = []
-    for fact in export['facts']:
-        if not isinstance(fact, dict) or set(fact) != FACT_FIELDS:
-            raise ValueError('a fact has different fields')
-        citation = fact['citation']
-        if not isinstance(citation, dict) or set(citation) != CITATION_FIELDS:
-            raise ValueError('a fact has no citation or a citation has different fields')
-        if citation['source'] != 'document' or citation['span'] is None:
-            raise ValueError('a fact has no document span')
-        if fact['key'] is not None or fact['unit'] is not None:
-            raise ValueError('the profile has no key or unit column')
-        if citation['source_sha256'] != store_key('source@1', source):
-            raise ValueError('the source digest differs from the source bytes')
-        if citation['text_sha256'] != document_digest(text):
-            raise ValueError('the text digest differs from the reading')
-        span = citation['span']
-        if not isinstance(span, dict) or set(span) != {'start', 'end'}:
-            raise ValueError('a span needs a start and an end')
-        try:
-            start, end = (len(reading[:span[name]].decode('utf-8')) for name in ('start', 'end'))
-        except (TypeError, UnicodeDecodeError) as error:
-            raise ValueError('a span is not on character boundaries') from error
-        items.append({'field': fact['field'], 'value': fact['value'],
-                      'document_digest': 'sha256:' + hashlib.sha256(source).hexdigest(),
-                      'text_digest': 'sha256:' + hashlib.sha256(reading).hexdigest(),
-                      'span': {'start': start, 'end': end}, 'receipt_digest': citation['receipt_sha256']})
-    return items
+# admitted decision, and the cited text. The byte spans are those of the fixture in fixtures/admitted-export.
+EXPECTED = {'count': ('2', b'Count: 2', (11, 19)), 'code': ('A17', b'Code: A17', (20, 29))}
 
 
 class ExportSeamTest(unittest.TestCase):
@@ -183,25 +136,25 @@ class ExportSeamTest(unittest.TestCase):
         self.store.section(SERVING, 'serving')
         self.store.section(EVIDENCE, 'evidence')
 
-    def put(self, items):
-        return put_admitted_facts(self.store, json.dumps(items), source=self.source, reading=self.reading,
-                                  source_media_type='text/plain', source_locator=LOCATOR,
-                                  producer='example/document-reader/v1', native_scheme='example/admitted-citation/v1',
-                                  serving=SERVING, evidence=EVIDENCE)
+    def put(self, export):
+        return put_export_facts(self.store, json.dumps(export), DECLARATION, source=self.source, reading=self.reading,
+                                source_media_type='text/plain', source_locator=LOCATOR,
+                                producer='example/document-reader/v1', native_scheme='example/admitted-citation/v1',
+                                serving=SERVING, evidence=EVIDENCE)
 
     def call(self, operation, **request):
         result = self.store.call(operation, request)
         self.assertEqual(result['status'], 'ok', result)
         return result
 
-    def test_each_admitted_fact_reads_back_with_its_citation(self):  # ADP-FACT-1 to ADP-FACT-5
-        items = items_from_export(self.export, self.source, self.reading)
-        self.assertEqual(sorted(item['field'] for item in items), sorted(EXPECTED))
-        serving, evidence = self.put(items)
+    def test_each_admitted_fact_reads_back_with_its_citation(self):  # ADP-FACT-5, ADP-FXT-1 to ADP-FXT-7
+        serving, evidence = self.put(self.export)
         context = self.call('open_context', roots=[serving, evidence])['context']
         seen = set()
         for mapping_ref in self.store.descriptor(evidence)['native_mappings']:
             record = self.store.descriptor(self.store.descriptor(mapping_ref)['subject'])
+            if record['kind'] != 'evidence':
+                continue
             table, = self.call('query_data', context=context, resources=[record['subject']],
                                metadata=['source_locator'])['items']
             row, = table['rows']
@@ -209,27 +162,31 @@ class ExportSeamTest(unittest.TestCase):
             seen.add(row['field'])
             self.assertEqual(row['value'], value)
             self.assertIs(type(row['value']), str)
+            self.assertEqual((row['key'], row['member'], row['unit'], row['kind']), (None, None, None, 'scalar'))
             self.assertEqual(table['metadata'], {'source_locator': LOCATOR})
             citation, = self.call('evidence', context=context, subject=record['subject'])['items']
             self.assertEqual(citation['ref'], self.store.descriptor(mapping_ref)['subject'])
             self.assertEqual(record['ext']['citation'],
-                             {'selector_profile': 'aavanam/nfc-text/v1', 'start': start, 'end': end})
+                             {'selector_profile': 'aavanam/bytes/v1', 'start': start, 'end': end})
             excerpt = self.store.descriptor(record['supports'])
             self.assertEqual(self.store.blob(excerpt['payload']['digest']), cited)
             fact = next(f for f in self.export['facts'] if f['field'] == row['field'])
             self.assertEqual(record['ext']['receipt_digest'], fact['citation']['receipt_sha256'])
+            self.assertEqual(record['ext']['export_identity'], self.export['packet_sha256'])
         self.assertEqual(seen, set(EXPECTED))
 
     def test_a_fact_without_a_citation_or_a_changed_field_fails(self):
         fact = self.export['facts'][0]
         citation = fact['citation']
+        before = self.store.fingerprint()
         changes = [
             {**self.export, 'format': 'facts@2'},
             {**self.export, 'extra': None},
             {**self.export, 'facts': [{**fact, 'citation': None}]},
             {**self.export, 'facts': [{k: v for k, v in fact.items() if k != 'citation'}]},
             {**self.export, 'facts': [{**fact, 'extra': None}]},
-            {**self.export, 'facts': [{**fact, 'unit': 'pcs'}]},
+            {**self.export, 'facts': [{**fact, 'kind': 'table'}]},
+            {**self.export, 'facts': [{**fact, 'kind': 'date'}]},
             {**self.export, 'facts': [{**fact, 'citation': {**citation, 'span': None}}]},
             {**self.export, 'facts': [{**fact, 'citation': {**citation, 'source': 'knowledge'}}]},
             {**self.export, 'facts': [{**fact, 'citation': {**citation, 'extra': None}}]},
@@ -241,7 +198,19 @@ class ExportSeamTest(unittest.TestCase):
         ]
         for change in changes:
             with self.subTest(change=change), self.assertRaises(ValueError):
-                items_from_export(change, self.source, self.reading)
+                self.put(change)
+        self.assertEqual(self.store.fingerprint(), before)
+
+    def test_a_key_and_a_unit_give_their_columns(self):  # ADP-FXT-4, ADP-FXT-6
+        # The pinned release gives null for both. The facts@1 contract permits a string for each.
+        fact = self.export['facts'][0]
+        serving, _ = self.put({**self.export, 'facts': [{**fact, 'key': 'k1', 'unit': 'pcs'}]})
+        context = self.call('open_context', roots=[serving])['context']
+        resource, = self.store.descriptor(self.store.descriptor(
+            self.store.descriptor(serving)['units'][0])['binding_set'])['bindings'].values()
+        table, = self.call('query_data', context=context, resources=[resource], where={'unit': 'pcs'})['items']
+        row, = table['rows']
+        self.assertEqual((row['field'], row['key'], row['value'], row['unit']), (fact['field'], 'k1', fact['value'], 'pcs'))
 
 
 if __name__ == '__main__':

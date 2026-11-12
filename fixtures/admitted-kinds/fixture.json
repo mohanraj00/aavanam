@@ -1,0 +1,556 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-delivery-serving",
+  "root": "serving",
+  "payloads": {
+    "document": {
+      "media_type": "text/plain",
+      "file": "source.txt"
+    },
+    "reading": {
+      "media_type": "text/plain",
+      "file": "reading.txt"
+    }
+  },
+  "descriptors": [
+    {
+      "as": "source",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "source",
+        "payload": {
+          "$payload": "document"
+        }
+      }
+    },
+    {
+      "as": "reading",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "source"
+        },
+        "producer": "example/document-reader/v1",
+        "coverage_profile": "aavanam/coverage/v1",
+        "payload": {
+          "$payload": "reading"
+        }
+      }
+    },
+    {
+      "as": "native-source",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "source"
+        },
+        "native_scheme": "example/source-digest/v1",
+        "native_id": "sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe",
+        "checked": {
+          "form": "aavanam/prefixed-sha256/v1",
+          "scheme": "example/source-digest/v1",
+          "prefix": "example-object/1:source\u0000"
+        }
+      }
+    },
+    {
+      "as": "native-reading",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "reading"
+        },
+        "native_scheme": "example/text-digest/v1",
+        "native_id": "sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab",
+        "checked": {
+          "form": "aavanam/prefixed-jcs-sha256/v1",
+          "scheme": "example/text-digest/v1",
+          "prefix": "example/document\u0000",
+          "member": "text"
+        }
+      }
+    },
+    {
+      "as": "schema",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "aavanam/admitted-facts-export/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"key\",\"member\",\"value\",\"unit\",\"kind\"]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "weight",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "schema": {
+          "$ref": "schema"
+        },
+        "data_profile": "aavanam/table/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"key\",\"member\",\"value\",\"unit\",\"kind\"],\"key\":[\"field\",\"key\",\"member\"],\"rows\":[[\"weight\",null,null,\"1250\",\"kg\",\"scalar\"]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "locator-weight",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "weight"
+        },
+        "origin": "example/document-reader/v1",
+        "values": {
+          "source_locator": "https://example.org/delivery/0007/note"
+        }
+      }
+    },
+    {
+      "as": "excerpt-weight",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "reading"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "1250 kg"
+        },
+        "payload": {
+          "$text": "1250 kg",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "evidence-weight",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "weight"
+        },
+        "supports": {
+          "$ref": "excerpt-weight"
+        },
+        "origin": "example/document-reader/v1",
+        "ext": {
+          "citation": {
+            "selector_profile": "aavanam/bytes/v1",
+            "start": 47,
+            "end": 54
+          },
+          "receipt_digest": "sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008",
+          "url": "https://example.org/delivery/0007",
+          "export_identity": "sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149"
+        }
+      }
+    },
+    {
+      "as": "native-weight",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "evidence-weight"
+        },
+        "native_scheme": "example/admitted-citation/v1",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\",47,54,\"weight\",null,\"scalar\",\"1250\",\"kg\"]",
+        "checked": {}
+      }
+    },
+    {
+      "as": "shipped",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "schema": {
+          "$ref": "schema"
+        },
+        "data_profile": "aavanam/table/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"key\",\"member\",\"value\",\"unit\",\"kind\"],\"key\":[\"field\",\"key\",\"member\"],\"rows\":[[\"shipped\",null,null,\"2026-01-05\",null,\"date\"]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "locator-shipped",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "shipped"
+        },
+        "origin": "example/document-reader/v1",
+        "values": {
+          "source_locator": "https://example.org/delivery/0007/note"
+        }
+      }
+    },
+    {
+      "as": "excerpt-shipped",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "reading"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "2026-01-05"
+        },
+        "payload": {
+          "$text": "2026-01-05",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "evidence-shipped",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "shipped"
+        },
+        "supports": {
+          "$ref": "excerpt-shipped"
+        },
+        "origin": "example/document-reader/v1",
+        "ext": {
+          "citation": {
+            "selector_profile": "aavanam/bytes/v1",
+            "start": 64,
+            "end": 74
+          },
+          "receipt_digest": "sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f",
+          "url": "https://example.org/delivery/0007",
+          "export_identity": "sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149"
+        }
+      }
+    },
+    {
+      "as": "native-shipped",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "evidence-shipped"
+        },
+        "native_scheme": "example/admitted-citation/v1",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\",64,74,\"shipped\",null,\"date\",\"2026-01-05\",null]",
+        "checked": {}
+      }
+    },
+    {
+      "as": "line",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "schema": {
+          "$ref": "schema"
+        },
+        "data_profile": "aavanam/table/v1",
+        "payload": {
+          "$text": "{\"columns\":[\"field\",\"key\",\"member\",\"value\",\"unit\",\"kind\"],\"key\":[\"field\",\"key\",\"member\"],\"rows\":[[\"line\",\"2\",\"count\",\"40\",null,\"record\"],[\"line\",\"2\",\"part\",\"bolt\",null,\"record\"],[\"line\",\"2\",\"size\",\"M8\",null,\"record\"]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "locator-line",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "line"
+        },
+        "origin": "example/document-reader/v1",
+        "values": {
+          "source_locator": "https://example.org/delivery/0007/note"
+        }
+      }
+    },
+    {
+      "as": "excerpt-line",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "reading"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "bolt, 40, M8"
+        },
+        "payload": {
+          "$text": "bolt, 40, M8",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "evidence-line",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "line"
+        },
+        "supports": {
+          "$ref": "excerpt-line"
+        },
+        "origin": "example/document-reader/v1",
+        "ext": {
+          "citation": {
+            "selector_profile": "aavanam/bytes/v1",
+            "start": 83,
+            "end": 95
+          },
+          "receipt_digest": "sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616",
+          "url": "https://example.org/delivery/0007",
+          "export_identity": "sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149"
+        }
+      }
+    },
+    {
+      "as": "native-line",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "evidence-line"
+        },
+        "native_scheme": "example/admitted-citation/v1",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\",83,95,\"line\",\"2\",\"record\",{\"count\":\"40\",\"part\":\"bolt\",\"size\":\"M8\"},null]",
+        "checked": {}
+      }
+    },
+    {
+      "as": "note",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "aavanam/admitted-facts-export/passage",
+        "payload": {
+          "$text": "Keep dry.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "locator-note",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "note"
+        },
+        "origin": "example/document-reader/v1",
+        "values": {
+          "source_locator": "https://example.org/delivery/0007/note"
+        }
+      }
+    },
+    {
+      "as": "excerpt-note",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "excerpt",
+        "parent": {
+          "$ref": "reading"
+        },
+        "ranges": {
+          "$ranges": "reading",
+          "text": "Keep dry."
+        },
+        "payload": {
+          "$text": "Keep dry.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "evidence-note",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "note"
+        },
+        "supports": {
+          "$ref": "excerpt-note"
+        },
+        "origin": "example/document-reader/v1",
+        "ext": {
+          "citation": {
+            "selector_profile": "aavanam/bytes/v1",
+            "start": 102,
+            "end": 111
+          },
+          "receipt_digest": "sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412",
+          "url": "https://example.org/delivery/0007",
+          "export_identity": "sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149",
+          "locator": {
+            "selector_profile": "example/page-box/v1",
+            "page": 1,
+            "box": [
+              72,
+              144,
+              200,
+              160
+            ]
+          }
+        }
+      }
+    },
+    {
+      "as": "native-note",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "native-mapping",
+        "subject": {
+          "$ref": "evidence-note"
+        },
+        "native_scheme": "example/admitted-citation/v1",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\",102,111,\"note\",null,\"passage\",\"Keep dry.\",null]",
+        "checked": {}
+      }
+    },
+    {
+      "as": "bindings",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "weight": {
+            "$ref": "weight"
+          },
+          "shipped": {
+            "$ref": "shipped"
+          },
+          "line": {
+            "$ref": "line"
+          },
+          "note": {
+            "$ref": "note"
+          }
+        }
+      }
+    },
+    {
+      "as": "unit",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "binding_set": {
+          "$ref": "bindings"
+        }
+      }
+    },
+    {
+      "as": "locators",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay-set",
+        "members": [
+          {
+            "$ref": "locator-weight"
+          },
+          {
+            "$ref": "locator-shipped"
+          },
+          {
+            "$ref": "locator-line"
+          },
+          {
+            "$ref": "locator-note"
+          }
+        ]
+      }
+    },
+    {
+      "as": "relations",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "relation-set",
+        "members": [
+          {
+            "$ref": "evidence-weight"
+          },
+          {
+            "$ref": "evidence-shipped"
+          },
+          {
+            "$ref": "evidence-line"
+          },
+          {
+            "$ref": "evidence-note"
+          }
+        ]
+      }
+    },
+    {
+      "as": "serving",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-delivery-serving",
+        "units": [
+          {
+            "$ref": "unit"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "locators"
+          }
+        ]
+      }
+    },
+    {
+      "as": "evidence",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-delivery-evidence",
+        "relation_sets": [
+          {
+            "$ref": "relations"
+          }
+        ],
+        "native_mappings": [
+          {
+            "$ref": "native-source"
+          },
+          {
+            "$ref": "native-reading"
+          },
+          {
+            "$ref": "native-weight"
+          },
+          {
+            "$ref": "native-shipped"
+          },
+          {
+            "$ref": "native-line"
+          },
+          {
+            "$ref": "native-note"
+          }
+        ]
+      }
+    }
+  ]
+}

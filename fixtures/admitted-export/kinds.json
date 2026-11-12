@@ -1,0 +1,95 @@
+{
+  "format": "facts@1",
+  "export_sha256": "sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149",
+  "facts": [
+    {
+      "field": "weight",
+      "key": null,
+      "value": "1250",
+      "unit": "kg",
+      "citation": {
+        "source": "document",
+        "ref": null,
+        "url": "https://example.org/delivery/0007",
+        "source_sha256": "sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe",
+        "text_sha256": "sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab",
+        "span": {
+          "start": 47,
+          "end": 54
+        },
+        "receipt_sha256": "sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008"
+      }
+    },
+    {
+      "field": "shipped",
+      "key": null,
+      "value": "2026-01-05",
+      "unit": null,
+      "citation": {
+        "source": "document",
+        "ref": null,
+        "url": "https://example.org/delivery/0007",
+        "source_sha256": "sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe",
+        "text_sha256": "sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab",
+        "span": {
+          "start": 64,
+          "end": 74
+        },
+        "receipt_sha256": "sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f"
+      },
+      "kind": "date"
+    },
+    {
+      "field": "line",
+      "key": "2",
+      "value": {
+        "part": "bolt",
+        "count": "40",
+        "size": "M8"
+      },
+      "unit": null,
+      "citation": {
+        "source": "document",
+        "ref": null,
+        "url": "https://example.org/delivery/0007",
+        "source_sha256": "sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe",
+        "text_sha256": "sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab",
+        "span": {
+          "start": 83,
+          "end": 95
+        },
+        "receipt_sha256": "sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616"
+      },
+      "kind": "record"
+    },
+    {
+      "field": "note",
+      "key": null,
+      "value": "Keep dry.",
+      "unit": null,
+      "citation": {
+        "source": "document",
+        "ref": null,
+        "url": "https://example.org/delivery/0007",
+        "source_sha256": "sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe",
+        "text_sha256": "sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab",
+        "span": {
+          "start": 102,
+          "end": 111
+        },
+        "receipt_sha256": "sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412",
+        "locator": {
+          "selector_profile": "example/page-box/v1",
+          "page": 1,
+          "box": [
+            72,
+            144,
+            200,
+            160
+          ]
+        }
+      },
+      "kind": "passage"
+    }
+  ]
+}
