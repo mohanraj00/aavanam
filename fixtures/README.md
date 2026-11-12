@@ -17,7 +17,7 @@ The two consumer fixtures are different on purpose:
 
 The artifacts (`checklist.txt`, `acceptance.txt`) and the runtime declarations are opaque. The store does not read them (KND-OPQ-2). They stand for application components that the store does not implement.
 
-The `admitted-invoice` fixture has two admitted facts and two citation records. Its original text has a decomposed accent. The reading has the composed accent, and both have a four-byte character before the cited spans. The `admitted-export/invoice.json` file gives the documented fields of the proposed producer export in a neutral projection. Its receipt digests are synthetic. The `nfc-comparison` fixture gives two readings for the selector checks.
+The `admitted-invoice` fixture has two admitted facts and two citation records. Its original text has a decomposed accent. The reading has the composed accent, and both have a four-byte character before the cited spans. The `admitted-export/invoice.json` file gives the documented fields of the proposed producer export in a neutral projection. Its receipt digests are synthetic. The `admitted-kinds` fixture is a delivery note for the export extension (ADP-FXT-1 to ADP-FXT-7). It has a number with a unit, a date, a record with three members and a passage with an opaque page locator. `admitted-export/kinds.json` is its synthetic export, and `admitted-export/kinds-declaration.json` is its reader declaration. Their digests use neutral prefixes. The `nfc-comparison` fixture gives two readings for the selector checks.
 
 ## Fixture file
 

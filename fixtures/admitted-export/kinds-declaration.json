@@ -1,0 +1,16 @@
+{
+  "format": "facts@1",
+  "identity_member": "export_sha256",
+  "span_unit": "utf8-bytes",
+  "source_digest": {
+    "form": "aavanam/prefixed-sha256/v1",
+    "scheme": "example/source-digest/v1",
+    "prefix": "example-object/1:source\u0000"
+  },
+  "text_digest": {
+    "form": "aavanam/prefixed-jcs-sha256/v1",
+    "scheme": "example/text-digest/v1",
+    "prefix": "example/document\u0000",
+    "member": "text"
+  }
+}

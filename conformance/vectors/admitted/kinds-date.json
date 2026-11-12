@@ -1,0 +1,96 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A date fact keeps its date string and the kind date",
+  "clauses": [
+    "ADP-FXT-4",
+    "ADP-FXT-6",
+    "QRY-DAT-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The fixture definition gives the date 2026-01-05 as a string with the kind date."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "admitted-kinds"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence",
+    "sample-delivery-serving": "serving",
+    "sample-delivery-evidence": "evidence"
+  },
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-kinds:serving"
+          },
+          {
+            "$ref": "admitted-invoice:serving"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "admitted-kinds:shipped"
+          }
+        ],
+        "where": {
+          "kind": "date"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "admitted-kinds:shipped"
+              },
+              "rows": [
+                {
+                  "field": "shipped",
+                  "key": null,
+                  "member": null,
+                  "value": "2026-01-05",
+                  "unit": null,
+                  "kind": "date"
+                }
+              ],
+              "next": null
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

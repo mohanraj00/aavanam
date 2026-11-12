@@ -1,0 +1,82 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A passage fact is a text artifact with its citation record",
+  "clauses": [
+    "ADP-FXT-6",
+    "ADP-FXT-7",
+    "ADP-FACT-5",
+    "REL-EVD-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The fixture definition gives one evidence record for the passage artifact. Its locator is opaque ext data."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "admitted-kinds"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence",
+    "sample-delivery-serving": "serving",
+    "sample-delivery-evidence": "evidence"
+  },
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-kinds:serving"
+          },
+          {
+            "$ref": "admitted-kinds:evidence"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "subject": {
+          "$ref": "admitted-kinds:note"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "relation": "support",
+              "ref": {
+                "$ref": "admitted-kinds:evidence-note"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

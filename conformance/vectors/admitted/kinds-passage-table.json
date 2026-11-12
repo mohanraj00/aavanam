@@ -1,0 +1,84 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A table query on a passage artifact gives unsupported_target_kind",
+  "clauses": [
+    "ADP-FXT-6",
+    "QRY-DAT-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "A passage is an artifact, not a data resource (ADP-FXT-6). Thus query_data does not read it as a table."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "admitted-kinds"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence",
+    "sample-delivery-serving": "serving",
+    "sample-delivery-evidence": "evidence"
+  },
+  "pair": "admitted/kinds-passage",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-kinds:serving"
+          },
+          {
+            "$ref": "admitted-kinds:evidence"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "admitted-kinds:note"
+          }
+        ],
+        "where": {
+          "kind": "passage"
+        }
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

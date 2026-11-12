@@ -1,0 +1,112 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A record fact with a key gives one row for each member in canonical member order",
+  "clauses": [
+    "ADP-FXT-4",
+    "ADP-FXT-6",
+    "QRY-DAT-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The fixture definition gives the record key 2 with the members part, count and size. RFC 8785 sorts them as count, part, size."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": [
+    "admitted-invoice",
+    "admitted-kinds"
+  ],
+  "sections": {
+    "sample-invoice-serving": "serving",
+    "sample-invoice-evidence": "evidence",
+    "sample-delivery-serving": "serving",
+    "sample-delivery-evidence": "evidence"
+  },
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "admitted-kinds:serving"
+          },
+          {
+            "$ref": "admitted-invoice:serving"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "admitted-kinds:line"
+          }
+        ],
+        "where": {
+          "key": "2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "admitted-kinds:line"
+              },
+              "rows": [
+                {
+                  "field": "line",
+                  "key": "2",
+                  "member": "count",
+                  "value": "40",
+                  "unit": null,
+                  "kind": "record"
+                },
+                {
+                  "field": "line",
+                  "key": "2",
+                  "member": "part",
+                  "value": "bolt",
+                  "unit": null,
+                  "kind": "record"
+                },
+                {
+                  "field": "line",
+                  "key": "2",
+                  "member": "size",
+                  "value": "M8",
+                  "unit": null,
+                  "kind": "record"
+                }
+              ],
+              "next": null
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
