@@ -37,6 +37,12 @@ class AdmittedFactsTest(unittest.TestCase):
         self.assertEqual(result['status'], 'ok', result)
         return result
 
+    def read(self, context, ref, selector=None):
+        """The descriptor and the selected bytes of one member (CRD-READ-1 to CRD-READ-3)."""
+        request = {'context': context, 'ref': ref} | ({'selector': selector} if selector else {})
+        found, = self.call('read', **request)['items']
+        return found['descriptor'], None if found['data'] is None else base64.b64decode(found['data'])
+
     def check_citations(self, facts):
         serving, evidence = self.put(facts)
         context = self.call('open_context', roots=[serving, evidence])['context']
@@ -50,7 +56,7 @@ class AdmittedFactsTest(unittest.TestCase):
         self.assertTrue(all(b'Draft' not in base64.b64decode(p) for p in export['payloads'].values()))
 
         evidence_bundle = self.call('export', context=context, roots=[evidence])['bundle']
-        evidence_root = self.store.descriptor(evidence)
+        evidence_root, _ = self.read(context, evidence)
         self.assertEqual(len(evidence_root['native_mappings']), 2)
         self.assertEqual(len(evidence_bundle['payloads']), 7)
         self.assertEqual({json.loads(text)['kind'] for text in evidence_bundle['descriptors']},
@@ -64,8 +70,8 @@ class AdmittedFactsTest(unittest.TestCase):
         fixture = json.loads((INVOICE / 'fixture.json').read_text(encoding='utf-8'))
         fixture_reading = next(d['value'] for d in fixture['descriptors'] if d['as'] == 'reading')
         for mapping_ref in evidence_root['native_mappings']:
-            mapping = self.store.descriptor(mapping_ref)
-            record = self.store.descriptor(mapping['subject'])
+            mapping, _ = self.read(context, mapping_ref)
+            record, _ = self.read(context, mapping['subject'])
             table, = self.call('query_data', context=context, resources=[record['subject']],
                                metadata=['source_locator'])['items']
             row, = table['rows']
@@ -79,20 +85,20 @@ class AdmittedFactsTest(unittest.TestCase):
             self.assertEqual(citation['ref'], mapping['subject'])
             self.assertEqual(record['ext']['citation'],
                              {'selector_profile': 'aavanam/nfc-text/v1', 'start': span[0], 'end': span[1]})
-            excerpt = self.store.descriptor(record['supports'])
+            excerpt, data = self.read(context, record['supports'])
             self.assertEqual(excerpt['ranges'], [{'start': byte_range[0], 'end': byte_range[1]}])
-            self.assertEqual(self.store.blob(excerpt['payload']['digest']), excerpt_bytes)
-            reading = self.store.descriptor(excerpt['parent'])
+            self.assertEqual(data, excerpt_bytes)
+            self.assertEqual(self.read(context, excerpt['parent'], record['ext']['citation'])[1], excerpt_bytes)
+            reading, data = self.read(context, excerpt['parent'])
             self.assertEqual(reading['coverage_profile'], 'aavanam/coverage/v1')
             self.assertEqual(reading['coverage_profile'], fixture_reading['coverage_profile'])
-            self.assertEqual(self.store.blob(reading['payload']['digest']), self.reading)
-            source = self.store.descriptor(reading['source'])
-            self.assertEqual(self.store.blob(source['payload']['digest']), self.source)
+            self.assertEqual(data, self.reading)
+            self.assertEqual(self.read(context, reading['source'])[1], self.source)
             fact = next(f for f in facts if f['field'] == field)
             self.assertEqual(record['ext']['receipt_digest'], fact['receipt_digest'])
             self.assertEqual(json.loads(mapping['native_id']),
                              [fact['document_digest'], fact['text_digest'], fact['receipt_digest'], *span, field, value])
-            self.assertIsNone(self.store.blob(fact['receipt_digest']))
+            self.assertNotIn(fact['receipt_digest'], export['payloads'] | evidence_bundle['payloads'])
         self.assertEqual(seen, set(expected))
 
     def test_the_neutral_export_gives_two_typed_facts_and_exact_citations(self):
@@ -120,12 +126,12 @@ class AdmittedFactsTest(unittest.TestCase):
         second_receipt = self.facts[1]['receipt_digest']
         serving, evidence = self.put([item, item | {'receipt_digest': second_receipt}])
         context = self.call('open_context', roots=[serving, evidence])['context']
-        root = self.store.descriptor(evidence)
-        mappings = [self.store.descriptor(ref) for ref in root['native_mappings']]
-        subject = self.store.descriptor(mappings[0]['subject'])['subject']
+        root, _ = self.read(context, evidence)
+        mappings = [self.read(context, ref)[0] for ref in root['native_mappings']]
+        subject = self.read(context, mappings[0]['subject'])[0]['subject']
         items = self.call('evidence', context=context, subject=subject)['items']
         self.assertEqual(len(items), 2)
-        self.assertEqual({self.store.descriptor(i['ref'])['ext']['receipt_digest'] for i in items},
+        self.assertEqual({self.read(context, i['ref'])[0]['ext']['receipt_digest'] for i in items},
                          {item['receipt_digest'], second_receipt})
 
     @unittest.skipUnless(PINNED_EXPORT.is_file(),
