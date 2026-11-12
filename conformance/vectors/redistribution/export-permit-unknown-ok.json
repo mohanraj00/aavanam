@@ -1,0 +1,564 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A target that permits the declared value unknown gets those bytes, and undeclared bytes stay withheld",
+  "clauses": [
+    "BUN-RED-1",
+    "BUN-RED-2",
+    "BUN-RED-3",
+    "BUN-RED-6",
+    "BUN-EXP-3",
+    "BUN-RED-4",
+    "BUN-RED-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The application selects the permitted declared values (BUN-RED-4). unknown is a declared value. undeclared, conflict and invalid are not in any permit."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "a": {
+      "media_type": "text/plain",
+      "text": "Sample text A."
+    },
+    "b": {
+      "media_type": "text/plain",
+      "text": "Sample text B."
+    },
+    "c": {
+      "media_type": "text/plain",
+      "text": "Sample text C."
+    },
+    "d": {
+      "media_type": "text/plain",
+      "text": "Sample text D."
+    },
+    "e": {
+      "media_type": "text/plain",
+      "text": "Sample text E."
+    },
+    "f": {
+      "media_type": "text/plain",
+      "text": "Sample text F."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src-r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "a"
+              }
+            }
+          },
+          {
+            "as": "src-n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "b"
+              }
+            }
+          },
+          {
+            "as": "src-u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "c"
+              }
+            }
+          },
+          {
+            "as": "src-d",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "d"
+              }
+            }
+          },
+          {
+            "as": "src-c",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "e"
+              }
+            }
+          },
+          {
+            "as": "src-i",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "f"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o-r",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-r"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "redistributable"
+              }
+            }
+          },
+          {
+            "as": "o-n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-n"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-2",
+                "redistribution": "no_redistribution"
+              }
+            }
+          },
+          {
+            "as": "o-u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-u"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": null,
+                "redistribution": "unknown"
+              }
+            }
+          },
+          {
+            "as": "o-d",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-d"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {
+                "note": "no statement"
+              }
+            }
+          },
+          {
+            "as": "o-c1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-c"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "redistributable"
+              }
+            }
+          },
+          {
+            "as": "o-c2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-c"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "no_redistribution"
+              }
+            }
+          },
+          {
+            "as": "o-i",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src-i"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "sometimes"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-licensed",
+              "observations": [
+                {
+                  "$ref": "o-r"
+                },
+                {
+                  "$ref": "o-n"
+                },
+                {
+                  "$ref": "o-u"
+                },
+                {
+                  "$ref": "o-d"
+                },
+                {
+                  "$ref": "o-c1"
+                },
+                {
+                  "$ref": "o-c2"
+                },
+                {
+                  "$ref": "o-i"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ],
+        "permit": [
+          "redistributable",
+          "unknown"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-r"
+              },
+              "redistribution": "redistributable",
+              "license": "sample-license-1",
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-n"
+              },
+              "redistribution": "no_redistribution",
+              "license": "sample-license-2",
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-u"
+              },
+              "redistribution": "unknown",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-d"
+              },
+              "redistribution": "undeclared",
+              "license": null,
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-c"
+              },
+              "redistribution": "conflict",
+              "license": null,
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-i"
+              },
+              "redistribution": "invalid",
+              "license": null,
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "snap"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-r"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-n"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-u"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-d"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-c1"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-c2"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-i"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

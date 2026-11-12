@@ -30,7 +30,7 @@ The topics `FRS` and `SCP` have no clauses yet.
 | `total` | An integer that is equal to `covered` or more, or null. Null is an unknown denominator |
 | `omissions` | A list of objects. Each object has the field `reason`, a string with one or more characters. It can also have the field `selector`, a selector (REL-SEL-1) |
 
-The store reads `values` only for this type. The `values` of each other observation type stays opaque. The store does not apply the `selector` of an omission.
+The store reads `values` only for this type and for the type `aavanam/redistribution/v1` of `export` (BUN-RED-1). The `values` of each other observation type stays opaque. The store does not apply the `selector` of an omission.
 
 **OBS-COV-2.** The request of `coverage` has the fields `context` (CTX-OPN-3) and `subject`, one reference. It can also have the field `observation_type`, a string. The default is `aavanam/coverage/v1`. The store checks the request in this order:
 
