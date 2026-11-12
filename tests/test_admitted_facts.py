@@ -276,11 +276,23 @@ class ExportFactsTest(unittest.TestCase):
         for declaration in (self.declaration | {'span_unit': 'utf16'}, self.declaration | {'extra': None},
                             self.declaration | {'identity_member': 'facts'},
                             self.declaration | {'source_digest': {'form': 'example/md5', 'scheme': 'x'}},
-                            self.declaration | {'source_digest': jcs_source}):
+                            self.declaration | {'source_digest': jcs_source},
+                            self.declaration | {'source_digest': {**self.declaration['source_digest'],
+                                                                  'scheme': self.declaration['text_digest']['scheme']}}):
             with self.subTest(declaration=declaration), self.assertRaises(ValueError):
                 self.put(self.export, declaration)
         self.assertEqual(self.store.fingerprint(), before)
         self.assertIsNotNone(self.put(self.export))
+
+    def test_facts_that_differ_only_in_url_or_locator_keep_two_citations(self):  # ADP-FXT-7, IDN-NAT-3
+        note = self.export['facts'][3]
+        moved = {**note, 'citation': {**note['citation'], 'locator': {**note['citation']['locator'], 'page': 2}}}
+        linked = {**note, 'citation': {**note['citation'], 'url': 'https://example.org/delivery/0008'}}
+        serving, evidence = self.put({**self.export, 'facts': [note, moved, linked]})
+        context = self.call('open_context', roots=[serving, evidence])['context']
+        artifact, = self.store.descriptor(self.store.descriptor(
+            self.store.descriptor(serving)['units'][0])['binding_set'])['bindings'].values()
+        self.assertEqual(len(self.call('evidence', context=context, subject=artifact)['items']), 3)
 
     def test_an_export_with_no_facts_writes_no_records(self):  # ADP-FACT-2
         before = self.store.fingerprint()

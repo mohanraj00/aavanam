@@ -165,7 +165,7 @@
           "$ref": "evidence-weight"
         },
         "native_scheme": "example/admitted-citation/v1",
-        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\",47,54,\"weight\",null,\"scalar\",\"1250\",\"kg\"]",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\",47,54,\"weight\",null,\"scalar\",\"1250\",\"kg\",\"https://example.org/delivery/0007\",null]",
         "checked": {}
       }
     },
@@ -249,7 +249,7 @@
           "$ref": "evidence-shipped"
         },
         "native_scheme": "example/admitted-citation/v1",
-        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\",64,74,\"shipped\",null,\"date\",\"2026-01-05\",null]",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\",64,74,\"shipped\",null,\"date\",\"2026-01-05\",null,\"https://example.org/delivery/0007\",null]",
         "checked": {}
       }
     },
@@ -333,7 +333,7 @@
           "$ref": "evidence-line"
         },
         "native_scheme": "example/admitted-citation/v1",
-        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\",83,95,\"line\",\"2\",\"record\",{\"count\":\"40\",\"part\":\"bolt\",\"size\":\"M8\"},null]",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\",83,95,\"line\",\"2\",\"record\",{\"count\":\"40\",\"part\":\"bolt\",\"size\":\"M8\"},null,\"https://example.org/delivery/0007\",null]",
         "checked": {}
       }
     },
@@ -424,7 +424,7 @@
           "$ref": "evidence-note"
         },
         "native_scheme": "example/admitted-citation/v1",
-        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\",102,111,\"note\",null,\"passage\",\"Keep dry.\",null]",
+        "native_id": "[\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\",102,111,\"note\",null,\"passage\",\"Keep dry.\",null,\"https://example.org/delivery/0007\",{\"box\":[72,144,200,160],\"page\":1,\"selector_profile\":\"example/page-box/v1\"}]",
         "checked": {}
       }
     },

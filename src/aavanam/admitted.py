@@ -247,6 +247,8 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
     # ADP-FACT-2 and ADP-FXT-3: check the complete pair before sending any records to the store.
     text = decode_nfc(reading)
     source_form, text_form = declaration['source_digest'], declaration['text_digest']
+    if isinstance(source_form, dict) and isinstance(text_form, dict) and source_form.get('scheme') == text_form.get('scheme'):
+        raise ValueError('the source and text digest forms need different schemes (ADP-FXT-3)')
     digests = (_producer_digest(source_form, source, text, text_form=False),
                _producer_digest(text_form, reading, text, text_form=True))
     facts = [_fact(fact, declaration, reading, text, digests) for fact in export['facts']]
@@ -309,7 +311,8 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
             ext['export_identity'] = export[identity]
         record = add('evidence', subject=subject, supports=excerpt, origin=producer, ext=ext)
         records.add(record)
-        native_id = canonical([*digests, fact['receipt'], start, end, field, key, kind, value, fact['unit']])
+        native_id = canonical([*digests, fact['receipt'], start, end, field, key, kind, value, fact['unit'],
+                               fact['url'], fact['locator']])
         mappings.add(add('native-mapping', subject=record, native_scheme=native_scheme, native_id=native_id, checked={}))
 
     # ADP-FACT-5: the serving closure has no link to the citation records.
