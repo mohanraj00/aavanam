@@ -10,7 +10,7 @@
   ],
   "provenance": {
     "type": "spec",
-    "note": "The redistribution value of one statement is a list, of one an object, and the license of one is a number. None agrees with BUN-RED-1, so rule 2 of BUN-RED-2 gives invalid, and permit withholds each source. The Codex review of 2db935a found that these values stopped the export with storage_error."
+    "note": "The redistribution value of one statement is a list, of one an object, and the license of one is a number. None agrees with BUN-RED-1, so rule 2 of BUN-RED-2 gives invalid, and permit withholds each source. A value of a wrong JSON type is a malformed statement, not a storage error."
   },
   "profile": "aavanam/base/v1",
   "payloads": {

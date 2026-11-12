@@ -408,7 +408,8 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
     flagged = [i.get('fields', {}) for i in expect.get('items', [])]
     if flagged and all('withheld' in f and f.get('ref') in stored for f in flagged):
         mine = {p['digest'] for f in flagged if f['withheld'] is True
-                for p in payload_objects(json.loads(stored[f['ref']]), schemas) if isinstance(p, dict)}
+                for p in payload_objects(json.loads(stored[f['ref']]), schemas)
+                if isinstance(p, dict) and isinstance(p.get('digest'), str)}
         if mine != set(withheld):
             problems.append('bundle withheld digests are not the payload digests of the withheld items (BUN-RED-5)')
     for digest, text in payloads.items():

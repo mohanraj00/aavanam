@@ -406,7 +406,7 @@ class RunVectorTest(unittest.TestCase):
         good = {'format': 'aavanam-bundle/v1', 'roots': ['r'], 'descriptors': [text], 'payloads': {}, 'withheld': [digest]}
         self.assertEqual(runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': good}), 't', {'steps': [step]}), [])
         cases = [({**good, 'withheld': []}, 'one or more different digests'), ({**good, 'withheld': [digest, digest]}, 'one or more'),
-                 ({**good, 'payloads': {digest: 'YQ=='}}, 'byte closure'), ({**good, 'withheld': []} | {'payloads': {}}, 'one or more')]
+                 ({**good, 'payloads': {digest: 'YQ=='}}, 'byte closure'), ({**good, 'withheld': [123]}, 'one or more different digests')]
         for bundle, words in cases:
             problems = runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': bundle}), 't', {'steps': [step]})
             self.assertTrue(problems and words in problems[0], (words, problems))

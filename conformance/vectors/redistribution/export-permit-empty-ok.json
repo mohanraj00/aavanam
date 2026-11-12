@@ -12,7 +12,7 @@
   ],
   "provenance": {
     "type": "spec",
-    "note": "BUN-RED-4: an empty permit is not the same as no permit."
+    "note": "BUN-RED-4: an empty permit is not the same as no permit. The first export has an empty permit and withholds each object with a payload. The second export has no permit and withholds no object."
   },
   "profile": "aavanam/base/v1",
   "payloads": {
@@ -456,6 +456,194 @@
               "redistribution": "invalid",
               "license": null,
               "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "snap"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-r"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-n"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-u"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-d"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-c1"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-c2"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o-i"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-r"
+              },
+              "redistribution": "redistributable",
+              "license": "sample-license-1",
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-n"
+              },
+              "redistribution": "no_redistribution",
+              "license": "sample-license-2",
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-u"
+              },
+              "redistribution": "unknown",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-d"
+              },
+              "redistribution": "undeclared",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-c"
+              },
+              "redistribution": "conflict",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src-i"
+              },
+              "redistribution": "invalid",
+              "license": null,
+              "withheld": false
             }
           },
           {
