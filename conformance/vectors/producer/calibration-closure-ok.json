@@ -1,0 +1,100 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A check on a stored source is ok when the producer has a gold set digest",
+  "clauses": [
+    "PRD-CAL-5",
+    "KND-REF-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The pair of calibration-closure-refused names a stored source in place of the gold set digest."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "one": {
+      "media_type": "text/plain",
+      "text": "Sample source text one."
+    }
+  },
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/calibrator",
+        "key": "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a",
+        "data": "eyJnb2xkX3NldCI6InNhbXBsZS1nb2xkIiwiZG9jdW1lbnRzIjpbImQxIiwiZDIiLCJkMyJdfQ=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a",
+              "size": 55
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "one"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "check",
+              "subject": {
+                "$ref": "s1"
+              },
+              "check_profile": "sample/check/v1",
+              "outcome": "pass",
+              "scope": {},
+              "origin": "sample-origin"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

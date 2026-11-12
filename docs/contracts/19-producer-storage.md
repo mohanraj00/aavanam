@@ -4,7 +4,7 @@ State: draft. Prefix: `PRD`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
-This document defines the producer section of a store. A producer keeps its working data in this section, for example receipts, selectors, review tasks and logs. The section keeps opaque objects under the keys of the producer, logs that only grow, and a record of each removal. It is outside each snapshot, each closure, each read context and each bundle.
+This document defines the producer section of a store. A producer keeps its working data in this section, for example receipts, selectors, review tasks and logs. The section keeps opaque objects under the keys of the producer, logs that only grow, and a record of each removal. It also keeps the calibration data of a producer (PRD-CAL-1). It is outside each snapshot, each closure, each read context and each bundle.
 
 The producer section is not the workspace of the reserved profile `aavanam/workspace/v1` (RSV-LST-1). A workspace is for content before a snapshot. The producer section is for data that never becomes a snapshot.
 
@@ -16,6 +16,7 @@ The producer section is not the workspace of the reserved profile `aavanam/works
 | `OBJ` | Objects |
 | `LOG` | Logs |
 | `RMV` | Removal and its records |
+| `CAL` | The calibration data of a producer |
 | `ISO` | Isolation from the other content |
 | `PRO` | An adapter to the store protocol of a producer |
 
@@ -73,6 +74,25 @@ The producer section is not the workspace of the reserved profile `aavanam/works
 **PRD-RMV-4.** `producer_removals` gives the removal records of the producer in the order of their sequence numbers. Each record is one `ok` item with its fields. No operation changes or removes a removal record.
 
 **PRD-RMV-5.** A removal from the producer section MUST NOT remove or change an object, a descriptor or payload bytes outside the producer section. This is also true if the removed bytes are equal to the bytes of a payload. The removal of a source from the closure of a snapshot is a feature of the reserved profile `aavanam/gc/v1` (RSV-LST-1). It is not part of this document.
+
+### The calibration data of a producer
+
+**PRD-CAL-1.** A producer keeps its calibration data in the producer section. The table below gives each item of calibration data and its place in the section. The producer gives each key and each log name.
+
+| Item | Place |
+|---|---|
+| A profile version | An object. The key is the digest of the profile version. |
+| A gold set digest | An object. The key is the digest of the gold set. |
+| A splits log | A log. Each entry is one split record. |
+| A calibration event | An entry of a log. The log is `append` only (PRD-LOG-4). |
+
+**PRD-CAL-2.** The store does not identify an item of calibration data. It applies the rules of objects (PRD-OBJ-1 to PRD-OBJ-4) and logs (PRD-LOG-1 to PRD-LOG-4) to these items, with no other check (PRD-SEC-4). The producer and its adapter own the form of each item and the rule that gives each key (PRD-PRO-1).
+
+**PRD-CAL-3.** A profile version and a gold set digest never change. A `producer_put` of the same key with different bytes gives `incompatible` with reason `producer_key_conflict` (PRD-OBJ-2). A new profile version or a new gold set is a new object with a new key.
+
+**PRD-CAL-4.** A producer MUST keep each calibration event as a log entry, not as an object. No operation changes or removes a log entry (PRD-LOG-4). A `producer_append` with a sequence number that the log already has gives `incompatible` with reason `log_moved` (PRD-LOG-2). Thus no operation changes a calibration event. The same rule applies to an entry of a splits log.
+
+**PRD-CAL-5.** No item of calibration data goes into a snapshot or a closure (PRD-ISO-1). A reference field cannot name an item. Thus a `put` of a descriptor with a reference that is equal to the key of an item gives `not_found` with reason `missing_target` (KND-REF-2). A `get` in a read context of that key gives `not_found` with reason `unknown_ref` (PRD-ISO-2). An `export` never has calibration data (PRD-ISO-3).
 
 ### Isolation from the other content
 

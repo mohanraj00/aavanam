@@ -1,0 +1,55 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A changed gold set under the same digest is incompatible",
+  "clauses": [
+    "PRD-CAL-3",
+    "PRD-OBJ-2",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the producer removes a document from the gold set and keeps its digest. Each key is the SHA-256 digest of the synthetic bytes, computed with hashlib. The store does not check it (PRD-SEC-4)."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/calibrator",
+        "key": "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a",
+        "data": "eyJnb2xkX3NldCI6InNhbXBsZS1nb2xkIiwiZG9jdW1lbnRzIjpbImQxIiwiZDIiLCJkMyJdfQ=="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a",
+              "size": 55
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/calibrator",
+        "key": "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a",
+        "data": "eyJnb2xkX3NldCI6InNhbXBsZS1nb2xkIiwiZG9jdW1lbnRzIjpbImQxIiwiZDIiXX0="
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "producer_key_conflict"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/calibration-gold-ok"
+}

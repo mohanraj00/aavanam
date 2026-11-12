@@ -1561,6 +1561,7 @@ class Store:
         return out + [item(entry='gap', subject=root, gap=g, ref=r) for g, r in gaps]
 
     # The producer section (document 19). The store keeps the bytes and never parses them (PRD-SEC-4).
+    # Calibration data uses these objects and logs with no other check (PRD-CAL-1, PRD-CAL-2).
 
     def producer_write(self, change) -> dict:
         """Run `change()` in one write transaction, so a second open of the store sees all of it or none (STS-MAL-2)."""
