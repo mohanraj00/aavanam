@@ -1,0 +1,5 @@
+Delivery note 0007 for café supplies.
+Weight: 1250 kg
+Shipped: 2026-01-05
+Line 2: bolt, 40, M8
+Note: Keep dry.
