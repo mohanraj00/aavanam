@@ -1,0 +1,16 @@
+# The pinned groundgate of the PDF example (examples/pdf_facts/README.md) and its dependencies.
+# Install with --require-hashes --only-binary :all: --no-deps. Each hash is the hash of a published wheel.
+# groundgate 0.14.0 is the release of tests/requirements-seam.txt. Its extra "pdf" needs pdfminer.six.
+# cryptography and cffi have one wheel for each platform. The hashes are for Linux x86_64 and macOS arm64.
+groundgate[pdf]==0.14.0 --hash=sha256:a191376cb8206bfa96a4435505114f01b11081ff46df66a08e45378c6f050c69
+pdfminer.six==20260107 --hash=sha256:366585ba97e80dffa8f00cebe303d2f381884d8637af4ce422f1df3ef38111a9
+charset-normalizer==3.5.2 --hash=sha256:b6b751274acb69d77b3323d6b7dbaa3c7fdfc1eb829b7eb61d262f32e1af9685
+cryptography==50.0.2 \
+    --hash=sha256:fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb \
+    --hash=sha256:630ebfea3bf689d075f82316324ff7433dc447fe6bc1bfc76524b74b4a9567d2 \
+    --hash=sha256:4061c0079120205fb760c58acab6443e217307dcf05e3702cf970e0689972856 \
+    --hash=sha256:9dab55f57c74c3cad24c323bacbbd04be4705ba6eb0d92e920b1fc4837ed5079
+cffi==2.1.1 \
+    --hash=sha256:661c298b4821edebead0c91edd2b00374d67ad7c5a1f7a91d4442633b79d6a72 \
+    --hash=sha256:b0431303acaea1089ad4b3e9ce4e6518193def1118d4073ca848635ee4ea2e96
+pycparser==3.12 --hash=sha256:a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e

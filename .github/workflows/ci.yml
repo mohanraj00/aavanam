@@ -150,6 +150,21 @@ jobs:
           set -o pipefail
           "$RUNNER_TEMP/user-env/bin/python" -B -m unittest discover -s tests -p test_examples.py -v 2>&1 | tee examples.txt
           if grep -q skipped examples.txt; then echo "::error::A test of the examples skipped."; exit 1; fi
+      # The PDF example (examples/pdf_facts/) needs groundgate. Install its pinned wheels in the environment of the
+      # aavanam wheel, and require its test to run (issue #71).
+      - name: Install the pinned groundgate of the PDF example
+        run: |
+          "$RUNNER_TEMP/user-env/bin/python" -m pip install --require-hashes --only-binary :all: --no-deps \
+            -r examples/pdf_facts/requirements.txt
+      - name: Run the PDF example from the installed wheel
+        env:
+          AAVANAM_INSTALLED: "1"
+          AAVANAM_PDF_EXAMPLE: "1"
+        working-directory: ${{ runner.temp }}/clean
+        run: |
+          set -o pipefail
+          "$RUNNER_TEMP/user-env/bin/python" -B -m unittest discover -s tests -p test_pdf_example.py -v 2>&1 | tee pdf.txt
+          if grep -q skipped pdf.txt; then echo "::error::A test of the PDF example skipped."; exit 1; fi
   # The required check. Add each project job to needs. A skipped job passes. A failed or cancelled job fails.
   ci-ok:
     needs: [changes, shared-project, shared-gates, suite, package]
