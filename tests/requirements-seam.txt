@@ -1,2 +1,3 @@
-# The pinned groundgate release of the seam test (tests/test_groundgate_seam.py).
-groundgate==0.11.0 --hash=sha256:11c4f969d01c9de5c2898474a56909bf868746851cb621c545264ee5a4bdd89f
+# The pinned groundgate release of the seam tests (tests/test_groundgate_seam.py).
+# groundgate 0.14.0 is the first release with the facts@1 export (groundgate#584). The hash is the hash of the published wheel.
+groundgate==0.14.0 --hash=sha256:a191376cb8206bfa96a4435505114f01b11081ff46df66a08e45378c6f050c69
