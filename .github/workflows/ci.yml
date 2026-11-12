@@ -109,9 +109,50 @@ jobs:
           status=$?
           tail -n 5 null.txt
           if [ "$status" -ne 1 ]; then echo "::error::The null implementation must fail with exit 1, not $status."; exit 1; fi
+  # Build the wheel and the source archive from a clean copy of the commit, then run the examples from the wheel.
+  # The job always runs, because examples/ and README.md are not in the code paths of the gates.
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: 3.14.6
+      - name: Make a clean copy of the commit
+        run: |
+          mkdir "$RUNNER_TEMP/clean"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/clean"
+      - name: Install the pinned build tools in a clean environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/build-env"
+          "$RUNNER_TEMP/build-env/bin/python" -m pip install --require-hashes --only-binary :all: --no-deps \
+            -r .github/requirements-build.txt
+      - name: Build the wheel and the source archive
+        run: |
+          "$RUNNER_TEMP/build-env/bin/python" -m build --no-isolation --outdir "$RUNNER_TEMP/dist" "$RUNNER_TEMP/clean"
+          ls -l "$RUNNER_TEMP/dist"
+          test "$(ls "$RUNNER_TEMP"/dist/*.whl | wc -l)" -eq 1
+          test "$(ls "$RUNNER_TEMP"/dist/*.tar.gz | wc -l)" -eq 1
+      - name: Install only the wheel in a second clean environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/user-env"
+          "$RUNNER_TEMP/user-env/bin/python" -m pip install --no-index --no-deps "$RUNNER_TEMP"/dist/*.whl
+      - name: Run the examples from the installed wheel
+        env:
+          AAVANAM_INSTALLED: "1"
+        working-directory: ${{ runner.temp }}/clean
+        run: |
+          set -o pipefail
+          "$RUNNER_TEMP/user-env/bin/python" -B -m unittest discover -s tests -p test_examples.py -v 2>&1 | tee examples.txt
+          if grep -q skipped examples.txt; then echo "::error::A test of the examples skipped."; exit 1; fi
   # The required check. Add each project job to needs. A skipped job passes. A failed or cancelled job fails.
   ci-ok:
-    needs: [changes, shared-project, shared-gates, suite]
+    needs: [changes, shared-project, shared-gates, suite, package]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
