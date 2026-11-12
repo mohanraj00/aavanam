@@ -1,8 +1,8 @@
 """The seam tests of aavanam adapters with a pinned groundgate.
 
 The chained-log adapter (PRD-PRO-1 to PRD-PRO-3, issue #7) and the admitted-facts adapter (ADP-FACT-1 to
-ADP-FACT-5, issue #54) use the same pin. Draft pin: the groundgate main commit PINNED_COMMIT, which contains the
-facts@1 export (groundgate#584). Issue #54 replaces it with the 0.14 release and a hash.
+ADP-FACT-5, issue #54) use the same pin: the groundgate 0.14.0 release, the first release with the facts@1
+export (groundgate#584).
 CI installs the pin from `tests/requirements-seam.txt` and sets AAVANAM_SEAM=1, so an absent package or a different pin fails there.
 Without AAVANAM_SEAM=1, an absent package skips this test, because the reference implementation uses only the
 standard library (constitution principle 9).
@@ -22,8 +22,7 @@ from aavanam.admitted import put_admitted_facts
 from aavanam.chained import ChainedLogStore
 from aavanam.jsontext import canonical
 
-PINNED = '0.13.0'
-PINNED_COMMIT = 'f8ef05a903254999f9518d4ca54020ef4de75fcc'
+PINNED = '0.14.0'
 try:
     from groundgate import verify
     from groundgate.canonical import jcs
@@ -53,8 +52,6 @@ def require_pin(test):
             test.fail('AAVANAM_SEAM=1 needs groundgate ' + PINNED)
         test.skipTest('groundgate is not installed')
     test.assertEqual(metadata.version('groundgate'), PINNED)
-    origin = json.loads(metadata.distribution('groundgate').read_text('direct_url.json') or '{}')
-    test.assertEqual(origin.get('vcs_info', {}).get('commit_id'), PINNED_COMMIT)
 
 
 class SeamTest(unittest.TestCase):
