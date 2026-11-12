@@ -34,6 +34,17 @@ def put(store: Store, kind: str, text: str | None = None, media_type: str = 'tex
     return result['items'][0]['ref']
 
 
+def read(store: Store, context: str, ref: str, selector: dict | None = None) -> dict:
+    """Read one member of the context with the read operation. Return the item."""
+    request = {'context': context, 'ref': ref}
+    if selector is not None:
+        request['selector'] = selector
+    result = store.call('read', request)
+    if result['status'] != 'ok':
+        raise SystemExit(f'read: {result["status"]} {result["reasons"]}')
+    return result['items'][0]
+
+
 def main() -> None:
     store = Store()
 
@@ -56,20 +67,20 @@ def main() -> None:
     pub = store.call('publish', {'candidate': cand, 'receipt': receipt})['items'][0]
     print('publish', pub['status'], pub['disposition'], 'head is the snapshot', pub['head'] == snap)
 
-    # The consumer: open a context on the published head, find the reading and read its bytes.
+    # The consumer: open a context on the published head, find the reading and read the quote.
     context = store.call('open_context', {'roots': [pub['head']]})['context']
     hit = store.call('search', {'context': context, 'query': 'seal'})['items'][0]
-    # The export bundle carries the exact descriptors and payload bytes of the closure (BUN-EXP-2).
-    bundle = store.call('export', {'context': context, 'roots': [hit['ref']]})['bundle']
-    desc = next(json.loads(t) for t in bundle['descriptors'] if json.loads(t)['kind'] == 'reading')
-    data = base64.b64decode(bundle['payloads'][desc['payload']['digest']])
-    start = data.index(QUOTE)
-    end = start + len(QUOTE)
-    print('text', repr(data[start:end].decode('utf-8')))
+    # The first read gives all the payload bytes of the reading (CRD-READ-3). Find the quote in these bytes.
+    whole = read(store, context, hit['ref'])
+    start = base64.b64decode(whole['data']).index(QUOTE)
+    selector = {'selector_profile': 'aavanam/bytes/v1', 'start': start, 'end': start + len(QUOTE)}
+    # The second read gives only the selected bytes (CRD-SEL-3).
+    quote = read(store, context, hit['ref'], selector)
+    print('text', repr(base64.b64decode(quote['data']).decode('utf-8')))
 
     # The citation names the collection, the snapshot, the item and the byte range of the quote.
-    citation = {'collection': COLLECTION, 'snapshot': snap, 'ref': hit['ref'], 'kind': hit['kind'],
-                'selector': {'selector_profile': 'aavanam/bytes/v1', 'start': start, 'end': end}}
+    citation = {'collection': COLLECTION, 'snapshot': snap, 'ref': quote['ref'], 'kind': quote['kind'],
+                'selector': quote['selector']}
     print('citation', json.dumps(citation, indent=2, sort_keys=True))
 
 

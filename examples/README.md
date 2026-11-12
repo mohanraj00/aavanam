@@ -52,9 +52,10 @@ The example does these steps in an in-memory store:
 2. It creates a snapshot of the collection `pump-manual`.
 3. It makes a publication candidate and publishes it with a receipt. The example gives the acceptance function, because the application owns the acceptance decision (PUB-RCP-2).
 4. It opens a read context on the published head and finds the reading with a lexical search.
-5. It gets the exact bytes of the reading from an export bundle (BUN-EXP-2). Then it prints one quote and its citation.
+5. It reads all the bytes of the reading with the `read` operation (CRD-READ-3), and finds the quote in these bytes.
+6. It reads only the bytes of the quote with a selector of profile `aavanam/bytes/v1` (CRD-SEL-3). Then it prints the quote and its citation.
 
-The citation names the collection, the snapshot, the item and a byte range in the `aavanam/bytes/v1` selector form. A later version of the example reads the quote with the `read` operation of document 20, when that operation is on `main`.
+The citation names the collection, the snapshot, the item and a byte range in the `aavanam/bytes/v1` selector form. The selector of the citation is the selector of the second read. Thus a consumer can read the quote again with the reference and the selector of the citation.
 
 Output of `quickstart.py`:
 
