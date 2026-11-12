@@ -1,0 +1,254 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A digest is withheld for each object that has it if one of the objects is withheld",
+  "clauses": [
+    "BUN-RED-2",
+    "BUN-RED-4",
+    "BUN-RED-5",
+    "BUN-RED-6"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Two sources have the same bytes and different logical IDs. One is redistributable and one is no_redistribution. BUN-RED-5 withholds the digest, so both items have withheld true, and the first keeps its declared value."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "a": {
+      "media_type": "text/plain",
+      "text": "Sample shared text."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "a"
+              },
+              "logical_id": "sample-copy-1"
+            }
+          },
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "a"
+              },
+              "logical_id": "sample-copy-2"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "redistributable"
+              }
+            }
+          },
+          {
+            "as": "o2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "s2"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-2",
+                "redistribution": "no_redistribution"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-licensed",
+              "observations": [
+                {
+                  "$ref": "o1"
+                },
+                {
+                  "$ref": "o2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ],
+        "permit": [
+          "redistributable"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              },
+              "redistribution": "redistributable",
+              "license": "sample-license-1",
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              },
+              "redistribution": "no_redistribution",
+              "license": "sample-license-2",
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o1"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o2"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "snap"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -25,6 +25,8 @@ from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
 COVERAGE = 'aavanam/coverage/v1'
+REDISTRIBUTION = 'aavanam/redistribution/v1'
+DECLARED = {'redistributable', 'no_redistribution', 'unknown'}  # BUN-RED-1
 RENDER_PROFILE = 'aavanam/render/v1'
 # The operations whose row in the operation table has `partial` (STS-ENV-3)
 PARTIAL = {'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render', 'compare', 'impact',
@@ -943,27 +945,63 @@ class Store:
 
     # Bundles (document 11)
 
+    @staticmethod
+    def redistribution_values(values) -> bool:
+        """The form of BUN-RED-1."""
+        return (isinstance(values, dict) and set(values) == {'license', 'redistribution'}
+                and (values['license'] is None or (isinstance(values['license'], str) and values['license'] != ''))
+                and isinstance(values['redistribution'], str) and values['redistribution'] in DECLARED)
+
+    def redistribution(self, ref: str, statements: list[dict]) -> tuple[str, str | None]:
+        """The redistribution value and the license value of an object (BUN-RED-2). No value is inherited (BUN-RED-3)."""
+        if not d.payloads(self.descriptor(ref)):
+            return 'no_payload', None
+        mine = [o['values'] for o in statements if ref in o['subjects']]
+        if not all(self.redistribution_values(v) for v in mine):
+            return 'invalid', None
+        if not mine:
+            return 'undeclared', None
+        if len({(v['license'], v['redistribution']) for v in mine}) > 1:
+            return 'conflict', None
+        return mine[0]['redistribution'], mine[0]['license']
+
     def op_export(self, request: dict) -> dict:
-        form(request, {'context': (True, is_str), 'roots': (True, is_refs)})
+        form(request, {'context': (True, is_str), 'roots': (True, is_refs),
+                       'permit': (False, lambda v: isinstance(v, list) and all(x in DECLARED for x in v if isinstance(x, str))
+                                  and all(isinstance(x, str) for x in v))})  # BUN-RED-4
+        permit = request.get('permit')
+        if permit is not None and len(set(permit)) != len(permit):
+            raise fail('field_count')  # KND-SCH-5
         context, members = self.members(request, 'export')
         roots = request['roots']
         located = [(r, code) for r in roots if (code := self.locate(r, members))]
         if located:  # BUN-EXP-1
             return self.envelope('export', 'not_found', [reason(code, [r]) for r, code in located], [], context)
         objects = sorted(self.closure(roots))
+        statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
+        values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
         digests = sorted({p['digest'] for r in objects for p in d.payloads(self.descriptor(r))})
+        # BUN-RED-4 and BUN-RED-5: the bytes of a withheld object
+        withheld = {p['digest'] for r in objects if permit is not None and values[r][0] != 'no_payload' and values[r][0] not in permit
+                    for p in d.payloads(self.descriptor(r))}
         bundle = {'format': BUNDLE_FORMAT, 'roots': roots, 'descriptors': [canonical(self.descriptor(r)) for r in objects],
-                  'payloads': {k: b64(self.blob(k)) for k in digests}}  # BUN-EXP-2
-        return self.envelope('export', 'ok', [], [item(ref=r) for r in objects], context, bundle=bundle)
+                  'payloads': {k: b64(self.blob(k)) for k in digests if k not in withheld}}  # BUN-EXP-2
+        if withheld:
+            bundle['withheld'] = sorted(withheld)
+        items = [item(ref=r, redistribution=values[r][0], license=values[r][1],
+                      withheld=any(p['digest'] in withheld for p in d.payloads(self.descriptor(r)))) for r in objects]  # BUN-RED-6
+        return self.envelope('export', 'ok', [], items, context, bundle=bundle)
 
     def op_import(self, request: dict) -> dict:
         bundle = request.get('bundle')
         if not (set(request) == {'bundle'} and isinstance(bundle, dict)
-                and set(bundle) == {'format', 'roots', 'descriptors', 'payloads'} and bundle['format'] == BUNDLE_FORMAT
+                and set(bundle) - {'withheld'} == {'format', 'roots', 'descriptors', 'payloads'} and bundle['format'] == BUNDLE_FORMAT
                 and is_refs(bundle['roots']) and isinstance(bundle['descriptors'], list)
                 and all(isinstance(t, str) for t in bundle['descriptors']) and isinstance(bundle['payloads'], dict)
-                and all(is_digest(k) for k in bundle['payloads'])):
-            raise fail('field_type')  # BUN-IMP-1
+                and all(is_digest(k) for k in bundle['payloads'])
+                and ('withheld' not in bundle or (is_refs(bundle['withheld']) and len(set(bundle['withheld'])) == len(bundle['withheld'])
+                                                  and not set(bundle['withheld']) & set(bundle['payloads'])))):
+            raise fail('field_type')  # BUN-IMP-1, BUN-MAN-1. The checks do not use `withheld` (BUN-IMP-2)
         data = {k: unb64(v) for k, v in bundle['payloads'].items()}
         checked = self.check_batch(bundle['descriptors'], data, incomplete=True)
         present = self.revisions(bundle['descriptors'])  # a root with a failed check is present (BUN-IMP-2)
