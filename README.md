@@ -122,6 +122,27 @@ Version 0.1.0 is the first public marker. All 19 contract documents are drafts. 
 
 Each refusal vector has a positive pair, so an implementation that refuses all calls fails. No expected value comes from an implementation run. Each vector states its provenance: the spec, a defect reproduced in a pre-build prototype, or a planted fault.
 
+## Install and run an example
+
+The CI builds a wheel and a source archive from a clean copy of each commit. Then it installs the wheel in a clean environment and runs each example in [examples/](examples/README.md) from that environment. [examples/README.md](examples/README.md) gives the steps to do the same from a clean checkout.
+
+The package is not on a package index. A publication to an index needs a separate approval of the maintainer.
+
+## Python version
+
+The package requires Python 3.14 or later. The reason: the CI tests only Python 3.14.6. Thus the package claims only a version that the CI tests. The package has no dependencies outside the standard library. If the CI starts to test an older version, the bound can go down.
+
+## What the 0.x series can change
+
+Aavanam has no stable release. Until version 1.0, a minor version (for example 0.1 to 0.2) can change these:
+
+- The Python API of the reference implementation, and the request and result forms of `Store.call`.
+- The SQLite layout of a store file. A new version can refuse a store file of an older version.
+- The conformance runner interface and the producer adapter interface.
+- The draft contracts and the conformance vectors. A changed vector keeps its reason in the history.
+
+A patch version (for example 0.1.0 to 0.1.1) keeps the guarantees in the next section. Use a versioned bundle to transfer a snapshot between store versions.
+
 ## 0.1 compatibility
 
 Within the 0.1 series, the reference store preserves the documented `aavanam/base/v1` minor version 3 descriptor meanings, canonical reference digests, `aavanam-bundle/v1` transfer format and the outcomes of the 0.1.0 conformance vectors. A later 0.1 version can add compatible behavior and vectors.

@@ -5,3 +5,6 @@ __pycache__/
 *.sqlite-*
 *.tar
 .DS_Store
+build/
+dist/
+*.egg-info/
