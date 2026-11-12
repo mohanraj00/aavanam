@@ -212,6 +212,16 @@ PRODUCER_KEY = {**PRODUCER, 'key': (True, is_name(512))}
 PRODUCER_LOG = {**PRODUCER, 'log': (True, is_log)}
 
 
+ROW = 'aavanam/row/v1'  # CRD-SEL-1
+
+
+def is_read_selector(value) -> bool:
+    """The form of a read selector (CRD-SEL-1, REL-SEL-1, REL-SEL-3, ADP-SEL-4)."""
+    if isinstance(value, dict) and value.get('selector_profile') == ROW:
+        return set(value) == {'selector_profile', 'index'} and is_count(value['index'])
+    return d.is_selector(value)
+
+
 def b64(data: bytes) -> str:
     return base64.b64encode(data).decode('ascii')
 
@@ -751,6 +761,44 @@ class Store:
         refs = request['refs']
         items = [item(ref=r) if (code := self.locate(r, members)) is None else refused([code], [r]) for r in refs]
         return self.result('get', items, context)  # QRY-GET-1, QRY-GET-2
+
+    def op_read(self, request: dict) -> dict:
+        strict(request, {'context': (True, is_str), 'ref': (True, is_digest), 'selector': (False, is_read_selector)})  # CRD-READ-1
+        context, members = self.members(request)
+        ref, selector = request['ref'], request.get('selector')
+        return self.result('read', [self.read_item(ref, selector, members)], context)
+
+    def read_item(self, ref: str, selector: dict | None, members: set[str]) -> dict:
+        """The checks of CRD-READ-2, in order, and the item of CRD-READ-3."""
+        code = self.locate(ref, members)
+        if code:
+            return refused([code], [ref])
+        desc = self.descriptor(ref)
+        profile = selector['selector_profile'] if selector else None
+        target = {d.BYTES: 'payload' in desc, d.NFC_TEXT: desc['kind'] == 'reading',
+                  ROW: desc['kind'] == 'data-resource', None: True}
+        if not target.get(profile, False):
+            return refused(['unsupported_selector'], [ref])  # CRD-SEL-2
+        if profile == ROW and desc['data_profile'] != 'aavanam/table/v1':
+            return refused(['unsupported_profile'], [ref])  # CRD-SEL-5, DAT-PRF-2
+        data = self.blob(desc['payload']['digest']) if 'payload' in desc else None
+        if 'payload' in desc and data is None:
+            return refused(['payload_missing'], [ref])
+        out = item(ref=ref, kind=desc['kind'], descriptor=desc, selector=selector, data=None, row=None)
+        if profile == ROW:
+            table = self.table(desc)
+            if table is None:
+                return refused(['payload_form'], [ref])  # DAT-TBL-3
+            if selector['index'] >= len(table['rows']):
+                return refused(['selector_range'], [ref])
+            out['row'] = dict(zip(table['columns'], table['rows'][selector['index']]))  # CRD-SEL-5
+            return out
+        if profile is not None:
+            data = self.select(ref, selector)  # CRD-SEL-3, CRD-SEL-4
+            if isinstance(data, dict):
+                return data
+        out['data'] = b64(data) if data is not None else None  # CRD-READ-3, CRD-READ-5
+        return out
 
     def subject_of(self, request: dict) -> tuple[str, set[str], str]:
         """The context and the subject of an evidence or observations request (REL-EVD-1, OBS-SUB-1)."""

@@ -1,0 +1,266 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A row selector on a table payload with the wrong form gives payload_form",
+  "clauses": [
+    "CRD-SEL-5",
+    "DAT-TBL-1",
+    "DAT-TBL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The planted table payload has no field key (DAT-TBL-1)."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "doc": {
+      "media_type": "text/plain",
+      "text": "Replace the pump seal every 500 hours.\n"
+    },
+    "out": {
+      "media_type": "text/plain",
+      "text": "An artifact outside the context.\n"
+    },
+    "sch": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"interval_h\"]}"
+    },
+    "tab": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\"], \"rows\": [[\"seal\"]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "doc",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/document/v1",
+              "payload": {
+                "$payload": "doc"
+              }
+            }
+          },
+          {
+            "as": "out",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/document/v1",
+              "payload": {
+                "$payload": "out"
+              }
+            }
+          },
+          {
+            "as": "sch",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "sch"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "tab",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "sch"
+              },
+              "payload": {
+                "$payload": "tab"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "doc": {
+                  "$ref": "doc"
+                },
+                "intervals": {
+                  "$ref": "tab"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-manual",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "read",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "ref": {
+          "$ref": "tab"
+        },
+        "selector": {
+          "selector_profile": "aavanam/row/v1",
+          "index": 1
+        }
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "payload_form"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "payload_form"
+            ],
+            "reason_details": [
+              {
+                "code": "payload_form",
+                "refs": [
+                  {
+                    "$ref": "tab"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "reads/read-row-ok"
+}
