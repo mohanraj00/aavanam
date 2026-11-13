@@ -1,0 +1,55 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A changed profile version under the same digest is incompatible",
+  "clauses": [
+    "PRD-CAL-3",
+    "PRD-OBJ-2",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the producer changes the threshold of a profile version and keeps its key. Each key is the SHA-256 digest of the synthetic bytes, computed with hashlib. The store does not check it (PRD-SEC-4)."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/calibrator",
+        "key": "sha256:31c821d3e789b125b443411cea0901233959937af617eb4ea9ffb5520bad3aee",
+        "data": "eyJwcm9maWxlIjoic2FtcGxlLWV4dHJhY3QiLCJ2ZXJzaW9uIjoyLCJ0aHJlc2hvbGQiOiIwLjgwIn0="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:31c821d3e789b125b443411cea0901233959937af617eb4ea9ffb5520bad3aee",
+              "size": 59
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/calibrator",
+        "key": "sha256:31c821d3e789b125b443411cea0901233959937af617eb4ea9ffb5520bad3aee",
+        "data": "eyJwcm9maWxlIjoic2FtcGxlLWV4dHJhY3QiLCJ2ZXJzaW9uIjoyLCJ0aHJlc2hvbGQiOiIwLjg1In0="
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "producer_key_conflict"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/calibration-profile-ok"
+}

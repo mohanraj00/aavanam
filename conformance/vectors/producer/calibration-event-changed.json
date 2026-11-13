@@ -1,0 +1,88 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An append that reuses the sequence of a calibration event is incompatible, and the event does not change",
+  "clauses": [
+    "PRD-CAL-4",
+    "PRD-LOG-2",
+    "PRD-LOG-4",
+    "STS-MAL-2"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the producer replaces the accepted event at sequence 2 with a rejected event."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/calibrator",
+        "log": [
+          "calibration",
+          "sample-extract"
+        ],
+        "sequence": 1,
+        "entry": "eyJldmVudCI6Im1lYXN1cmVkIiwicHJvZmlsZSI6InNoYTI1NjozMWM4MjFkM2U3ODliMTI1YjQ0MzQxMWNlYTA5MDEyMzM5NTk5MzdhZjYxN2ViNGVhOWZmYjU1MjBiYWQzYWVlIiwiZ29sZF9zZXQiOiJzaGEyNTY6OThmYjhkZDMyYTNiNDkxZWU5NGRmM2VlNDZhNTY5OTk3MDk2MjBjNDExMTE5MGM0NDY0NDQ0ZjYyZjk3ZmY4YSIsInNjb3JlIjoiMC45MSJ9"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/calibrator",
+        "log": [
+          "calibration",
+          "sample-extract"
+        ],
+        "sequence": 2,
+        "entry": "eyJldmVudCI6ImFjY2VwdGVkIiwicHJvZmlsZSI6InNoYTI1NjozMWM4MjFkM2U3ODliMTI1YjQ0MzQxMWNlYTA5MDEyMzM5NTk5MzdhZjYxN2ViNGVhOWZmYjU1MjBiYWQzYWVlIn0="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/calibrator",
+        "log": [
+          "calibration",
+          "sample-extract"
+        ],
+        "sequence": 2,
+        "entry": "eyJldmVudCI6InJlamVjdGVkIiwicHJvZmlsZSI6InNoYTI1NjozMWM4MjFkM2U3ODliMTI1YjQ0MzQxMWNlYTA5MDEyMzM5NTk5MzdhZjYxN2ViNGVhOWZmYjU1MjBiYWQzYWVlIn0="
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "log_moved"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "producer/calibration-events-ok"
+}

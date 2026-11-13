@@ -1,0 +1,98 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A splits log is a log of split records in sequence order",
+  "clauses": [
+    "PRD-CAL-1",
+    "PRD-LOG-2",
+    "PRD-LOG-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The log name is the word splits and the gold set digest. Each key is the SHA-256 digest of the synthetic bytes, computed with hashlib. The store does not check it (PRD-SEC-4)."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/calibrator",
+        "log": [
+          "splits",
+          "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a"
+        ],
+        "sequence": 1,
+        "entry": "eyJkb2N1bWVudCI6ImQxIiwic3BsaXQiOiJ0cmFpbiJ9"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_append",
+      "request": {
+        "producer": "example/calibrator",
+        "log": [
+          "splits",
+          "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a"
+        ],
+        "sequence": 2,
+        "entry": "eyJkb2N1bWVudCI6ImQyIiwic3BsaXQiOiJ0ZXN0In0="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "producer_read",
+      "request": {
+        "producer": "example/calibrator",
+        "log": [
+          "splits",
+          "sha256:98fb8dd32a3b491ee94df3ee46a56999709620c4111190c4464444f62f97ff8a"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1,
+              "entry": "eyJkb2N1bWVudCI6ImQxIiwic3BsaXQiOiJ0cmFpbiJ9"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 2,
+              "entry": "eyJkb2N1bWVudCI6ImQyIiwic3BsaXQiOiJ0ZXN0In0="
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

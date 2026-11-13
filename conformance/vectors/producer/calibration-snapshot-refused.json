@@ -1,0 +1,87 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read context of a snapshot cannot read a profile version",
+  "clauses": [
+    "PRD-CAL-5",
+    "PRD-ISO-1",
+    "PRD-ISO-2",
+    "QRY-GET-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The key has the form of a reference. PRD-ISO-2 gives the result for a reference that is not in the store. Each key is the SHA-256 digest of the synthetic bytes, computed with hashlib. The store does not check it (PRD-SEC-4)."
+  },
+  "profile": "aavanam/base/v1",
+  "fixture": "equipment-handbook",
+  "steps": [
+    {
+      "operation": "producer_put",
+      "request": {
+        "producer": "example/calibrator",
+        "key": "sha256:31c821d3e789b125b443411cea0901233959937af617eb4ea9ffb5520bad3aee",
+        "data": "eyJwcm9maWxlIjoic2FtcGxlLWV4dHJhY3QiLCJ2ZXJzaW9uIjoyLCJ0aHJlc2hvbGQiOiIwLjgwIn0="
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "key": "sha256:31c821d3e789b125b443411cea0901233959937af617eb4ea9ffb5520bad3aee",
+              "size": 59
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          "sha256:31c821d3e789b125b443411cea0901233959937af617eb4ea9ffb5520bad3aee"
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pair": "producer/calibration-snapshot-ok"
+}
