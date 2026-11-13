@@ -1,6 +1,6 @@
 # Status
 
-The specification has 18 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
+The specification has 20 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
 
 ## Done
 

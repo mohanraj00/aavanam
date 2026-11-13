@@ -115,13 +115,13 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.1.0 is the first public marker. All 19 contract documents are drafts. Documents 17 and 18 add lifecycle and discovery for v0.2. Document 19 adds producer storage for v0.2. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.1.0 is the first public marker. All 20 contract documents are drafts. Documents 17 and 18 add lifecycle and discovery for v0.2. Document 19 adds producer storage, and document 20 adds content reads and text search, for v0.2. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 268, in 18 documents under `docs/contracts/` |
-| Conformance vectors | 439. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 438. The runner exits with 1 |
+| Contract clauses | 337, in 20 documents under `docs/contracts/` |
+| Conformance vectors | 565. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 564. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
 | Reference implementation | Python over SQLite. The standard library only |
 

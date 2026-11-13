@@ -68,6 +68,8 @@ review=(ROOT/'tools/cross_review.py').read_text()
 for need in ["env['HOME']=home","'--sandbox'","'allow':[]"]:
     if need not in review:errors.append('cross_review.py must keep '+need)
 if "'HOME'," in review:errors.append('cross_review.py must not pass the real HOME to agy')
+sys.path.insert(0,str(ROOT/'tools'));import counts
+errors+=counts.problems(ROOT)  # the stated counts (issue #70)
 checksum=ROOT/'checksums.json'
 if a.write_checksums:
     if errors:raise SystemExit(json.dumps({'passed':False,'errors':errors}))
