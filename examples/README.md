@@ -2,6 +2,8 @@
 
 Each example is one file or one folder in this folder. Each example uses only the public API of the `aavanam` package. The test [tests/test_examples.py](../tests/test_examples.py) runs each example and compares its output with the output in this file.
 
+The folder [pdf_facts](pdf_facts/README.md) has the PDF example. It also needs groundgate, and its README gives the commands and its output. The test [tests/test_pdf_example.py](../tests/test_pdf_example.py) runs it.
+
 ## Run an example from a clean checkout
 
 You need Python 3.14 or later. The [README](../README.md#python-version) gives the reason.
