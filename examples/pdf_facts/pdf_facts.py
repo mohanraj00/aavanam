@@ -64,8 +64,9 @@ def candidates(flow: int) -> list[dict]:
 def page_of(layout, start: int, end: int) -> int:
     """The page of the UTF-8 byte span [start, end) of the reading text.
 
-    groundgate 0.14 gives no page in the facts@1 citation. This function takes the page from the layout of
-    the groundgate reading. A later change takes the page from the locator of the groundgate 0.15 export.
+    The adapter accepts no locator on a scalar fact (ADP-FXT-4), so the example gives groundgate no places, and
+    the facts@1 citation has no page. This function takes the page from the layout of the groundgate reading.
+    Issue #80 owns the change to the locator of the export.
     """
     pages = {box.page for box in layout.locate(start, end)}
     if len(pages) != 1:
