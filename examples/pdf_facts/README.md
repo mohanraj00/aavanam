@@ -15,7 +15,7 @@ The test [tests/test_pdf_example.py](../../tests/test_pdf_example.py) runs the e
 - `pdf_facts.py`: the example.
 - `datasheet-v1.pdf` and `datasheet-v2.pdf`: the synthetic data sheets. Each has one page and the same three values, except the flow rate. They name no real product, company or person.
 - `make_pdf.py`: the script that writes the two PDF files. Each PDF is ASCII text, with no compression. The test checks that the script gives the committed bytes.
-- `requirements.txt`: groundgate 0.14.0 with its extra `pdf`, and each dependency, pinned with its hash.
+- `requirements.txt`: groundgate 0.15.0 with its extra `pdf`, and each dependency, pinned with its hash.
 
 ## Run the example from a clean checkout
 
@@ -39,7 +39,7 @@ The hashes of `cryptography` and `cffi` are for Linux x86_64 and macOS arm64. On
 
 ## Known limit: the page
 
-groundgate 0.14.0 gives no page in the `facts@1` citation. The citation gives the span, the source digest and the text digest. The example takes the page from the layout of the groundgate reading of the PDF, in the function `page_of`. groundgate 0.15 adds the page to the export. A later change moves the example to the page of the export, and changes only `page_of`.
+groundgate 0.15.0 gives the page and the box of a fact in `citation.locator` only if the packet has places. The admitted-facts adapter accepts a locator only on a passage fact (ADP-FXT-4), so the example gives no places. The citation gives the span, the source digest and the text digest. The example takes the page from the layout of the groundgate reading of the PDF, in the function `page_of`. Issue [#80](https://github.com/mohanraj00/aavanam/issues/80) owns the adapter change. After that change, the example takes the page from the export, and changes only `page_of`.
 
 The source digest and the text digest are the digests of groundgate, kept as native identities (ADP-FXT-3). They are not the digests of the aavanam payloads.
 

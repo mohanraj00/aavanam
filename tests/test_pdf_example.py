@@ -1,6 +1,6 @@
 """The PDF example of examples/pdf_facts/ (issue #71).
 
-The example needs groundgate 0.14.0 with its extra `pdf`, from examples/pdf_facts/requirements.txt. Without it, the
+The example needs groundgate 0.15.0 with its extra `pdf`, from examples/pdf_facts/requirements.txt. Without it, the
 run test skips, because the reference implementation uses only the standard library (constitution principle 9).
 The package job of CI installs the requirements in the clean environment of the wheel and sets AAVANAM_PDF_EXAMPLE=1,
 so an absent package fails there. AAVANAM_INSTALLED=1 makes the example import aavanam from that environment.
@@ -23,7 +23,7 @@ from support import ROOT
 FOLDER = ROOT / 'examples' / 'pdf_facts'
 INSTALLED = os.environ.get('AAVANAM_INSTALLED') == '1'
 REQUIRED = os.environ.get('AAVANAM_PDF_EXAMPLE') == '1'
-PINNED = '0.14.0'
+PINNED = '0.15.0'
 CITATION = {'page', 'span', 'text', 'source', 'text_digest'}
 DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
 
