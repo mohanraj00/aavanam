@@ -115,7 +115,7 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.1.0 is the first public marker. All 20 contract documents are drafts. Documents 17 and 18 add lifecycle and discovery for v0.2. Document 19 adds producer storage, and document 20 adds content reads and text search, for v0.2. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.2.0 is the current version. All 20 contract documents are drafts. Version 0.2.0 adds lifecycle and discovery (documents 17 and 18), producer storage (document 19), and content reads and text search (document 20). It also adds a package build, two examples and a seam test with groundgate 0.15.0. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
@@ -154,7 +154,7 @@ Within the 0.1 series, the reference store preserves the documented `aavanam/bas
 
 The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. The producer seam test is pending, and reserved operations return their specified unsupported status. The source version identifies the draft specification, conformance vectors and reference store together.
 
-See [the changelog](CHANGELOG.md) for the contents of 0.1.0.
+See [the changelog](CHANGELOG.md) for the contents of 0.1.0 and 0.2.0.
 
 ## Run the checks
 

@@ -31,7 +31,7 @@ You need Python 3.14 or later. The [README](../README.md#python-version) gives t
 
    ```bash
    python3 -m venv ../aavanam-user
-   ../aavanam-user/bin/python -m pip install --no-index --no-deps ../aavanam-dist/aavanam-0.1.0-py3-none-any.whl
+   ../aavanam-user/bin/python -m pip install --no-index --no-deps ../aavanam-dist/aavanam-0.2.0-py3-none-any.whl
    ```
 
 5. Run the example:
