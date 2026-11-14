@@ -1,8 +1,8 @@
 """The seam tests of aavanam adapters with a pinned groundgate.
 
 The chained-log adapter (PRD-PRO-1 to PRD-PRO-3, issue #7) and the admitted-facts adapter (ADP-FACT-1 to
-ADP-FACT-5, issue #54) use the same pin: the groundgate 0.14.0 release, the first release with the facts@1
-export (groundgate#584).
+ADP-FACT-5, issue #54) use the same pin: the groundgate 0.15.0 release. It has the facts@1 export (groundgate#584)
+and the store vectors in the wheel (groundgate.store.contract).
 CI installs the pin from `tests/requirements-seam.txt` and sets AAVANAM_SEAM=1, so an absent package or a different pin fails there.
 Without AAVANAM_SEAM=1, an absent package skips this test, because the reference implementation uses only the
 standard library (constitution principle 9).
@@ -20,7 +20,7 @@ from aavanam.admitted import put_export_facts
 from aavanam.chained import ChainedLogStore
 from aavanam.jsontext import canonical
 
-PINNED = '0.14.0'
+PINNED = '0.15.0'
 try:
     from groundgate import verify
     from groundgate.canonical import jcs
@@ -39,9 +39,25 @@ CANDIDATES = [{'id': 'c1', 'field': 'total', 'value': '1250',
                'evidence': {'start': START, 'end': START + 4, 'text': '1250'}}]
 
 
-def adapter():
+# The store vectors of the pinned release: their count and the SHA-256 digest of contract.dump().
+STORE_VECTORS = (46, 'a14ae4bc99efc5cc610caf57a7192bf6418f1650767dde7cb25d1065182530aa')
+# The calibration items of the producer section (PRD-CAL-1, issue #61): the steps of these vectors.
+CALIBRATION = [ROOT / f'conformance/vectors/producer/calibration-{name}-ok.json'
+               for name in ('profile', 'gold', 'splits', 'events')]
+
+
+def adapter(store=None):
     rules = SimpleNamespace(key=key, check_bytes=check_bytes, jcs=jcs, LOGS=LOGS, NotFound=NotFound, StoreError=StoreError)
-    return ChainedLogStore(Store(), 'groundgate', rules)
+    return ChainedLogStore(Store() if store is None else store, 'groundgate', rules)
+
+
+def calibration_steps():
+    """The steps of the calibration vectors, for the producer of the adapter."""
+    for path in CALIBRATION:
+        for step in json.loads(path.read_text(encoding='utf-8'))['steps']:
+            expect = step['expect']
+            items = [{'status': i['status'], 'reasons': i['reasons'], **i['fields']} for i in expect['items']]
+            yield step['operation'], {**step['request'], 'producer': 'groundgate'}, (expect['status'], items)
 
 
 def require_pin(test):
@@ -60,6 +76,30 @@ class SeamTest(unittest.TestCase):
         for check in contract.CHECKS:
             with self.subTest(check.__name__):
                 check(adapter)
+
+    def test_the_store_vectors_pass_beside_the_calibration_items(self):  # PRD-PRO-1, PRD-CAL-1 to PRD-CAL-4
+        stores = []
+
+        def make():
+            store = Store()
+            self.addCleanup(store.close)
+            for operation, request, expect in calibration_steps():
+                result = store.call(operation, request)
+                self.assertEqual((result['status'], result['items']), expect, operation)
+            stores.append(store)
+            return adapter(store)
+
+        report = contract.report(make, 'aavanam ChainedLogStore')
+        self.assertEqual([r for r in report['results'] if not r['passed']], [])
+        self.assertEqual((report['passed'], report['vectors_sha256']), STORE_VECTORS)
+        self.assertEqual(len(stores), STORE_VECTORS[0])
+        # The vectors do not change a calibration item (PRD-CAL-3, PRD-CAL-4).
+        reads = [(o, r, e) for o, r, e in calibration_steps() if o in ('producer_get', 'producer_read')]
+        self.assertEqual(len(reads), 4)
+        for store in stores:
+            for operation, request, expect in reads:
+                result = store.call(operation, request)
+                self.assertEqual((result['status'], result['items']), expect, operation)
 
     def test_a_run_writes_through_the_adapter_and_verifies(self):  # PRD-PRO-2
         store = adapter()

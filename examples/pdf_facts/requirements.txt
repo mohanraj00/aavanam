@@ -1,8 +1,8 @@
 # The pinned groundgate of the PDF example (examples/pdf_facts/README.md) and its dependencies.
 # Install with --require-hashes --only-binary :all: --no-deps. Each hash is the hash of a published wheel.
-# groundgate 0.14.0 is the release of tests/requirements-seam.txt. Its extra "pdf" needs pdfminer.six.
+# groundgate 0.15.0 is the release of tests/requirements-seam.txt. Its extra "pdf" needs pdfminer.six.
 # cryptography and cffi have one wheel for each platform. The hashes are for Linux x86_64 and macOS arm64.
-groundgate[pdf]==0.14.0 --hash=sha256:a191376cb8206bfa96a4435505114f01b11081ff46df66a08e45378c6f050c69
+groundgate[pdf]==0.15.0 --hash=sha256:a9ea36fa785acef9dfc7331644f7d548fc2e7ccb462d206cc7940d31db55c5a9
 pdfminer.six==20260107 --hash=sha256:366585ba97e80dffa8f00cebe303d2f381884d8637af4ce422f1df3ef38111a9
 charset-normalizer==3.5.2 --hash=sha256:b6b751274acb69d77b3323d6b7dbaa3c7fdfc1eb829b7eb61d262f32e1af9685
 cryptography==50.0.2 \

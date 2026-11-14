@@ -15,7 +15,7 @@ The test [tests/test_pdf_example.py](../../tests/test_pdf_example.py) runs the e
 - `pdf_facts.py`: the example.
 - `datasheet-v1.pdf` and `datasheet-v2.pdf`: the synthetic data sheets. Each has one page and the same three values, except the flow rate. They name no real product, company or person.
 - `make_pdf.py`: the script that writes the two PDF files. Each PDF is ASCII text, with no compression. The test checks that the script gives the committed bytes.
-- `requirements.txt`: groundgate 0.14.0 with its extra `pdf`, and each dependency, pinned with its hash.
+- `requirements.txt`: groundgate 0.15.0 with its extra `pdf`, and each dependency, pinned with its hash.
 
 ## Run the example from a clean checkout
 
