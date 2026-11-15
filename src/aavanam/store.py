@@ -429,17 +429,15 @@ class Store:
         desc = self.descriptor(ref)
         return desc['kind'] if desc else None
 
-    def blob(self, key: str) -> bytes | None:
-        """Read bytes only after each deferred check in the store view passes (BUN-IMP-12)."""
+    def blob(self, key: str, *, ref: str) -> bytes | None:
+        """Read bytes after the deferred checks of this descriptor pass (BUN-IMP-12)."""
         data = self.raw_blob(key)
         if data is not None:
-            # A record can name only an absent parent digest, though the excerpt bytes are present.
             stores = (self, self.device) if self.device else (self,)
-            refs = {r for store in stores for (r,) in store.db.execute('SELECT DISTINCT ref FROM deferred')}
-            for ref in sorted(refs):
+            if any(store.db.execute('SELECT 1 FROM deferred WHERE ref = ? LIMIT 1', (ref,)).fetchone()
+                   for store in stores):
+                # An excerpt record can name only its absent parent digest (BUN-IMP-10).
                 desc = self.descriptor(ref)
-                if key not in {p['digest'] for p in d.payloads(desc)}:
-                    continue
                 try:
                     self.step_payloads(desc, self.descriptor, self.raw_blob, False)
                     self.step_content(desc, self.descriptor, self.raw_blob, False)
@@ -934,7 +932,7 @@ class Store:
             return refused(['unsupported_selector'], [ref])  # CRD-SEL-2
         if profile == ROW and desc['data_profile'] != 'aavanam/table/v1':
             return refused(['unsupported_profile'], [ref])  # CRD-SEL-5, DAT-PRF-2
-        data = self.blob(desc['payload']['digest']) if 'payload' in desc else None
+        data = self.blob(desc['payload']['digest'], ref=ref) if 'payload' in desc else None
         if 'payload' in desc and data is None:
             return refused(['payload_missing'], [ref])
         out = item(ref=ref, kind=desc['kind'], descriptor=desc, selector=selector, data=None, row=None)
@@ -988,7 +986,7 @@ class Store:
             return refused(['unsupported_selector'], [ref])
         if 'payload' not in desc:
             return refused(['unsupported_selector'], [ref])
-        data = self.blob(desc['payload']['digest'])
+        data = self.blob(desc['payload']['digest'], ref=ref)
         if data is None:
             return refused(['payload_missing'], [ref])
         if profile == d.NFC_TEXT:
@@ -1133,12 +1131,22 @@ class Store:
         objects = sorted(self.closure(roots))
         statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
         values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
-        digests = sorted({p['digest'] for r in objects for p in d.payloads(self.descriptor(r))})
         # BUN-RED-4 and BUN-RED-5: the bytes of a withheld object
         withheld = {p['digest'] for r in objects if permit is not None and values[r][0] != 'no_payload' and values[r][0] not in permit
                     for p in d.payloads(self.descriptor(r))}
-        payloads = {k: self.blob(k) for k in digests if k not in withheld}
-        withheld.update(k for k, data in payloads.items() if data is None)  # BUN-RED-7
+        # BUN-IMP-12: only descriptors in this closure can withhold a shared digest.
+        payloads = {}
+        for ref in objects:
+            for p in d.payloads(self.descriptor(ref)):
+                key = p['digest']
+                if key in withheld:
+                    continue
+                data = self.blob(key, ref=ref)
+                if data is None:
+                    withheld.add(key)  # BUN-RED-7: any failed descriptor withholds the shared bytes
+                    payloads.pop(key, None)
+                else:
+                    payloads[key] = data
         bundle = {'format': BUNDLE_FORMAT, 'roots': roots, 'descriptors': [canonical(self.descriptor(r)) for r in objects],
                   'payloads': {k: b64(data) for k, data in payloads.items() if data is not None}}  # BUN-EXP-2
         if withheld:
@@ -1172,7 +1180,7 @@ class Store:
     def table(self, desc: dict) -> dict | None:
         """The table of a data resource under aavanam/table/v1, or None if the payload does not agree with DAT-TBL-1."""
         try:
-            value = parse(self.blob(desc['payload']['digest']).decode('utf-8'))
+            value = parse(self.blob(desc['payload']['digest'], ref=revision(desc)).decode('utf-8'))
         except (FormError, UnicodeDecodeError):
             return None
         if not (isinstance(value, dict) and set(value) == {'columns', 'key', 'rows'}):
@@ -1210,7 +1218,7 @@ class Store:
             return refused(['schema_mismatch'], [ref])
         if desc['data_profile'] != 'aavanam/table/v1':
             return refused(['unsupported_profile'], [ref])
-        if self.blob(desc['payload']['digest']) is None:
+        if self.blob(desc['payload']['digest'], ref=ref) is None:
             return refused(['payload_missing'], [ref])
         table = self.table(desc)
         if table is None:
@@ -1274,7 +1282,7 @@ class Store:
             raise fail('unsupported_profile')  # QRY-LEX-1
         query, matches = request['query'].encode('utf-8'), []
         for ref, desc in self.records(members, {'reading', 'excerpt'}):  # QRY-LEX-2
-            data = self.blob(desc['payload']['digest'])
+            data = self.blob(desc['payload']['digest'], ref=ref)
             count = data.count(query) if data is not None else 0
             if count:
                 matches.append((-count, ref, desc['kind']))
@@ -1296,7 +1304,7 @@ class Store:
         for ref, desc in self.records(members, {'artifact'}):  # CRD-TXT-2, CRD-ORD-1: ascending ref
             if not is_text_media(desc['payload']['media_type']):
                 continue
-            data = self.blob(desc['payload']['digest'])
+            data = self.blob(desc['payload']['digest'], ref=ref)
             if data is None:
                 items.append(refused(['payload_missing'], [ref]))  # CRD-TXT-5
                 continue

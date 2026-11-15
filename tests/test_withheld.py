@@ -67,6 +67,49 @@ class DeferredCheckTest(unittest.TestCase):
         self.assertEqual(base64.b64decode(result['items'][0]['data']), b'abc')
         self.assertEqual((device.fingerprint(), device.output.fingerprint()), before)
 
+    def test_unrelated_deferred_excerpt_does_not_block_a_trusted_object(self):
+        for role in ('writer', 'device'):
+            with self.subTest(role=role):
+                bundle, excerpt, other = crafted_bundle('xyz')
+                parent_digest = json.loads(bundle['descriptors'][1])['payload']['digest']
+                del bundle['payloads'][parent_digest]
+                bundle['payloads'].update(other['payloads'])
+                bundle['withheld'] = [parent_digest]
+                store = Store(debug=True, role=role)
+                self.addCleanup(store.close)
+                target = store.output if role == 'device' else store
+                trusted = revision(other['descriptor'])
+                self.assertEqual(put(target, other['descriptor'], other['payloads'])['status'], 'ok')
+                note = {'descriptor_profile': BASE, 'kind': 'observation', 'subjects': [trusted],
+                        'observation_type': 'sample/note/v1', 'scope': {}, 'values': {}}
+                self.assertEqual(put(target, note)['status'], 'ok')
+                snap = target.call('create_snapshot', {'collection': 'sample-trusted', 'observations': [revision(note)]})
+                context = target.call('open_context', {'roots': [snap['items'][0]['ref']]})['context']
+                self.assertEqual(store.call('import', {'bundle': bundle})['status'], 'ok')
+                ex_note = {**note, 'subjects': [excerpt]}
+                self.assertEqual(put(target, ex_note)['status'], 'ok')
+                ex_snap = target.call('create_snapshot', {'collection': 'sample-excerpt', 'observations': [revision(ex_note)]})
+                ex_context = target.call('open_context', {'roots': [ex_snap['items'][0]['ref']]})['context']
+                before = (store.fingerprint(), target.fingerprint())
+                result = target.call('read', {'context': context, 'ref': trusted})
+                self.assertEqual(codes(result), ('ok', []))  # BUN-IMP-12: only the trusted descriptor
+                self.assertEqual(base64.b64decode(result['items'][0]['data']), b'xyz')
+                for selector in (None, {'selector_profile': 'aavanam/bytes/v1', 'start': 0, 'end': 3}):
+                    request = {'context': ex_context, 'ref': excerpt}
+                    if selector is not None:
+                        request['selector'] = selector
+                    result = target.call('read', request)
+                    self.assertEqual(codes(result), ('not_found', ['payload_missing']))
+                exported = target.call('export', {'context': context, 'roots': [trusted]})
+                self.assertEqual(codes(exported), ('ok', []))
+                self.assertEqual(exported['bundle']['payloads'], other['payloads'])
+                self.assertEqual((store.fingerprint(), target.fingerprint()), before)
+                parent_obj, parent_data = payload('abcdef')
+                parent = {'descriptor_profile': BASE, 'kind': 'source', 'payload': parent_obj}
+                self.assertEqual(codes(put(target, parent, parent_data)), ('failed', ['excerpt_mismatch']))
+                self.assertEqual(codes(target.call('read', {'context': context, 'ref': trusted})), ('ok', []))
+                self.assertEqual((store.fingerprint(), target.fingerprint()), before)
+
     def test_each_output_byte_read_checks_each_device_descriptor(self):
         claimed = '{"columns":["id"],"key":["id"],"rows":[["sample"]]}'
         for valid in (False, True):
@@ -106,38 +149,37 @@ class DeferredCheckTest(unittest.TestCase):
                 expected = ('ok', []) if valid else ('not_found', ['payload_missing'])
                 for ref in refs:
                     result = output.call('read', {'context': context, 'ref': ref})
-                    self.assertEqual(codes(result), expected, result)
-                    if valid:
+                    self.assertEqual(codes(result), expected if ref == excerpt else ('ok', []), result)
+                    if valid or ref != excerpt:
                         self.assertEqual(base64.b64decode(result['items'][0]['data']), claimed.encode())
                 selectors = [
                     (revision(artifact), {'selector_profile': 'aavanam/bytes/v1', 'start': 0, 'end': 3}),
                     (revision(reading), {'selector_profile': 'aavanam/nfc-text/v1', 'start': 0, 'end': 3}),
                     (revision(resource), {'selector_profile': 'aavanam/row/v1', 'index': 0})]
+                selectors.append((excerpt, selectors[0][1]))
                 for ref, selector in selectors:
                     result = output.call('read', {'context': context, 'ref': ref, 'selector': selector})
-                    self.assertEqual(codes(result), expected, result)
+                    self.assertEqual(codes(result), expected if ref == excerpt else ('ok', []), result)
                 selector = selectors[0][1]
                 selected = output.select(revision(artifact), selector)
-                self.assertEqual(selected, claimed[:3].encode() if valid else {
-                    'status': 'not_found', 'reasons': [{'code': 'payload_missing', 'refs': [revision(artifact)],
-                                                     'capabilities': []}]})
+                self.assertEqual(selected, claimed[:3].encode())
                 compared = output.call('compare', {'context': context, 'before': revision(artifact),
+                                                   'after': revision(artifact), 'selector': selector})
+                self.assertEqual(codes(compared), ('ok', []))
+                compared = output.call('compare', {'context': context, 'before': excerpt,
                                                    'after': revision(artifact), 'selector': selector})
                 self.assertEqual(codes(compared), expected)
                 query = output.call('query_data', {'context': context, 'resources': [revision(resource)]})
-                self.assertEqual(codes(query), expected)
-                if valid:
-                    self.assertEqual(query['items'][0]['rows'], [{'id': 'sample'}])
+                self.assertEqual(codes(query), ('ok', []))
+                self.assertEqual(query['items'][0]['rows'], [{'id': 'sample'}])
                 search = output.call('search', {'context': context, 'query': 'sample'})
                 self.assertEqual(codes(search), ('ok', []))
-                if valid:
-                    self.assertTrue({excerpt, revision(reading)} <= {i['ref'] for i in search['items']})
-                else:
-                    self.assertEqual(search['items'], [])
+                matches = {i['ref'] for i in search['items']}
+                self.assertIn(revision(reading), matches)
+                self.assertEqual(excerpt in matches, valid)
                 text = output.call('search_text', {'context': context, 'query': 'sample'})
-                self.assertEqual(codes(text), expected)
-                if valid:
-                    self.assertEqual([i['ref'] for i in text['items']], [revision(artifact)])
+                self.assertEqual(codes(text), ('ok', []))
+                self.assertEqual([i['ref'] for i in text['items']], [revision(artifact)])
                 exported = output.call('export', {'context': context, 'roots': [snap['items'][0]['ref']]})
                 self.assertEqual(codes(exported), ('ok', []))
                 if valid:
@@ -146,6 +188,73 @@ class DeferredCheckTest(unittest.TestCase):
                     self.assertNotIn(obj['digest'], exported['bundle']['payloads'])
                     self.assertIn(obj['digest'], exported['bundle']['withheld'])
                 self.assertTrue(all(i['withheld'] == (not valid) for i in exported['items'] if i['ref'] in refs))
+                single = output.call('export', {'context': context, 'roots': [revision(artifact)]})
+                self.assertEqual(codes(single), ('ok', []))
+                self.assertEqual(base64.b64decode(single['bundle']['payloads'][obj['digest']]), claimed.encode())
+                self.assertFalse(single['items'][0]['withheld'])
+                self.assertEqual((device.fingerprint(), output.fingerprint()), before)
+
+    def test_each_read_path_checks_its_own_deferred_payload(self):
+        claimed = '{"columns":["id"],"key":["id"],"rows":[["sample"]]}'
+        for valid in (False, True):
+            with self.subTest(valid=valid):
+                device = Store(debug=True, role='device')
+                self.addCleanup(device.close)
+                output = device.output
+                obj, data = payload(claimed)
+                trusted = {'descriptor_profile': BASE, 'kind': 'source', 'payload': obj}
+                self.assertEqual(put(output, trusted, data)['status'], 'ok')
+                deferred_obj = {**obj, 'size': obj['size'] + (0 if valid else 1)}
+                schema_obj, schema_data = payload('sample schema')
+                schema = {'descriptor_profile': BASE, 'kind': 'schema', 'schema_profile': 'sample/schema/v1',
+                          'payload': schema_obj}
+                resource = {'descriptor_profile': BASE, 'kind': 'data-resource', 'data_profile': 'aavanam/table/v1',
+                            'schema': revision(schema), 'payload': deferred_obj}
+                artifact = {'descriptor_profile': BASE, 'kind': 'artifact', 'artifact_type': 'sample/text/v1',
+                            'payload': deferred_obj}
+                reading = {'descriptor_profile': BASE, 'kind': 'reading', 'source': revision(trusted),
+                           'producer': 'sample/reader/v1', 'coverage_profile': 'aavanam/coverage/v1',
+                           'payload': deferred_obj}
+                refs = [revision(x) for x in (resource, artifact, reading)]
+                note = {'descriptor_profile': BASE, 'kind': 'observation', 'subjects': sorted(refs),
+                        'observation_type': 'sample/note/v1', 'scope': {}, 'values': {}}
+                snap = {'descriptor_profile': BASE, 'kind': 'snapshot', 'collection': 'sample-own-checks',
+                        'observations': [revision(note)]}
+                bundle = {'format': 'aavanam-bundle/v1', 'roots': [revision(snap)],
+                          'descriptors': [canonical(x) for x in (trusted, schema, resource, artifact, reading, note, snap)],
+                          'payloads': schema_data, 'withheld': [obj['digest']]}
+                self.assertEqual(device.call('import', {'bundle': bundle})['status'], 'ok')
+                context = output.call('open_context', {'roots': [revision(snap)]})['context']
+                before = (device.fingerprint(), output.fingerprint())
+                expected = ('ok', []) if valid else ('not_found', ['payload_missing'])
+                selectors = [
+                    (revision(resource), {'selector_profile': 'aavanam/row/v1', 'index': 0}),
+                    (revision(artifact), {'selector_profile': 'aavanam/bytes/v1', 'start': 0, 'end': 3}),
+                    (revision(reading), {'selector_profile': 'aavanam/nfc-text/v1', 'start': 0, 'end': 3})]
+                for ref, selector in selectors:
+                    for selected in (False, True):
+                        request = {'context': context, 'ref': ref}
+                        if selected:
+                            request['selector'] = selector
+                        self.assertEqual(codes(output.call('read', request)), expected)
+                self.assertEqual(codes(output.call('read', {'context': context, 'ref': revision(trusted)})), ('ok', []))
+                selected = output.select(revision(artifact), selectors[1][1])
+                self.assertEqual(selected, claimed[:3].encode() if valid else {
+                    'status': 'not_found', 'reasons': [{'code': 'payload_missing', 'refs': [revision(artifact)],
+                                                     'capabilities': []}]})
+                self.assertEqual(codes(output.call('compare', {'context': context, 'before': revision(artifact),
+                                      'after': revision(artifact), 'selector': selectors[1][1]})), expected)
+                query = output.call('query_data', {'context': context, 'resources': [revision(resource)]})
+                self.assertEqual(codes(query), expected)
+                if valid:
+                    self.assertEqual(query['items'][0]['rows'], [{'id': 'sample'}])
+                search = output.call('search', {'context': context, 'query': 'sample'})
+                self.assertEqual(codes(search), ('ok', []))
+                self.assertEqual([i['ref'] for i in search['items']], [revision(reading)] if valid else [])
+                text = output.call('search_text', {'context': context, 'query': 'sample'})
+                self.assertEqual(codes(text), expected)
+                if valid:
+                    self.assertEqual([i['ref'] for i in text['items']], [revision(artifact)])
                 self.assertEqual((device.fingerprint(), output.fingerprint()), before)
 
     def test_output_read_checks_size_and_digest_of_preexisting_bytes(self):
@@ -192,8 +301,8 @@ class DeferredCheckTest(unittest.TestCase):
                 supplied = {'format': 'aavanam-bundle/v1', 'roots': [revision(other['descriptor'])],
                             'descriptors': [canonical(other['descriptor'])], 'payloads': other['payloads']}
                 self.assertEqual(device.call('import', {'bundle': supplied})['status'], 'ok')
-                self.assertIsNotNone(device.blob(bundle['withheld'][0]))
-                self.assertEqual(device.output.blob(bundle['withheld'][0]), None if claimed == 'xyz' else b'abc')
+                self.assertIsNotNone(device.blob(bundle['withheld'][0], ref=revision(other['descriptor'])))
+                self.assertEqual(device.output.blob(bundle['withheld'][0], ref=excerpt), None if claimed == 'xyz' else b'abc')
 
     def test_each_store_waits_for_the_parent_check_before_it_serves_excerpt_bytes(self):
         for role in ('writer', 'device'):
@@ -227,7 +336,7 @@ class DeferredCheckTest(unittest.TestCase):
         if expected[0] != 'ok':
             self.assertEqual(codes(result['items'][0])[1], expected[1])
             self.assertEqual(target.fingerprint(), before)  # STS-ENV-4
-            self.assertIsNone(target.blob(bundle['withheld'][0]))  # the bytes stay out of the store
+            self.assertIsNone(target.raw_blob(bundle['withheld'][0]))  # the bytes stay out of the store
             self.assertIsNotNone(target.descriptor(excerpt))
 
     def test_writer_refuses_bytes_that_do_not_agree_with_a_withheld_excerpt(self):
@@ -301,7 +410,7 @@ class DeferredCheckTest(unittest.TestCase):
         self.assertEqual(codes(result), ('failed', ['excerpt_mismatch']))
         self.assertEqual(codes(result['items'][0])[1], ['excerpt_mismatch'])
         self.assertEqual(device.output.fingerprint(), before)
-        self.assertIsNone(device.output.blob(src_obj['digest']))
+        self.assertIsNone(device.output.raw_blob(src_obj['digest']))
 
     def test_direct_put_and_deferred_put_give_the_same_reason(self):
         for claimed, expected in (('xyz', ('failed', ['excerpt_mismatch'])), ('abc', ('ok', []))):
@@ -343,12 +452,12 @@ class DeferredCheckTest(unittest.TestCase):
                         ('failed', ['excerpt_mismatch']), ('failed', ['excerpt_mismatch']),
                         ('failed', ['batch_aborted'])])  # BUN-IMP-10: use the original batch
                     self.assertEqual(device.output.fingerprint(), before)
-                    self.assertIsNone(device.output.blob(bundle['withheld'][0]))
+                    self.assertIsNone(device.output.raw_blob(bundle['withheld'][0]))
                 else:
                     self.assertEqual(codes(result), ('ok', []))
                     self.assertEqual([i['status'] for i in result['items']], ['ok'] * 3)
-                    self.assertEqual(device.output.blob(bundle['withheld'][0]), b'abc')
-                self.assertIsNone(device.blob(bundle['withheld'][0]))
+                    self.assertEqual(device.output.raw_blob(bundle['withheld'][0]), b'abc')
+                self.assertIsNone(device.raw_blob(bundle['withheld'][0]))
 
     def test_import_rechecks_excerpt_bytes_in_the_transaction(self):
         for claimed in ('xyz', 'abc'):
@@ -428,7 +537,7 @@ class DeferredCheckTest(unittest.TestCase):
 
         def add_then_write(objects, blobs, *args, **kwargs):
             for key in encoded:
-                self.assertIsNone(store.blob(key))
+                self.assertIsNone(store.raw_blob(key))
             other.write({}, {k: base64.b64decode(v) for k, v in encoded.items()})
             states.append(store.fingerprint())
             return write(objects, blobs, *args, **kwargs)

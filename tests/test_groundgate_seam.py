@@ -209,7 +209,7 @@ class ExportSeamTest(unittest.TestCase):
             self.assertEqual(record['ext']['citation'],
                              {'selector_profile': 'aavanam/bytes/v1', 'start': start, 'end': end})
             excerpt = self.store.descriptor(record['supports'])
-            self.assertEqual(self.store.blob(excerpt['payload']['digest']), cited)
+            self.assertEqual(self.store.blob(excerpt['payload']['digest'], ref=record['supports']), cited)
             fact = next(f for f in self.export['facts'] if f['field'] == row['field'])
             self.assertEqual(record['ext']['receipt_digest'], fact['citation']['receipt_sha256'])
             self.assertEqual(record['ext']['export_identity'], self.export['packet_sha256'])

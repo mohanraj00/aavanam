@@ -199,7 +199,7 @@ class ExportFactsTest(unittest.TestCase):
             self.assertEqual(citation['ref'], mapping['subject'])
             if target['kind'] == 'artifact':
                 self.assertEqual(target['artifact_type'], 'aavanam/admitted-facts-export/passage')
-                self.assertEqual(self.store.blob(target['payload']['digest']), b'Keep dry.')
+                self.assertEqual(self.store.blob(target['payload']['digest'], ref=record['subject']), b'Keep dry.')
                 field = 'note'
             else:
                 table, = self.call('query_data', context=context, resources=[record['subject']],
@@ -208,7 +208,7 @@ class ExportFactsTest(unittest.TestCase):
                 field = table['rows'][0]['field']
                 self.assertEqual([[row[c] for c in COLUMNS] for row in table['rows']], KIND_ROWS[field])
             excerpt = self.store.descriptor(record['supports'])
-            self.assertEqual(self.store.blob(excerpt['payload']['digest']), CITED[field])
+            self.assertEqual(self.store.blob(excerpt['payload']['digest'], ref=record['supports']), CITED[field])
             found[field] = record
         return found
 
@@ -227,7 +227,7 @@ class ExportFactsTest(unittest.TestCase):
             self.assertEqual(ext['url'], citation['url'])
             self.assertEqual(ext['export_identity'], self.export['export_sha256'])
             self.assertEqual(ext.get('locator'), citation.get('locator'))
-            self.assertIsNone(self.store.blob(citation['receipt_sha256']))
+            self.assertIsNone(self.store.raw_blob(citation['receipt_sha256']))
 
     def test_code_point_spans_and_plain_digests_give_the_same_values(self):  # ADP-FXT-3, ADP-FXT-5
         text = self.reading.decode('utf-8')

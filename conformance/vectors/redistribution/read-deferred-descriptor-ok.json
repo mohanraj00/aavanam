@@ -1,0 +1,659 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read uses only its descriptor checks when another descriptor shares its digest",
+  "clauses": [
+    "BUN-IMP-8",
+    "BUN-IMP-9",
+    "BUN-IMP-12",
+    "BUN-RED-7",
+    "CRD-READ-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The output has abc before the device import. The device withholds abc and abcdef. The local read passes. The excerpt passes after the parent bytes arrive. An export of their joint closure withholds the shared digest until each descriptor check passes."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "part": {
+      "media_type": "text/plain",
+      "text": "abc"
+    },
+    "whole": {
+      "media_type": "text/plain",
+      "text": "abcdef"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rd",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample/reader/v1",
+              "coverage_profile": "aavanam/coverage/v1",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ex",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "rd"
+              },
+              "ranges": [
+                {
+                  "start": 0,
+                  "end": 3
+                }
+              ],
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "note",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "ex"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-deferred",
+              "observations": [
+                {
+                  "$ref": "note"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "export",
+      "as_bundle": "x",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "ex"
+          }
+        ],
+        "permit": []
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src"
+              },
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd"
+              },
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex"
+              },
+              "withheld": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "local",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "logical_id": "sample-local",
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "local-note",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "local"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "store": "output",
+      "as_ref": "local-snap",
+      "request": {
+        "collection": "sample-output",
+        "observations": [
+          {
+            "$ref": "local-note"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "store": "output",
+      "as_context": "oc",
+      "request": {
+        "roots": [
+          {
+            "$ref": "local-snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "import",
+      "store": "device",
+      "request": {
+        "bundle": {
+          "$bundle": "x"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "store": "output",
+      "request": {
+        "context": {
+          "$context": "oc"
+        },
+        "roots": [
+          {
+            "$ref": "local"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "local"
+              },
+              "withheld": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "read",
+      "store": "output",
+      "request": {
+        "context": {
+          "$context": "oc"
+        },
+        "ref": {
+          "$ref": "local"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "store_unchanged": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "data": "YWJj"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "joint-note",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "local"
+                },
+                {
+                  "$ref": "ex"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "store": "output",
+      "as_ref": "joint-snap",
+      "request": {
+        "collection": "sample-joint",
+        "observations": [
+          {
+            "$ref": "joint-note"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "store": "output",
+      "as_context": "joint",
+      "request": {
+        "roots": [
+          {
+            "$ref": "joint-snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "local-parent",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "logical_id": "sample-local-parent",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "store": "output",
+      "request": {
+        "context": {
+          "$context": "joint"
+        },
+        "roots": [
+          {
+            "$ref": "joint-snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "store_unchanged": true,
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "local"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "joint-note"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "joint-snap"
+              },
+              "withheld": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "read",
+      "store": "output",
+      "request": {
+        "context": {
+          "$context": "joint"
+        },
+        "ref": {
+          "$ref": "ex"
+        },
+        "selector": {
+          "selector_profile": "aavanam/bytes/v1",
+          "start": 0,
+          "end": 3
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "store_unchanged": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "data": "YWJj"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

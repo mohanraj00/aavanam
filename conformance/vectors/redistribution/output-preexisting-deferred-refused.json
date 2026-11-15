@@ -1,17 +1,18 @@
 {
   "format": "aavanam-vector/v1",
-  "title": "A read withholds pre-existing output bytes that fail a deferred device check",
+  "title": "A deferred device excerpt does not block a different output descriptor",
   "clauses": [
     "BUN-IMP-8",
     "BUN-IMP-9",
     "BUN-IMP-12",
     "BUN-EXC-3",
     "CRD-READ-2",
-    "BUN-RED-7"
+    "BUN-RED-7",
+    "BUN-IMP-10"
   ],
   "provenance": {
     "type": "fault",
-    "note": "Planted fault: the device excerpt claims range 0 to 4 of abcdef for the bytes abc. The output store has abc and abcdef before the device import. The device bundle withholds all bytes. The output read uses a context opened before the import. The read and export must use the deferred device check, also though the excerpt is outside this context."
+    "note": "The output store has abc before the device import. The device withholds all bytes. The excerpt range is 0 to 4, a planted fault. BUN-IMP-12 now scopes each read to its descriptor. The earlier expectation that the unrelated device excerpt blocks the local read and export is replaced. The local read and export pass. A later write of parent bytes fails with excerpt_mismatch."
   },
   "profile": "aavanam/base/v1",
   "payloads": {
@@ -356,35 +357,6 @@
       }
     },
     {
-      "operation": "put",
-      "store": "output",
-      "request": {
-        "descriptors": [
-          {
-            "as": "local-parent",
-            "value": {
-              "descriptor_profile": "aavanam/base/v1",
-              "kind": "source",
-              "logical_id": "sample-local-parent",
-              "payload": {
-                "$payload": "whole"
-              }
-            }
-          }
-        ]
-      },
-      "expect": {
-        "status": "ok",
-        "reasons": [],
-        "items": [
-          {
-            "status": "ok",
-            "reasons": []
-          }
-        ]
-      }
-    },
-    {
       "operation": "import",
       "store": "device",
       "request": {
@@ -437,7 +409,7 @@
               "ref": {
                 "$ref": "local"
               },
-              "withheld": true
+              "withheld": false
             }
           }
         ]
@@ -455,15 +427,49 @@
         }
       },
       "expect": {
-        "status": "not_found",
-        "reasons": [
-          "payload_missing"
-        ],
+        "status": "ok",
+        "reasons": [],
+        "store_unchanged": true,
         "items": [
           {
-            "status": "not_found",
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "data": "YWJj"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "local-parent",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "logical_id": "sample-local-parent",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "excerpt_mismatch"
+        ],
+        "store_unchanged": true,
+        "items": [
+          {
+            "status": "failed",
             "reasons": [
-              "payload_missing"
+              "excerpt_mismatch"
             ]
           }
         ]
