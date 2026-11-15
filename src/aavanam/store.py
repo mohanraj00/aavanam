@@ -175,6 +175,16 @@ def range_matches(clause: dict, lower, upper) -> bool:
     return max(lower, typed(kind, clause['start'])) < min(upper, typed(kind, clause['end']))
 
 
+def is_filter(value) -> bool:
+    """The form of a filter (DSC-FLT-1)."""
+    if not isinstance(value, dict) or not {'equals', 'ranges'} & set(value) or set(value) - {'equals', 'ranges', 'precedence'}:
+        return False
+    equals, ranges, precedence = value.get('equals', {'-': 0}), value.get('ranges', [{}]), value.get('precedence', [])
+    return (isinstance(equals, dict) and bool(equals) and is_ijson(equals) and all(v is not None for v in equals.values())
+            and isinstance(ranges, list) and bool(ranges) and ('ranges' not in value or all(map(is_range_clause, ranges)))
+            and isinstance(precedence, list) and all(isinstance(p, str) for p in precedence))
+
+
 def form(request: dict, fields: dict, code: str = 'field_type') -> None:
     """Check the request fields. `fields` maps each field to (required, test). Each problem gives `code`."""
     if not (set(request) <= set(fields) and all(f in request for f, (required, _) in fields.items() if required)
@@ -1032,7 +1042,8 @@ class Store:
     def op_export(self, request: dict) -> dict:
         form(request, {'context': (True, is_str), 'roots': (True, is_refs),
                        'permit': (False, lambda v: isinstance(v, list) and all(x in DECLARED for x in v if isinstance(x, str))
-                                  and all(isinstance(x, str) for x in v))})  # BUN-RED-4
+                                  and all(isinstance(x, str) for x in v)),  # BUN-RED-4
+                       'filter': (False, is_filter)})  # BUN-FLT-1
         permit = request.get('permit')
         if permit is not None and len(set(permit)) != len(permit):
             raise fail('field_count')  # KND-SCH-5
@@ -1041,6 +1052,15 @@ class Store:
         located = [(r, code) for r in roots if (code := self.locate(r, members))]
         if located:  # BUN-EXP-1
             return self.envelope('export', 'not_found', [reason(code, [r]) for r, code in located], [], context)
+        flt = request.get('filter')
+        if flt is not None:  # BUN-FLT-1 to BUN-FLT-3: the roots of the bundle are the units that match
+            checked = self.filtered(flt, sorted(r for r in self.closure(roots) if self.kind(r) == 'knowledge-unit'), members)
+            failed = [o for _, o in checked if isinstance(o, dict)]
+            if failed:
+                return self.envelope('export', *first_status(failed), [], context)
+            roots = [r for r, o in checked if o]
+            if not roots:
+                return self.envelope('export', 'unresolved', [reason('no_match', request['roots'])], [], context)
         objects = sorted(self.closure(roots))
         statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
         values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
@@ -1054,12 +1074,17 @@ class Store:
             bundle['withheld'] = sorted(withheld)
         items = [item(ref=r, redistribution=values[r][0], license=values[r][1],
                       withheld=any(p['digest'] in withheld for p in d.payloads(self.descriptor(r)))) for r in objects]  # BUN-RED-6
+        if flt is not None:
+            bundle['filter'] = flt  # BUN-FLT-4
+            for i in items:
+                i['matched'] = i['ref'] in roots  # BUN-FLT-3
         return self.envelope('export', 'ok', [], items, context, bundle=bundle)
 
     def op_import(self, request: dict) -> dict:
         bundle = request.get('bundle')
         if not (set(request) == {'bundle'} and isinstance(bundle, dict)
-                and set(bundle) - {'withheld'} == {'format', 'roots', 'descriptors', 'payloads'} and bundle['format'] == BUNDLE_FORMAT
+                and set(bundle) - {'withheld', 'filter'} == {'format', 'roots', 'descriptors', 'payloads'}
+                and bundle['format'] == BUNDLE_FORMAT and ('filter' not in bundle or is_filter(bundle['filter']))  # BUN-FLT-4
                 and is_refs(bundle['roots']) and isinstance(bundle['descriptors'], list)
                 and all(isinstance(t, str) for t in bundle['descriptors']) and isinstance(bundle['payloads'], dict)
                 and all(is_digest(k) for k in bundle['payloads'])
@@ -1105,6 +1130,40 @@ class Store:
         if len({canonical(o['values'][key]) for o in kept}) == 1:
             return True, kept[0]['values'][key]
         return False, None
+
+    def filtered(self, flt: dict, refs: list[str], members: set[str]) -> list[tuple[str, object]]:
+        """Each reference with True for a match, False for no match, or the item of a failed check (DSC-FLT-2 to DSC-FLT-4)."""
+        equals, ranges, precedence = flt.get('equals', {}), flt.get('ranges', []), flt.get('precedence', [])
+        keys = list(dict.fromkeys([*equals, *(c[f] for c in ranges for f in ('lower', 'upper'))]))
+        about: dict[str, list[dict]] = {}
+        for _, o in self.records(members, {'overlay'}):  # only the overlays of the read context give a value
+            if isinstance(o['values'], dict):
+                about.setdefault(o['subject'], []).append(o)
+        out = []
+        for ref in refs:
+            found = {k: [o for o in about.get(ref, []) if k in o['values']] for k in keys}
+            absent = sum(not v for v in found.values())
+            if absent:
+                out.append((ref, refused(['no_metadata'] * absent, [ref])))
+                continue
+            applied = {k: self.overlay_value(v, k, precedence) for k, v in found.items()}
+            conflicts = sum(not ok for ok, _ in applied.values())
+            if conflicts:
+                out.append((ref, refused(['overlay_conflict'] * conflicts, [ref])))
+                continue
+            value = {k: v for k, (_, v) in applied.items()}
+            missing = sum(v is None for v in value.values())
+            if missing:
+                out.append((ref, refused(['missing_value'] * missing, [ref])))  # DAT-MIS-2
+                continue
+            wrong = sum(typed(c['type'], value[c[f]]) is None for c in ranges for f in ('lower', 'upper'))
+            if wrong:
+                out.append((ref, refused(['value_type'] * wrong, [ref])))  # DAT-RNG-5
+                continue
+            out.append((ref, all(canonical(value[k]) == canonical(v) for k, v in equals.items())
+                        and all(range_matches(c, typed(c['type'], value[c['lower']]), typed(c['type'], value[c['upper']]))
+                                for c in ranges)))
+        return out
 
     def query_item(self, ref: str, request: dict, members: set[str]) -> dict:
         """The checks of QRY-DAT-2, in order, and the item of QRY-DAT-3."""
@@ -1570,7 +1629,7 @@ class Store:
     def op_list_items(self, request: dict) -> dict:
         strict(request, {'context': (True, is_str), 'kinds': (False, lambda v: isinstance(v, list) and all(is_str(k) for k in v)),
                          'logical_ids': (False, lambda v: isinstance(v, list) and all(is_str(k) and k != '' for k in v)),
-                         'offset': (False, is_count), 'limit': (False, lambda v: is_count(v, 1))},
+                         'offset': (False, is_count), 'limit': (False, lambda v: is_count(v, 1)), 'filter': (False, is_filter)},
                sets=('kinds', 'logical_ids'), many=('kinds', 'logical_ids'))  # DSC-LST-1
         context, members = self.members(request)  # context_expired before unknown_kind
         self.known_kinds(request)
@@ -1580,6 +1639,9 @@ class Store:
             lid = None if key[1] else key[2]
             if (kinds is None or key[0] in kinds) and (lids is None or lid in lids):
                 entries.extend(item(ref=r, kind=key[0], logical_id=lid) for r in refs)
+        if 'filter' in request:  # DSC-FLT-5: a match keeps its item, a failed check gives its outcome, and no match gives no item
+            checked = self.filtered(request['filter'], [e['ref'] for e in entries], members)
+            entries = [e if o is True else o for e, (_, o) in zip(entries, checked) if o is not False]
         items, bounded = self.page(request, entries)
         return self.result('list_items', items, context, bounded)
 

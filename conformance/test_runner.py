@@ -420,6 +420,44 @@ class RunVectorTest(unittest.TestCase):
             problems = runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': bundle}), 't', {'steps': [step]})
             self.assertTrue(problems and words in problems[0], (words, problems))
 
+    def test_filtered_export_bundle_checks(self):
+        # BUN-FLT-3 and BUN-FLT-4: the roots are the matched items in ascending order, and the bundle records the filter.
+        ok = {'status': 'ok', 'reasons': []}
+        flt = {'equals': {'region': 'north'}}
+        step = {'operation': 'export', 'request': {'roots': ['n'], 'filter': flt}, 'expect': ok}
+        sources = [source(x) for x in (b'a', b'b', b'c')]
+        good = {'format': 'aavanam-bundle/v1', 'roots': ['a', 'b'], 'descriptors': [t for t, _ in sources],
+                'payloads': {d: base64.b64encode(x).decode() for (_, d), x in zip(sources, (b'a', b'b', b'c'))}, 'filter': flt}
+        items = [{'status': 'ok', 'reasons': [], 'ref': r, 'matched': m} for r, m in (('b', True), ('a', True), ('c', False))]
+
+        def run(bundle, items=items, step=step):
+            return runner.run_vector(Scripted({**envelope('export', 'ok', [], items), 'bundle': bundle}), 't', {'steps': [step]})
+
+        self.assertEqual(run(good), [])
+        cases = [({**good, 'roots': ['b', 'a']}, 'ascending order'), ({**good, 'roots': ['n']}, 'matched items'),
+                 ({**good, 'roots': ['a', 'b', 'c']}, 'matched items'), ({**good, 'filter': {'equals': {'region': 'south'}}}, 'bundle filter'),
+                 ({k: v for k, v in good.items() if k != 'filter'}, 'bundle filter')]
+        for bundle, words in cases:
+            problems = run(bundle)
+            self.assertTrue(problems and words in problems[0], (words, problems))
+        problems = run(good, [{k: v for k, v in i.items() if k != 'matched'} for i in items])
+        self.assertTrue(any('boolean field matched' in p for p in problems), problems)
+        problems = run({**good, 'roots': []}, [{**i, 'matched': False} for i in items])
+        self.assertTrue(any('matched items' in p for p in problems), problems)
+        plain = {'operation': 'export', 'request': {'roots': ['a', 'b']}, 'expect': ok}
+        self.assertIn('export with no filter has a filter', run(good, step=plain)[0])
+
+    def test_filter_form_bundle_fault(self):
+        ok = {'status': 'ok', 'reasons': []}
+        text, digest = source(b'a')
+        bundle = {'format': 'aavanam-bundle/v1', 'roots': ['r'], 'descriptors': [text], 'payloads': {digest: 'YQ=='}}
+        vector = {'steps': [{'operation': 'export', 'request': {'roots': ['r']}, 'as_bundle': 'x', 'expect': ok},
+                            {'operation': 'import', 'request': {'bundle': {'$bundle': 'x', 'fault': 'filter_form'}}, 'expect': ok}]}
+        adapter = Scripted({**envelope('export', 'ok', []), 'bundle': bundle}, envelope('import', 'ok', []))
+        self.assertEqual(runner.run_vector(adapter, 't', vector), [])
+        self.assertEqual(adapter.requests[1]['bundle']['filter'], {})
+        self.assertNotIn('filter', bundle)
+
     def test_export_compares_canonical_descriptors(self):
         ok = {'status': 'ok', 'reasons': []}
         refs = ['sha256:' + c * 64 for c in 'abc']
@@ -510,6 +548,8 @@ def echo(vector: dict) -> list[dict]:
                         for p in runner.payload_objects(json.loads(stored[i['ref']]), fields)}  # BUN-RED-5
             result['bundle'] = {'format': 'aavanam-bundle/v1', 'roots': request['roots'], 'descriptors': texts,
                                 'payloads': {d: sent[d] for d in digests - withheld}}
+            if 'filter' in request:  # BUN-FLT-3, BUN-FLT-4
+                result['bundle'].update(roots=sorted(i['ref'] for i in items if i.get('matched') is True), filter=request['filter'])
             if withheld:
                 result['bundle']['withheld'] = sorted(withheld)
             if 'as_bundle' in step:

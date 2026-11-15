@@ -16,6 +16,7 @@ REASON_STATUS = {
     'unknown_column': 'unresolved',
     'no_metadata': 'unresolved',
     'missing_value': 'unresolved',  # DAT-MIS-2
+    'no_match': 'unresolved',  # BUN-FLT-2
     'multiple_heads': 'ambiguous',
     'overlay_conflict': 'ambiguous',
     'collection_conflict': 'ambiguous',

@@ -4,7 +4,7 @@ State: draft. Prefix: `BUN`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
-This document defines capability closure, bundle manifests, export, license and redistribution status, read-only import and excerpt objects. A device corpus is read-only. Local outputs stay separate.
+This document defines capability closure, bundle manifests, export, the filtered export, license and redistribution status, read-only import and excerpt objects. A device corpus is read-only. Local outputs stay separate.
 
 ## Topics
 
@@ -14,6 +14,7 @@ This document defines capability closure, bundle manifests, export, license and 
 | `MAN` | Bundle manifests and identity |
 | `EXP` | Export |
 | `RED` | License and redistribution status in an export |
+| `FLT` | The filtered export |
 | `IMP` | Read-only import and integrity |
 | `EXC` | Excerpt objects and parent validation |
 
@@ -31,13 +32,13 @@ This document defines capability closure, bundle manifests, export, license and 
 
 ### Bundle manifests
 
-**BUN-MAN-1.** A bundle is a JSON object with the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the field `withheld` (BUN-RED-5). It has no other field. `format` is `aavanam-bundle/v1`. `roots` is a list of one or more references. `descriptors` is a list of descriptor JSON texts. `payloads` is an object. Each key is a payload digest, and each value is the base64 encoding (RFC 4648, section 4) of the bytes. `withheld` is a list of one or more payload digests, with no duplicate. A digest in `withheld` is not a key of `payloads`.
+**BUN-MAN-1.** A bundle is a JSON object with the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the field `withheld` (BUN-RED-5) and the field `filter` (BUN-FLT-4). It has no other field. `format` is `aavanam-bundle/v1`. `roots` is a list of one or more references. `descriptors` is a list of descriptor JSON texts. `payloads` is an object. Each key is a payload digest, and each value is the base64 encoding (RFC 4648, section 4) of the bytes. `withheld` is a list of one or more payload digests, with no duplicate. A digest in `withheld` is not a key of `payloads`.
 
 ### Export
 
-**BUN-EXP-1.** The request of `export` has the fields `context` (CTX-OPN-3) and `roots`, a list of one or more references. It can also have the field `permit` (BUN-RED-4). If a root is not in the store, the result has status `not_found` and reason `unknown_ref`. If a root is in the store but not in the read context, the result has status `not_found` and reason `not_in_context`. The result has a reason for each affected root. In these cases, the result has no items and no `bundle`.
+**BUN-EXP-1.** The request of `export` has the fields `context` (CTX-OPN-3) and `roots`, a list of one or more references. It can also have the field `permit` (BUN-RED-4) and the field `filter` (BUN-FLT-1). If a root is not in the store, the result has status `not_found` and reason `unknown_ref`. If a root is in the store but not in the read context, the result has status `not_found` and reason `not_in_context`. The result has a reason for each affected root. In these cases, the result has no items and no `bundle`.
 
-**BUN-EXP-2.** If each root is in the read context, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1). Its `roots` are the roots of the request. Its `descriptors` have the descriptor of each object in the closure of the roots (KND-DEP-3), one time each. Its `payloads` have the bytes of each digest in the byte closure, except a withheld digest (BUN-RED-5). The bundle MUST NOT have a descriptor or bytes outside the closure.
+**BUN-EXP-2.** This clause and BUN-EXP-3 give the export of a request with no `filter`. BUN-FLT-1 to BUN-FLT-4 give the export of a request with `filter`. If each root is in the read context, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1). Its `roots` are the roots of the request. Its `descriptors` have the descriptor of each object in the closure of the roots (KND-DEP-3), one time each. Its `payloads` have the bytes of each digest in the byte closure, except a withheld digest (BUN-RED-5). The bundle MUST NOT have a descriptor or bytes outside the closure.
 
 **BUN-EXP-3.** The result has one item for each object in the closure of the roots. Each item has status `ok` and the fields `ref`, `redistribution`, `license` and `withheld` (BUN-RED-6). The order of the items and of `descriptors` is not specified.
 
@@ -70,9 +71,36 @@ The license value is the `license` of the statements for rule 5, and null for th
 
 **BUN-RED-6.** The field `redistribution` of an export item is the redistribution value of the object (BUN-RED-2). The field `license` is its license value. The field `withheld` is `true` if a payload digest of the object is withheld (BUN-RED-5), and `false` if not. The items with `withheld` `true` are the list of the objects that the export left out of `payloads`. A withheld object is not a failure of the export. The result status stays `ok` (STS-SET-4).
 
+### Filtered export
+
+**BUN-FLT-1.** The field `filter` of an `export` request is a filter (DSC-FLT-1). If the value does not agree with DSC-FLT-1, the result has status `failed` and reason `field_type`, and it has no items and no `bundle`. The store checks the form of the request first, then the roots (BUN-EXP-1), then the candidates. The candidates of a filtered export are the objects of kind `knowledge-unit` in the closure of the request roots (KND-DEP-3). The store checks each candidate against the filter (DSC-FLT-3), with the overlays of the read context of the request (DSC-FLT-2).
+
+**BUN-FLT-2.** `export` is a complete operation (STS-ENV-4). Thus a filtered export gives a bundle only if the store can tell for each candidate if it matches.
+
+1. If a check of DSC-FLT-3 fails for one or more candidates, the result has no items and no `bundle`. The status is the first status of these outcomes in the order of STS-ENV-3 rule 6, and the reasons are the reasons of the outcomes that have that status.
+2. If not, and no candidate matches the filter (DSC-FLT-4), the result has status `unresolved` and reason `no_match`, and it has no items and no `bundle`. The `refs` of the reason name the request roots. This applies also if the closure of the roots has no candidate.
+
+**BUN-FLT-3.** If no rule of BUN-FLT-2 applies, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1).
+
+1. The `roots` of the bundle are the candidates that match the filter, in ascending string order. They are not the roots of the request.
+2. The `descriptors`, the `payloads` and the `withheld` of the bundle are those of BUN-EXP-2 and BUN-RED-5 for the closure of these roots. The bundle MUST NOT have a descriptor or bytes outside this closure. Thus it does not have a candidate that does not match, and it does not have a request root that is a snapshot.
+3. The result has one item for each object in this closure, with the fields of BUN-EXP-3. Each item also has the field `matched`. It is `true` for a root of the bundle, and `false` for each other object.
+
+An overlay that gives a filter value is in the bundle only if it is in the closure of a matched candidate (BUN-CLS-2). An overlay refers to its subject (BND-OVL-1), so the closure of a `knowledge-unit` does not have the overlays about that unit. Thus the store applies the filter on the writer store, and a device store with the bundle has the content that matched.
+
+**BUN-FLT-4.** The field `filter` of a bundle records the filter of the export. A filtered export writes the `filter` of the request into this field, with no change. A bundle of an export with no filter has no field `filter`. At `import`, a `filter` that does not agree with DSC-FLT-1 gives status `failed` and reason `field_type` (BUN-IMP-1). The import does not apply the filter, and it does not check the roots of the bundle against it. The field is a record of the selection, not a proof of it.
+
+**BUN-FLT-5.** A filtered listing and a filtered export give the same content. In one read context, a `list_items` request with the `kinds` value `knowledge-unit` and a filter gives the items L. An `export` request with the same filter, and with roots whose closure has the same objects of kind `knowledge-unit`, gives the bundle B.
+
+1. If each item of L is `ok`, and L has one or more items, the `roots` of B are the `ref` values of L.
+2. If an item of L is not `ok`, the export is not `ok`, with the status and the reasons of BUN-FLT-2 rule 1.
+3. If L has no items, the export has reason `no_match`.
+
+On a device store with an `ok` import of B, a read context with the roots of B has these roots as its only members of kind `knowledge-unit` (BUN-CLS-3).
+
 ### Import
 
-**BUN-IMP-1.** The request of `import` has the field `bundle`. If the value does not agree with BUN-MAN-1, the result has status `failed` and reason `field_type`. The import does not use the field `withheld` in its checks (BUN-IMP-2).
+**BUN-IMP-1.** The request of `import` has the field `bundle`. If the value does not agree with BUN-MAN-1, the result has status `failed` and reason `field_type`. The import does not use the field `withheld` in its checks (BUN-IMP-2). It checks only the form of the field `filter` (BUN-FLT-4).
 
 **BUN-IMP-2.** The store checks each descriptor of the bundle with the steps of STS-MAL-3, with one change: a reference target or payload bytes can be in the bundle or in the store. If a reference target or the bytes of a payload are in neither, the result has status `failed` and reason `bundle_incomplete`. This applies also to the bytes of a digest in `withheld`. Thus an import of a bundle with `withheld` gives `bundle_incomplete` if the store does not have these bytes. If a root is not a descriptor of the bundle, the result also has status `failed` and reason `bundle_incomplete`. A different check that fails gives its own status and reason. If more than one descriptor fails a check, the store applies rule 6 of STS-ENV-3 to the outcomes of the descriptors, as if each descriptor were an item. A root that is not a descriptor of the bundle is one more `failed` outcome. Thus these outcomes give the status and the reasons of the result, but the result has no items (BUN-IMP-4).
 
