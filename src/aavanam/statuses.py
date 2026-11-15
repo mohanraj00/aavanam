@@ -15,6 +15,7 @@ REASON_STATUS = {
     'no_head': 'unresolved',
     'unknown_column': 'unresolved',
     'no_metadata': 'unresolved',
+    'missing_value': 'unresolved',  # DAT-MIS-2
     'multiple_heads': 'ambiguous',
     'overlay_conflict': 'ambiguous',
     'collection_conflict': 'ambiguous',
@@ -22,6 +23,7 @@ REASON_STATUS = {
     'runtime_profile_mismatch': 'incompatible',
     'role_schema_mismatch': 'incompatible',
     'schema_mismatch': 'incompatible',
+    'value_type': 'incompatible',  # DAT-RNG-5
     'binding_skew': 'incompatible',
     'head_moved': 'incompatible',
     'check_outside_snapshot': 'incompatible',

@@ -1,0 +1,259 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A where clause on the unit column selects the rows that a range compares, with no unit conversion",
+  "clauses": [
+    "QRY-DAT-1",
+    "QRY-DAT-2",
+    "QRY-DAT-3",
+    "QRY-DAT-5",
+    "DAT-RNG-1",
+    "DAT-RNG-2",
+    "DAT-UNT-1",
+    "DAT-UNT-2",
+    "DAT-MIS-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. The row g2 has a missing upper value. It does not match where, so the store does not compare it (QRY-DAT-5)."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"item\", \"unit\", \"lower\", \"upper\"]}"
+    },
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"item\", \"unit\", \"lower\", \"upper\"], \"key\": [\"item\"], \"rows\": [[\"k1\", \"kg\", \"0\", \"10\"], [\"g1\", \"g\", \"0\", \"10000\"], [\"g2\", \"g\", \"10000\", null]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "t"
+          }
+        ],
+        "where": {
+          "unit": "kg"
+        },
+        "ranges": [
+          {
+            "lower": "lower",
+            "upper": "upper",
+            "type": "decimal",
+            "match": "contains",
+            "value": "5"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t"
+              },
+              "rows": [
+                {
+                  "item": "k1",
+                  "unit": "kg",
+                  "lower": "0",
+                  "upper": "10"
+                }
+              ],
+              "next": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "t"
+          }
+        ],
+        "where": {
+          "unit": "kg"
+        },
+        "ranges": [
+          {
+            "lower": "lower",
+            "upper": "upper",
+            "type": "decimal",
+            "match": "contains",
+            "value": "5000"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t"
+              },
+              "rows": [],
+              "next": null
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
