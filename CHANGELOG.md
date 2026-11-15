@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add the half-open range match and the interval overlap match to `query_data` (DAT-DEC-1 to DAT-RNG-6, QRY-DAT-5, #67). A request declares the bound columns and their type, `decimal` or `date`, in the field `ranges`. A missing value gives `missing_value`, and a value of a different type gives `value_type`. The store does not convert a number or a unit. The base profile is at minor version 9.
+
 ## 0.2.0
 
 - Add the lifecycle and discovery contracts, documents 17 and 18 (#43). The operation `snapshot_changes` gives the changes between two snapshots. The operation `item_history` gives the history of a logical ID. The operation `list_items` gives the exact item listing of a read context.
