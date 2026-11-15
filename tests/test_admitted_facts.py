@@ -5,7 +5,7 @@ import hashlib
 import json
 import unittest
 
-from support import ROOT, Store
+from support import ROOT, Store, canonical
 from aavanam.admitted import put_admitted_facts, put_export_facts
 
 
@@ -281,6 +281,7 @@ class ExportFactsTest(unittest.TestCase):
         jcs_source = {**self.declaration['text_digest'], 'scheme': 'example/source-digest/v1'}
         for declaration in (self.declaration | {'span_unit': 'utf16'}, self.declaration | {'extra': None},
                             self.declaration | {'identity_member': 'facts'},
+                            self.declaration | {'identity_member': 'completeness'},
                             self.declaration | {'source_digest': {'form': 'example/md5', 'scheme': 'x'}},
                             self.declaration | {'source_digest': jcs_source},
                             self.declaration | {'source_digest': {**self.declaration['source_digest'],
@@ -300,7 +301,124 @@ class ExportFactsTest(unittest.TestCase):
             self.store.descriptor(serving)['units'][0])['binding_set'])['bindings'].values()
         self.assertEqual(len(self.call('evidence', context=context, subject=artifact)['items']), 3)
 
+    def test_optional_member_vectors(self):  # ADP-FXT-2, ADP-FXT-4, ADP-FXT-5, ADP-FXT-7
+        # Expected outcomes are from the clauses, before an adapter run. Each refusal has a positive pair.
+        vectors = json.loads((ROOT / 'tests/vectors/admitted-export.json').read_text(encoding='utf-8'))
+        by_id = {v['id']: v for v in vectors}
+        self.assertEqual(len(vectors), len(by_id))
+        for vector in vectors:
+            with self.subTest(vector=vector['id']):
+                self.assertEqual(vector['provenance']['type'], 'spec')
+                export = copy.deepcopy(self.export)
+                export.update(vector['export'])
+                fact = export['facts'][vector['fact_index']]
+                fact.update(vector['fact'])
+                fact['citation'].update(vector['citation'])
+                if vector['expect'] == 'refused':
+                    self.assertEqual(by_id[vector['pair']]['expect'], 'ok')
+                    before = self.store.fingerprint()
+                    with self.assertRaises(ValueError):
+                        self.put(export)
+                    self.assertEqual(self.store.fingerprint(), before)
+                else:
+                    self.assertEqual(vector['expect'], 'ok')
+                    found = self.citations(export)
+                    _, evidence = self.put(export)
+                    relation_ref, = self.store.descriptor(evidence)['relation_sets']
+                    relation = self.store.descriptor(relation_ref)
+                    self.assertEqual(relation.get('ext', {}), vector['relation_ext'])
+                    optional = {'locator', 'passage_sha256', 'record', 'replaced', 'completeness'}
+                    for original in self.export['facts']:
+                        field = original['field']
+                        expected = {k: v for k, v in original['citation'].items() if k in optional}
+                        if field == fact['field']:
+                            expected.update(vector['ext'])
+                        actual = {k: v for k, v in found[field]['ext'].items() if k in optional}
+                        self.assertEqual(actual, expected)
+                        self.assertNotIn('completeness', found[field]['ext'])
+                        for member, value in expected.items():
+                            self.assertIs(type(actual[member]), type(value))
+
+    def test_optional_members_keep_distinct_native_identities(self):  # ADP-FXT-7, IDN-NAT-3
+        base = self.export['facts'][0]
+        changes = [({'record': 'row-1', 'replaced': False}, {}, {}),
+                   ({'record': 'row-2', 'replaced': False}, {}, {}),
+                   ({'record': 'row-2', 'replaced': True}, {}, {}),
+                   ({}, {'passage_sha256': 'sha256:' + 'a' * 64}, {}),
+                   ({}, {'passage_sha256': 'sha256:' + 'b' * 64}, {})]
+        identities, records, serving_roots = set(), set(), set()
+        for members, citation, extra in [({}, {}, {}), *changes]:
+            fact = {**base, **members, 'citation': {**base['citation'], **citation}}
+            serving, evidence = self.put({**self.export, **extra, 'facts': [fact]})
+            serving_roots.add(serving)
+            for ref in self.store.descriptor(evidence)['native_mappings']:
+                mapping = self.store.descriptor(ref)
+                if self.store.descriptor(mapping['subject'])['kind'] == 'evidence':
+                    records.add(mapping['subject'])
+                    identities.add(mapping['native_id'])
+                    if not (members or citation or extra):
+                        cited = base['citation']
+                        self.assertEqual(json.loads(mapping['native_id']),
+                                         [cited['source_sha256'], cited['text_sha256'], cited['receipt_sha256'],
+                                          cited['span']['start'], cited['span']['end'], base['field'], base['key'],
+                                          'scalar', base['value'], base['unit'], cited['url'], None])
+        self.assertEqual(len(identities), len(changes) + 1)
+        self.assertEqual(len(records), len(changes) + 1)
+        self.assertEqual(len(serving_roots), 1)
+
+    def test_completeness_changes_only_the_relation_set(self):  # ADP-FXT-7
+        # The clause keeps evidence identities and serving values, but changes the RelationSet.
+        variants = [{}, {'completeness': {'status': 'complete', 'missing': []}},
+                    {'completeness': {'status': 'partial', 'missing': [{'page': 2, 'reason': 'ocr_off'}]}},
+                    {'completeness': {'status': 'no_text', 'missing': []}}]
+        relations, identities, records, serving_roots = set(), [], [], set()
+        for extra in variants:
+            serving, evidence = self.put({**self.export, **extra})
+            serving_roots.add(serving)
+            snapshot = self.store.descriptor(evidence)
+            relation_ref, = snapshot['relation_sets']
+            relations.add(relation_ref)
+            relation = self.store.descriptor(relation_ref)
+            self.assertEqual(relation.get('ext', {}), extra)
+            records.append(relation['members'])
+            identities.append(sorted(self.store.descriptor(ref)['native_id']
+                                     for ref in snapshot['native_mappings']
+                                     if self.store.descriptor(self.store.descriptor(ref)['subject'])['kind'] == 'evidence'))
+            for ref in relation['members']:
+                self.assertNotIn('completeness', self.store.descriptor(ref)['ext'])
+        self.assertEqual(len(relations), len(variants))
+        self.assertEqual(len(serving_roots), 1)
+        for actual in identities[1:]:
+            self.assertEqual(actual, identities[0])
+        for actual in records[1:]:
+            self.assertEqual(actual, records[0])
+
+    def test_evidence_size_does_not_depend_on_missing_list_length(self):  # ADP-FXT-7
+        # The clause stores completeness once. Evidence and its mappings have the same bytes.
+        facts = [{**self.export['facts'][0], 'field': f'weight-{n}'} for n in range(100)]
+        evidence_bytes, mapping_bytes = [], []
+        for count in (1, 1000):
+            completeness = {'status': 'partial',
+                            'missing': [{'page': n, 'reason': 'ocr_off'} for n in range(1, count + 1)]}
+            _, evidence = self.put({**self.export, 'facts': facts, 'completeness': completeness})
+            snapshot = self.store.descriptor(evidence)
+            relation_ref, = snapshot['relation_sets']
+            relation = self.store.descriptor(relation_ref)
+            self.assertEqual(relation['ext'], {'completeness': completeness})
+            self.assertEqual(len(relation['members']), len(facts))
+            evidence_bytes.append([canonical(self.store.descriptor(ref)).encode('utf-8')
+                                   for ref in relation['members']])
+            mapping_bytes.append([canonical(self.store.descriptor(ref)).encode('utf-8')
+                                  for ref in snapshot['native_mappings']])
+            for ref in relation['members']:
+                self.assertNotIn('completeness', self.store.descriptor(ref)['ext'])
+        self.assertEqual(sum(map(len, evidence_bytes[0])), sum(map(len, evidence_bytes[1])))
+        self.assertEqual(evidence_bytes[0], evidence_bytes[1])
+        self.assertEqual(mapping_bytes[0], mapping_bytes[1])
+
     def test_an_export_with_no_facts_writes_no_records(self):  # ADP-FACT-2
         before = self.store.fingerprint()
         self.assertIsNone(self.put({**self.export, 'facts': []}))
+        self.assertIsNone(self.put({**self.export, 'facts': [],
+                                    'completeness': {'status': 'no_text', 'missing': []}}))
         self.assertEqual(self.store.fingerprint(), before)

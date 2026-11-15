@@ -1,0 +1,1390 @@
+[
+  {
+    "id": "passage-base",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "A passage without record metadata is permitted."
+    },
+    "fact_index": 3,
+    "fact": {},
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {},
+    "relation_ext": {}
+  },
+  {
+    "id": "locator-scalar",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "passage-digest-scalar",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "locator-date",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 1,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "passage-digest-date",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 1,
+    "fact": {},
+    "citation": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "locator-record",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 2,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "passage-digest-record",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 2,
+    "fact": {},
+    "citation": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "locator-passage",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 3,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "passage-digest-passage",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 3,
+    "fact": {},
+    "citation": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "record-scalar-false",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "record-scalar-true",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": "row-2",
+      "replaced": true
+    },
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "record": "row-2",
+      "replaced": true
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "record-date-false",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 1,
+    "fact": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "record-date-true",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 1,
+    "fact": {
+      "record": "row-2",
+      "replaced": true
+    },
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "record": "row-2",
+      "replaced": true
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "record-record-false",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 2,
+    "fact": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "record-record-true",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 2,
+    "fact": {
+      "record": "row-2",
+      "replaced": true
+    },
+    "citation": {},
+    "export": {},
+    "expect": "ok",
+    "ext": {
+      "record": "row-2",
+      "replaced": true
+    },
+    "relation_ext": {}
+  },
+  {
+    "id": "completeness-complete",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "ADP-FXT-7 keeps completeness unchanged on the relation set. It is absent from each evidence record and its native identity. This replaces the earlier per-evidence expectation."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "complete",
+        "missing": []
+      }
+    },
+    "expect": "ok",
+    "ext": {},
+    "relation_ext": {
+      "completeness": {
+        "status": "complete",
+        "missing": []
+      }
+    }
+  },
+  {
+    "id": "completeness-partial",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "ADP-FXT-7 keeps completeness unchanged on the relation set. It is absent from each evidence record and its native identity. This replaces the earlier per-evidence expectation."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 2,
+            "reason": "ocr_off"
+          },
+          {
+            "page": 3,
+            "reason": "ocr_no_text"
+          },
+          {
+            "page": 4,
+            "reason": "no_text_layer"
+          }
+        ]
+      }
+    },
+    "expect": "ok",
+    "ext": {},
+    "relation_ext": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 2,
+            "reason": "ocr_off"
+          },
+          {
+            "page": 3,
+            "reason": "ocr_no_text"
+          },
+          {
+            "page": 4,
+            "reason": "no_text_layer"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "locator-null",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": null
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-missing-box",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 1
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-page-bool",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": true,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-page-zero",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 0,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-page-high",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 1000001,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-short",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-bool",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          false,
+          0,
+          1,
+          1
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-float",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          0,
+          1.5,
+          2
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-negative",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          -1,
+          0,
+          1,
+          1
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-high",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          0,
+          2147483648,
+          1
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-x-order",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          2,
+          0,
+          1,
+          1
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-box-y-order",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          2,
+          1,
+          1
+        ]
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "locator-extra",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "locator": {
+        "page": 2,
+        "box": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "extra": 0
+      }
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "locator-scalar"
+  },
+  {
+    "id": "passage-digest-null",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "passage_sha256": null
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "passage-digest-scalar"
+  },
+  {
+    "id": "passage-digest-form",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "passage_sha256": "bad"
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "passage-digest-scalar"
+  },
+  {
+    "id": "passage-digest-uppercase",
+    "clauses": [
+      "ADP-FXT-5",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {
+      "passage_sha256": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "export": {},
+    "expect": "refused",
+    "pair": "passage-digest-scalar"
+  },
+  {
+    "id": "record-empty",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": "",
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-number",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": 2,
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-null",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": null,
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-missing-replaced",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": "row-2"
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-missing-record",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-replaced-int",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": "row-2",
+      "replaced": 0
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-replaced-null",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {
+      "record": "row-2",
+      "replaced": null
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "record-scalar-false"
+  },
+  {
+    "id": "record-passage",
+    "clauses": [
+      "ADP-FXT-4",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 3,
+    "fact": {
+      "record": "row-2",
+      "replaced": false
+    },
+    "citation": {},
+    "export": {},
+    "expect": "refused",
+    "pair": "passage-base"
+  },
+  {
+    "id": "completeness-null",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": null
+    },
+    "expect": "refused",
+    "pair": "completeness-complete"
+  },
+  {
+    "id": "completeness-extra",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "complete",
+        "missing": [],
+        "extra": 0
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-complete"
+  },
+  {
+    "id": "completeness-status",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": "complete"
+    },
+    "expect": "refused",
+    "pair": "completeness-complete"
+  },
+  {
+    "id": "completeness-unknown",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "unknown",
+        "missing": []
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-complete"
+  },
+  {
+    "id": "completeness-missing-list",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "complete",
+        "missing": {}
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-complete"
+  },
+  {
+    "id": "completeness-partial-empty",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": []
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-complete-missing",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "complete",
+        "missing": [
+          {
+            "page": 2,
+            "reason": "ocr_off"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-complete"
+  },
+  {
+    "id": "completeness-page-zero",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 0,
+            "reason": "ocr_off"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-page-bool",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": true,
+            "reason": "ocr_off"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-page-high",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 1000001,
+            "reason": "ocr_off"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-reason",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 2,
+            "reason": "unknown"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-entry-extra",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 2,
+            "reason": "ocr_off",
+            "extra": 0
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-duplicate",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 2,
+            "reason": "ocr_off"
+          },
+          {
+            "page": 2,
+            "reason": "ocr_off"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  },
+  {
+    "id": "completeness-order",
+    "clauses": [
+      "ADP-FXT-2",
+      "ADP-FXT-7"
+    ],
+    "provenance": {
+      "type": "spec",
+      "note": "The cited clauses define the accepted form and the unchanged extension values."
+    },
+    "fact_index": 0,
+    "fact": {},
+    "citation": {},
+    "export": {
+      "completeness": {
+        "status": "partial",
+        "missing": [
+          {
+            "page": 3,
+            "reason": "ocr_off"
+          },
+          {
+            "page": 2,
+            "reason": "ocr_off"
+          }
+        ]
+      }
+    },
+    "expect": "refused",
+    "pair": "completeness-partial"
+  }
+]

@@ -178,9 +178,49 @@ def _span(span, reading: bytes, text: str, unit: str) -> tuple[int, int, int, in
     return start, end, start, end
 
 
+def _integer(value, low, high) -> bool:
+    return type(value) is int and low <= value <= high
+
+
+def _page_box(value) -> bool:
+    """Check the page and box form without making a selector (ADP-FXT-5)."""
+    if not isinstance(value, dict) or set(value) != {'page', 'box'}:
+        return False
+    box = value['box']
+    return (_integer(value['page'], 1, 1000000) and isinstance(box, list) and len(box) == 4
+            and all(_integer(n, 0, 2147483647) for n in box) and box[0] <= box[2] and box[1] <= box[3])
+
+
+def _record_members(fact, kind) -> None:
+    """Check the producer record metadata without changing the value kind (ADP-FXT-4)."""
+    if 'record' not in fact and 'replaced' not in fact:
+        return
+    if kind == 'passage' or not _name(fact.get('record')) or type(fact.get('replaced')) is not bool:
+        raise ValueError('record metadata needs a name and a boolean on a non-passage fact')
+
+
+def _completeness(value) -> None:
+    """Check the producer statement, with no coverage inference (ADP-FXT-2)."""
+    if not isinstance(value, dict) or set(value) != {'status', 'missing'}:
+        raise ValueError('completeness needs status and missing')
+    status, missing = value['status'], value['missing']
+    if not isinstance(status, str) or status not in ('complete', 'partial', 'no_text') or not isinstance(missing, list):
+        raise ValueError('completeness needs a known status and a missing-page list')
+    if (status == 'complete' and missing) or (status == 'partial' and not missing):
+        raise ValueError('the completeness status does not agree with the missing-page list')
+    last = 0
+    for entry in missing:
+        if (not isinstance(entry, dict) or set(entry) != {'page', 'reason'}
+                or not _integer(entry['page'], last + 1, 1000000)
+                or not isinstance(entry['reason'], str)
+                or entry['reason'] not in ('ocr_off', 'ocr_no_text', 'no_text_layer')):
+            raise ValueError('a missing page needs an increasing page number and a known reason')
+        last = entry['page']
+
+
 def _fact(fact, declaration, reading: bytes, text: str, digests: tuple[str, str]) -> dict:
     """Check one fact and its citation (ADP-FXT-4, ADP-FXT-5). Return its checked parts."""
-    if not isinstance(fact, dict) or not FACT_FIELDS <= set(fact) <= FACT_FIELDS | {'kind'}:
+    if not isinstance(fact, dict) or not FACT_FIELDS <= set(fact) <= FACT_FIELDS | {'kind', 'record', 'replaced'}:
         raise ValueError('a fact has different members')
     kind = fact.get('kind', 'scalar')
     field, key, value, unit = fact['field'], fact['key'], fact['value'], fact['unit']
@@ -192,8 +232,9 @@ def _fact(fact, declaration, reading: bytes, text: str, digests: tuple[str, str]
         raise ValueError('a fact has an unknown kind or a value of a different form')
     if unit is not None and kind != 'scalar':
         raise ValueError('only a scalar fact has a unit')
+    _record_members(fact, kind)
     citation = fact['citation']
-    if not isinstance(citation, dict) or not CITATION_FIELDS <= set(citation) <= CITATION_FIELDS | {'locator'}:
+    if not isinstance(citation, dict) or not CITATION_FIELDS <= set(citation) <= CITATION_FIELDS | {'locator', 'passage_sha256'}:
         raise ValueError('a fact has no citation or a citation has different members')
     if citation['source'] != 'document' or citation['ref'] is not None:
         raise ValueError('a citation needs a document source and no reference')
@@ -205,11 +246,17 @@ def _fact(fact, declaration, reading: bytes, text: str, digests: tuple[str, str]
     if not is_digest(citation['receipt_sha256']):
         raise ValueError('a citation needs a receipt digest')
     locator = citation.get('locator')
-    if 'locator' in citation and (kind != 'passage' or not is_selector(locator)):
-        raise ValueError('only a passage has a locator, and a locator is a selector')
+    if 'locator' in citation and not (_page_box(locator) or (kind == 'passage' and is_selector(locator))):
+        raise ValueError('a locator needs a page and box, or a selector on a passage (ADP-FXT-5)')
+    if 'passage_sha256' in citation and not is_digest(citation['passage_sha256']):
+        raise ValueError('passage_sha256 must be a producer digest (ADP-FXT-5)')
+    # ADP-FXT-7: keep presence and JSON types, including replaced=false.
+    more = {name: fact[name] for name in ('record', 'replaced') if name in fact}
+    if 'passage_sha256' in citation:
+        more['passage_sha256'] = citation['passage_sha256']
     start, end, byte_start, byte_end = _span(citation['span'], reading, text, declaration['span_unit'])
     return {'kind': kind, 'field': field, 'key': key, 'value': value, 'unit': unit, 'url': url, 'locator': locator,
-            'receipt': citation['receipt_sha256'], 'offsets': (start, end), 'bytes': (byte_start, byte_end)}
+            'more': more, 'receipt': citation['receipt_sha256'], 'offsets': (start, end), 'bytes': (byte_start, byte_end)}
 
 
 def put_export_facts(store: Store, export_json: str, declaration: dict, *, source: bytes, reading: bytes,
@@ -225,15 +272,18 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
     if not _name(declaration['format']) or declaration['span_unit'] not in ('code-points', 'utf8-bytes'):
         raise ValueError('the reader declaration needs a format and a span unit')
     identity = declaration['identity_member']
-    if not (identity is None or (_name(identity) and identity not in ('format', 'facts'))):
+    if not (identity is None or (_name(identity) and identity not in ('format', 'facts', 'completeness'))):
         raise ValueError('the identity member is null or a different member name')
     try:
         export = parse(export_json)
     except FormError as error:
         raise ValueError('the export must be I-JSON') from error
     members = {'format', 'facts'} | ({identity} if identity else set())
-    if not isinstance(export, dict) or set(export) != members or export['format'] != declaration['format']:
+    if (not isinstance(export, dict) or not members <= set(export) <= members | {'completeness'}
+            or export['format'] != declaration['format']):
         raise ValueError('the export has a different format or different members')
+    if 'completeness' in export:
+        _completeness(export['completeness'])
     if identity and not _name(export[identity]):
         raise ValueError('the export identity is not a string')
     if not isinstance(export['facts'], list):
@@ -307,19 +357,27 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
             ext['url'] = fact['url']
         if fact['locator'] is not None:
             ext['locator'] = fact['locator']
+        more = dict(fact['more'])
+        ext.update(more)
         if identity:
             ext['export_identity'] = export[identity]
         record = add('evidence', subject=subject, supports=excerpt, origin=producer, ext=ext)
         records.add(record)
-        native_id = canonical([*digests, fact['receipt'], start, end, field, key, kind, value, fact['unit'],
-                               fact['url'], fact['locator']])
+        identity_parts = [*digests, fact['receipt'], start, end, field, key, kind, value, fact['unit'],
+                          fact['url'], fact['locator']]
+        # ADP-FXT-7: old exports keep their identities; optional fact and citation members distinguish citations.
+        if more:
+            identity_parts.append(more)
+        native_id = canonical(identity_parts)
         mappings.add(add('native-mapping', subject=record, native_scheme=native_scheme, native_id=native_id, checked={}))
 
     # ADP-FACT-5: the serving closure has no link to the citation records.
     bindings = add('binding-set', bindings={f'fact/{n}': ref for n, ref in enumerate(sorted(subjects))})
     unit = add('knowledge-unit', binding_set=bindings)
     overlay_set = add('overlay-set', members=sorted(locators))
-    relations = add('relation-set', members=sorted(records))
+    # ADP-FXT-7: completeness describes the export. Store it once, outside evidence and its native identities.
+    relation_ext = {'ext': {'completeness': export['completeness']}} if 'completeness' in export else {}
+    relations = add('relation-set', members=sorted(records), **relation_ext)
     serving_root = add('snapshot', collection=serving, units=[unit], overlay_sets=[overlay_set])
     evidence_root = add('snapshot', collection=evidence, relation_sets=[relations], native_mappings=sorted(mappings))
     result = store.call('put', {'descriptors': list(descriptors.values()), 'payloads': payloads})
