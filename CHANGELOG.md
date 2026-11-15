@@ -1,10 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Add the half-open range match and the interval overlap match to `query_data` (DAT-DEC-1 to DAT-RNG-6, QRY-DAT-5, #67). A request declares the bound columns and their type, `decimal` or `date`, in the field `ranges`. A missing value gives `missing_value`, and a value of a different type gives `value_type`. The store does not convert a number or a unit. The base profile is at minor version 9.
 - Add the filter on declared metadata to `list_items` and `export` (DSC-FLT-1 to DSC-FLT-6, BUN-FLT-1 to BUN-FLT-5, #5). A filter has exact clauses and half-open interval clauses on the overlay values of each item. The store reads no filter value from an activation. An item with absent, missing or conflicting metadata gives a closed status, not a match. A filtered export has the matched units as its roots, and its bundle records the filter. It gives no bundle if a matched unit has a unit that does not match in its closure. The base profile is at minor version 10.
+- Add the seam test of the activation gate (PUB-GAT-3, PUB-ACT-3, PUB-HED-3 to PUB-HED-6, #4). It checks that a valid activation moves the head, a refused activation leaves the store unchanged, and a repeat with the same request key gives the earlier outcome without a second publication. The seam test uses a stand-in activation record until entelos publishes the record format in a tagged release.
+- Accept the optional members of the groundgate 0.15 `facts@1` export (ADP-FXT-2, ADP-FXT-4, ADP-FXT-5, ADP-FXT-7, #80, PR 85): a page and box locator on each fact kind, `record`, `replaced`, `passage_sha256` and `completeness`. The adapter keeps the fact and citation members unchanged, and stores `completeness` once on the relation set. The PDF example takes the page from the citation locator.
 - Accept an import of a bundle with absent withheld bytes (BUN-IMP-9 to BUN-IMP-12, BUN-RED-7, #58). The result was `failed` with `bundle_incomplete`, and is now `ok`: the store keeps each descriptor without the bytes and defers the checks. Each read checks only the descriptor that uses the bytes, with the deferred records and bytes of both stores for a local output store. This includes bytes that the local output store had before the device import. A failed or incomplete check makes the bytes absent for that descriptor only. An export withholds a shared digest if any descriptor in its requested closure fails a check or still needs absent bytes. A descriptor outside that closure does not affect the export. An export withholds absent bytes, keeps each descriptor and reports each affected item with `withheld` `true`. The base profile is at minor version 11.
+- Add the library example (ADP-FXT-1 to ADP-FXT-7, PUB-GAT-3, PUB-ACT-3, DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2, #83). It admits two facts from a synthetic source and moves one update through the activation gate. A publish with no activation is refused. A publish with the stand-in activation record and a build lock moves the head. A filtered read of the head gives one fact for one branch and date.
+- The specification has 368 clauses in 20 draft contract documents. The reference store passes 631 conformance vectors. The null adapter fails 630 and exits with 1.
+
+Known limits:
+
+- The activation seam test and the library example use stand-in activation records. Entelos must publish the record format in a tagged release. Then the test and the example can use released records.
+- The pins of the PDF example have dependency hashes for Linux x86_64 and macOS arm64 only. On a different platform, the install stops with a hash error.
 
 ## 0.2.0
 
