@@ -1,36 +1,33 @@
 {
   "format": "aavanam-vector/v1",
-  "title": "An import of a bundle with withheld bytes that the store does not have is incomplete",
+  "title": "A local output write through a device descriptor accepts bytes that agree with a withheld excerpt",
   "clauses": [
-    "BUN-IMP-1",
-    "BUN-IMP-2",
-    "BUN-IMP-4",
-    "BUN-MAN-1",
-    "BUN-RED-5",
-    "STS-ENV-3"
+    "BUN-IMP-9",
+    "BUN-IMP-10",
+    "BUN-EXC-3",
+    "STS-ENV-4",
+    "STS-ENV-5",
+    "BUN-IMP-8"
   ],
   "provenance": {
-    "type": "fault",
-    "note": "The export withholds the reading and excerpt bytes (BUN-RED-5). The device store does not have them. The import does not use withheld in its checks (BUN-IMP-1), so BUN-IMP-2 gives bundle_incomplete for each of the two descriptors. Rule 6 of STS-ENV-3 gives both reasons to the envelope, and the result has no items (BUN-IMP-4)."
+    "type": "spec",
+    "note": "The withheld excerpt has the bytes abc at range 0 to 3 of abcdef. The import keeps the descriptors without bytes. The first later write adds the parent bytes. The last write adds the excerpt bytes. Both later writes use descriptors that the device store has."
   },
   "profile": "aavanam/base/v1",
   "payloads": {
-    "src": {
+    "part": {
       "media_type": "text/plain",
-      "text": "Sample source bytes."
+      "text": "abc"
     },
-    "rd": {
+    "whole": {
       "media_type": "text/plain",
-      "text": "Sample part one. Sample part two."
-    },
-    "ex": {
-      "media_type": "text/plain",
-      "text": "Sample part two."
+      "text": "abcdef"
     }
   },
   "steps": [
     {
       "operation": "put",
+      "store": "writer",
       "request": {
         "descriptors": [
           {
@@ -39,7 +36,7 @@
               "descriptor_profile": "aavanam/base/v1",
               "kind": "source",
               "payload": {
-                "$payload": "src"
+                "$payload": "part"
               }
             }
           }
@@ -58,6 +55,7 @@
     },
     {
       "operation": "put",
+      "store": "writer",
       "request": {
         "descriptors": [
           {
@@ -71,7 +69,7 @@
               "producer": "sample/reader/v1",
               "coverage_profile": "aavanam/coverage/v1",
               "payload": {
-                "$payload": "rd"
+                "$payload": "whole"
               }
             }
           }
@@ -90,6 +88,7 @@
     },
     {
       "operation": "put",
+      "store": "writer",
       "request": {
         "descriptors": [
           {
@@ -102,12 +101,12 @@
               },
               "ranges": [
                 {
-                  "start": 17,
-                  "end": 33
+                  "start": 0,
+                  "end": 3
                 }
               ],
               "payload": {
-                "$payload": "ex"
+                "$payload": "part"
               }
             }
           }
@@ -126,28 +125,11 @@
     },
     {
       "operation": "put",
+      "store": "writer",
       "request": {
         "descriptors": [
           {
-            "as": "o-src",
-            "value": {
-              "descriptor_profile": "aavanam/base/v1",
-              "kind": "observation",
-              "subjects": [
-                {
-                  "$ref": "src"
-                }
-              ],
-              "observation_type": "aavanam/redistribution/v1",
-              "scope": {},
-              "values": {
-                "license": "sample-license-1",
-                "redistribution": "redistributable"
-              }
-            }
-          },
-          {
-            "as": "o-note",
+            "as": "note",
             "value": {
               "descriptor_profile": "aavanam/base/v1",
               "kind": "observation",
@@ -158,9 +140,7 @@
               ],
               "observation_type": "sample/note/v1",
               "scope": {},
-              "values": {
-                "note": "cited part"
-              }
+              "values": {}
             }
           }
         ]
@@ -172,16 +152,13 @@
           {
             "status": "ok",
             "reasons": []
-          },
-          {
-            "status": "ok",
-            "reasons": []
           }
         ]
       }
     },
     {
       "operation": "put",
+      "store": "writer",
       "request": {
         "descriptors": [
           {
@@ -189,13 +166,10 @@
             "value": {
               "descriptor_profile": "aavanam/base/v1",
               "kind": "snapshot",
-              "collection": "sample-licensed",
+              "collection": "sample-deferred",
               "observations": [
                 {
-                  "$ref": "o-src"
-                },
-                {
-                  "$ref": "o-note"
+                  "$ref": "note"
                 }
               ]
             }
@@ -230,18 +204,17 @@
     },
     {
       "operation": "export",
+      "as_bundle": "x",
       "request": {
         "context": {
           "$context": "c"
         },
         "roots": [
           {
-            "$ref": "snap"
+            "$ref": "ex"
           }
         ],
-        "permit": [
-          "redistributable"
-        ]
+        "permit": []
       },
       "expect": {
         "status": "ok",
@@ -255,9 +228,7 @@
               "ref": {
                 "$ref": "src"
               },
-              "redistribution": "redistributable",
-              "license": "sample-license-1",
-              "withheld": false
+              "withheld": true
             }
           },
           {
@@ -267,8 +238,6 @@
               "ref": {
                 "$ref": "rd"
               },
-              "redistribution": "undeclared",
-              "license": null,
               "withheld": true
             }
           },
@@ -279,70 +248,101 @@
               "ref": {
                 "$ref": "ex"
               },
-              "redistribution": "undeclared",
-              "license": null,
               "withheld": true
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "o-src"
-              },
-              "redistribution": "no_payload",
-              "license": null,
-              "withheld": false
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "o-note"
-              },
-              "redistribution": "no_payload",
-              "license": null,
-              "withheld": false
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "snap"
-              },
-              "redistribution": "no_payload",
-              "license": null,
-              "withheld": false
             }
           }
         ]
-      },
-      "as_bundle": "x"
+      }
     },
     {
       "operation": "import",
       "store": "device",
+      "fresh_store": true,
       "request": {
         "bundle": {
           "$bundle": "x"
         }
       },
       "expect": {
-        "status": "failed",
-        "reasons": [
-          "bundle_incomplete",
-          "bundle_incomplete"
-        ],
+        "status": "ok",
+        "reasons": [],
         "unordered": true,
-        "items": [],
-        "store_unchanged": true
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "parent",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample/reader/v1",
+              "coverage_profile": "aavanam/coverage/v1",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "output",
+      "request": {
+        "descriptors": [
+          {
+            "as": "carrier",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
       }
     }
-  ],
-  "pair": "redistribution/import-withheld-ok"
+  ]
 }

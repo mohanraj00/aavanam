@@ -1,0 +1,355 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A later write fails if its bytes do not agree with a withheld excerpt",
+  "clauses": [
+    "BUN-IMP-9",
+    "BUN-IMP-10",
+    "BUN-EXC-3",
+    "STS-ENV-4",
+    "STS-ENV-5"
+  ],
+  "provenance": {
+    "type": "fault",
+    "note": "Planted fault: the runner changes the withheld excerpt range from 0 to 3 to 0 to 4. The bytes abc do not agree with abcd. The import keeps the descriptors without bytes. The first later write adds the parent bytes. The last write adds the excerpt bytes."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "part": {
+      "media_type": "text/plain",
+      "text": "abc"
+    },
+    "whole": {
+      "media_type": "text/plain",
+      "text": "abcdef"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rd",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample/reader/v1",
+              "coverage_profile": "aavanam/coverage/v1",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ex",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "rd"
+              },
+              "ranges": [
+                {
+                  "start": 0,
+                  "end": 3
+                }
+              ],
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "note",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "ex"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-deferred",
+              "observations": [
+                {
+                  "$ref": "note"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "export",
+      "as_bundle": "x",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "ex"
+          }
+        ],
+        "permit": []
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src"
+              },
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd"
+              },
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex"
+              },
+              "withheld": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "import",
+      "store": "writer",
+      "fresh_store": true,
+      "request": {
+        "bundle": {
+          "$bundle": "x",
+          "fault": "withheld_excerpt_range"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "parent",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample/reader/v1",
+              "coverage_profile": "aavanam/coverage/v1",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "carrier",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "part"
+              },
+              "logical_id": "sample-carrier"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "excerpt_mismatch"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "excerpt_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "redistribution/write-deferred-excerpt-ok"
+}

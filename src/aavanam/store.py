@@ -54,6 +54,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS objects (ref TEXT PRIMARY KEY, kind TEXT NOT NULL, descriptor TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS edges (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY (source, target));
 CREATE TABLE IF NOT EXISTS blobs (digest TEXT PRIMARY KEY, data BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS deferred (digest TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (digest, ref));
 CREATE TABLE IF NOT EXISTS contexts (id TEXT PRIMARY KEY, roots TEXT NOT NULL, capabilities TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_members (context TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (context, ref));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, collection TEXT NOT NULL,
@@ -82,6 +83,14 @@ class Failure(Exception):
 
 SECTIONS = ('serving', 'evidence')  # PUB-SEC-1
 NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
+
+
+class DeferredFailure(Exception):
+    """A deferred check failed before a write added bytes (BUN-IMP-10, BUN-IMP-11)."""
+
+    def __init__(self, found: dict[str, list[str]]):
+        super().__init__('deferred check')
+        self.found = found  # the reason codes of each descriptor in the original batch
 
 
 class SectionViolation(Exception):
@@ -430,10 +439,27 @@ class Store:
         desc = self.descriptor(ref)
         return desc['kind'] if desc else None
 
-    def blob(self, key: str) -> bytes | None:
+    def blob(self, key: str, *, ref: str) -> bytes | None:
+        """Read bytes after the deferred checks of this descriptor pass (BUN-IMP-12)."""
+        data = self.raw_blob(key)
+        if data is not None:
+            stores = (self, self.device) if self.device else (self,)
+            if any(store.db.execute('SELECT 1 FROM deferred WHERE ref = ? LIMIT 1', (ref,)).fetchone()
+                   for store in stores):
+                # An excerpt record can name only its absent parent digest (BUN-IMP-10).
+                desc = self.descriptor(ref)
+                try:
+                    self.step_payloads(desc, self.descriptor, self.raw_blob, False)
+                    self.step_content(desc, self.descriptor, self.raw_blob, False)
+                except d.Refusal:
+                    return None  # failed and incomplete checks use the absent-byte read rules
+        return data
+
+    def raw_blob(self, key: str) -> bytes | None:
+        """Stored bytes for integrity checks. Read operations use blob() (BUN-IMP-10 to BUN-IMP-12)."""
         row = self.db.execute('SELECT data FROM blobs WHERE digest = ?', (key,)).fetchone()
         if row is None:
-            return self.device.blob(key) if self.device else None  # BUN-IMP-8
+            return self.device.raw_blob(key) if self.device else None  # BUN-IMP-8
         return bytes(row[0])
 
     def targets(self, ref: str) -> set[str]:
@@ -458,7 +484,7 @@ class Store:
 
     def fingerprint(self) -> str:
         h = hashlib.sha256()
-        for table, key in (('objects', 'ref'), ('blobs', 'digest'), ('candidates', 'id'),
+        for table, key in (('objects', 'ref'), ('blobs', 'digest'), ('deferred', "digest || ' ' || ref"), ('candidates', 'id'),
                            ('heads', "collection || ' ' || snapshot"), ('publications', "candidate || ' ' || receipt || ' ' || coalesce(activation, '')"),
                            ('producer_objects', "producer || ' ' || key || ' ' || hex(data)"),
                            ('producer_entries', "producer || ' ' || log || ' ' || sequence || ' ' || hex(entry)"),
@@ -467,16 +493,41 @@ class Store:
                 h.update(f'{table}:{value}\n'.encode())
         return h.hexdigest()
 
-    def write(self, objects: dict[str, dict], blobs: dict[str, bytes]) -> None:
+    def write(self, objects: dict[str, dict], blobs: dict[str, bytes], withheld=frozenset()) -> None:
         """Write the objects and bytes in one transaction: all or none (STS-MAL-2)."""
         self.db.execute('BEGIN IMMEDIATE')
         try:
             # A second connection can import after the check of call(), so check again in the transaction (BUN-IMP-6)
             if self.role == 'device' and self.db.execute('SELECT 1 FROM objects LIMIT 1').fetchone():
                 raise fail('read_only_store')
+            batch = objects  # BUN-IMP-10: keep each descriptor for failure attribution
+            deferred = set()
+            if withheld:  # BUN-IMP-11: bytes can arrive after the first absence check
+                lookup = lambda r: batch.get(r) or self.descriptor(r)
+                data_of = lambda k: blobs[k] if k in blobs else self.raw_blob(k)
+                found = {}
+                for ref, desc in batch.items():
+                    try:
+                        self.step_payloads(desc, lookup, data_of, True, withheld)
+                        self.step_content(desc, lookup, data_of, True, withheld)
+                    except d.Refusal as e:
+                        found[ref] = e.codes
+                    own = {p['digest'] for p in d.payloads(desc)}
+                    missing = {k for k in own if data_of(k) is None}
+                    deferred |= {(k, ref) for k in missing}
+                    if desc['kind'] == 'excerpt':
+                        needed = own | {lookup(desc['parent'])['payload']['digest']}
+                        absent = {k for k in needed if data_of(k) is None}
+                        if absent & withheld:
+                            deferred |= {(k, ref) for k in absent}
+                if found:
+                    raise DeferredFailure(found)
+            found = self.deferred_failures(batch, blobs)  # before the device descriptor filter (BUN-IMP-10)
+            if found:
+                raise DeferredFailure(found)
             if self.role == 'output':  # the objects and bytes of the device store are already here (BUN-IMP-8)
                 objects = {r: o for r, o in objects.items() if self.device.descriptor(r) is None}
-                blobs = {k: b for k, b in blobs.items() if self.device.blob(k) is None}
+                blobs = {k: b for k, b in blobs.items() if self.device.raw_blob(k) is None}
             # A second connection can declare a section after the check of call(), so check again here (PUB-SEC-2)
             found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
             if any(found.values()):
@@ -485,10 +536,39 @@ class Store:
                 self.db.execute('INSERT OR IGNORE INTO objects VALUES (?, ?, ?)', (ref, desc['kind'], canonical(desc)))
                 self.db.executemany('INSERT OR IGNORE INTO edges VALUES (?, ?)', {(ref, t) for _, t in d.references(desc)})
             self.db.executemany('INSERT OR IGNORE INTO blobs VALUES (?, ?)', blobs.items())
+            self.db.executemany('DELETE FROM deferred WHERE digest = ?', [(k,) for k in blobs])
+            self.db.executemany('INSERT OR IGNORE INTO deferred VALUES (?, ?)', deferred)
             self.db.execute('COMMIT')
         except BaseException:
             self.rollback()
             raise
+
+    def deferred_refs(self, key: str) -> set[str]:
+        """The descriptors with deferred checks that need `key` (BUN-IMP-10)."""
+        out = {r for (r,) in self.db.execute('SELECT ref FROM deferred WHERE digest = ?', (key,))}
+        return out | self.device.deferred_refs(key) if self.device else out
+
+    def deferred_failures(self, objects: dict[str, dict], blobs: dict[str, bytes]) -> dict[str, list[str]]:
+        """Check stored descriptors before new bytes arrive, with the original batch (BUN-IMP-10)."""
+        new = {k: b for k, b in blobs.items() if self.raw_blob(k) is None}
+        lookup = lambda r: objects.get(r) or self.descriptor(r)
+        data_of = lambda k: new[k] if k in new else self.raw_blob(k)
+        found: dict[str, list[str]] = {}
+        for key in new:
+            for ref in sorted(self.deferred_refs(key)):
+                desc = lookup(ref)
+                needed = {p['digest'] for p in d.payloads(desc)}
+                if desc['kind'] == 'excerpt':
+                    needed.add(lookup(desc['parent'])['payload']['digest'])
+                absent = {k for k in needed if data_of(k) is None}
+                try:
+                    self.step_payloads(desc, lookup, data_of, False, absent)
+                    self.step_content(desc, lookup, data_of, False, absent)
+                except d.Refusal as e:
+                    for carrier, c in objects.items():
+                        if key in {p['digest'] for p in d.payloads(c)}:
+                            found.setdefault(carrier, []).extend(e.codes)
+        return found
 
     def rollback(self) -> None:
         """End an open transaction. A failure of the rollback does not cross the API (STS-MAL-1)."""
@@ -679,11 +759,11 @@ class Store:
 
     # Writes (documents 01, 02, 06 and 11)
 
-    def check_batch(self, texts: list[str], data: dict[str, bytes], incomplete: bool) -> list:
+    def check_batch(self, texts: list[str], data: dict[str, bytes], incomplete: bool, withheld=frozenset()) -> list:
         """Check each descriptor text in the steps of STS-MAL-3. Return a normal descriptor or a refused item for each.
 
         A target or payload can be in the batch or in the store. If `incomplete`, a target or payload that is in
-        neither gives `bundle_incomplete` (BUN-IMP-2).
+        neither gives `bundle_incomplete`, except for withheld bytes (BUN-IMP-2, BUN-IMP-9).
         """
         out, batch = [], {}
         for text in texts:
@@ -698,21 +778,21 @@ class Store:
             return batch.get(ref) or self.descriptor(ref)
 
         def data_of(key):
-            return data[key] if key in data else self.blob(key)
+            return data[key] if key in data else self.raw_blob(key)
 
         for n, desc in enumerate(out):
             if 'status' in desc:
                 continue
             for step in (self.step_references, self.step_payloads, self.step_content, self.step_section):
                 try:
-                    step(desc, lookup, data_of, incomplete)
+                    step(desc, lookup, data_of, incomplete, withheld)
                 except d.Refusal as e:
                     out[n] = refused(e.codes, e.refs)
                     break
         return out
 
     @staticmethod
-    def step_references(desc, lookup, data_of, incomplete):
+    def step_references(desc, lookup, data_of, incomplete, withheld=frozenset()):
         """STS-MAL-3 step 4 (KND-REF-2, KND-REF-3, REL-RET-2)."""
         refs = d.references(desc)
         missing = [r for _, r in refs if lookup(r) is None]
@@ -725,9 +805,9 @@ class Store:
             raise d.Refusal(['replacement_kind'], [desc['replacement']])
 
     @staticmethod
-    def step_payloads(desc, lookup, data_of, incomplete):
-        """STS-MAL-3 step 5 (KND-OPQ-1)."""
-        objects = d.payloads(desc)
+    def step_payloads(desc, lookup, data_of, incomplete, withheld=frozenset()):
+        """STS-MAL-3 step 5 (KND-OPQ-1). Defer only absent withheld bytes (BUN-IMP-9)."""
+        objects = [p for p in d.payloads(desc) if p['digest'] not in withheld or data_of(p['digest']) is not None]
         missing = [p['digest'] for p in objects if data_of(p['digest']) is None]
         if missing:
             raise d.Refusal(['bundle_incomplete' if incomplete else 'payload_missing'] * len(missing))
@@ -739,10 +819,12 @@ class Store:
             raise d.Refusal(['size_mismatch'] * len(sizes))
 
     @staticmethod
-    def step_content(desc, lookup, data_of, incomplete):
+    def step_content(desc, lookup, data_of, incomplete, withheld=frozenset()):
         """STS-MAL-3 step 6 (BUN-EXC-3, BUN-EXC-4, IDN-NAT-3)."""
         if desc['kind'] == 'excerpt':
             parent = lookup(desc['parent'])['payload']
+            if any(k in withheld and data_of(k) is None for k in (parent['digest'], desc['payload']['digest'])):
+                return  # BUN-IMP-9: defer the excerpt check until its bytes arrive
             whole = data_of(parent['digest'])
             if whole is None:
                 raise d.Refusal(['bundle_incomplete' if incomplete else 'payload_missing'])
@@ -758,7 +840,7 @@ class Store:
             if conflicts:
                 raise d.Refusal(['native_id_conflict'] * len(conflicts))
 
-    def step_section(self, desc, lookup, data_of, incomplete):
+    def step_section(self, desc, lookup, data_of, incomplete, withheld=frozenset()):
         """STS-MAL-3 step 6: the closure of a snapshot in a `serving` collection (PUB-SEC-3)."""
         found = self.section_violations(desc, lookup)
         if found:
@@ -796,7 +878,7 @@ class Store:
                 out.add(revision(value))
         return out
 
-    def commit_batch(self, operation: str, checked: list, data: dict[str, bytes], whole: list[dict] = ()) -> dict:
+    def commit_batch(self, operation: str, checked: list, data: dict[str, bytes], whole: list[dict] = (), withheld=frozenset()) -> dict:
         """Write the batch if each descriptor passed, or return the refusal (STS-ENV-5, STS-MAL-2)."""
         bad = [c for c in checked if 'status' in c] + list(whole)
         if bad:
@@ -806,7 +888,12 @@ class Store:
         objects = {revision(c): c for c in checked}
         blobs = {p['digest']: data[p['digest']] for c in checked for p in d.payloads(c) if p['digest'] in data}
         try:
-            self.write(objects, blobs)
+            if withheld:
+                self.write(objects, blobs, withheld)
+            else:
+                self.write(objects, blobs)
+        except DeferredFailure as e:  # STS-ENV-4: the store did not change
+            return self.commit_batch(operation, [refused(e.found[revision(c)]) if revision(c) in e.found else c for c in checked], data, whole)
         except SectionViolation as e:  # STS-ENV-4: the store did not change
             return self.commit_batch(operation, [refused(['section_violation'] * len(e.found[revision(c)]), e.found[revision(c)]) if e.found.get(revision(c)) else c for c in checked], data, whole)
         except Failure:
@@ -855,7 +942,7 @@ class Store:
             return refused(['unsupported_selector'], [ref])  # CRD-SEL-2
         if profile == ROW and desc['data_profile'] != 'aavanam/table/v1':
             return refused(['unsupported_profile'], [ref])  # CRD-SEL-5, DAT-PRF-2
-        data = self.blob(desc['payload']['digest']) if 'payload' in desc else None
+        data = self.blob(desc['payload']['digest'], ref=ref) if 'payload' in desc else None
         if 'payload' in desc and data is None:
             return refused(['payload_missing'], [ref])
         out = item(ref=ref, kind=desc['kind'], descriptor=desc, selector=selector, data=None, row=None)
@@ -909,7 +996,7 @@ class Store:
             return refused(['unsupported_selector'], [ref])
         if 'payload' not in desc:
             return refused(['unsupported_selector'], [ref])
-        data = self.blob(desc['payload']['digest'])
+        data = self.blob(desc['payload']['digest'], ref=ref)
         if data is None:
             return refused(['payload_missing'], [ref])
         if profile == d.NFC_TEXT:
@@ -1067,12 +1154,24 @@ class Store:
         objects = sorted(self.closure(roots))
         statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
         values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
-        digests = sorted({p['digest'] for r in objects for p in d.payloads(self.descriptor(r))})
         # BUN-RED-4 and BUN-RED-5: the bytes of a withheld object
         withheld = {p['digest'] for r in objects if permit is not None and values[r][0] != 'no_payload' and values[r][0] not in permit
                     for p in d.payloads(self.descriptor(r))}
+        # BUN-IMP-12: only descriptors in this closure can withhold a shared digest.
+        payloads = {}
+        for ref in objects:
+            for p in d.payloads(self.descriptor(ref)):
+                key = p['digest']
+                if key in withheld:
+                    continue
+                data = self.blob(key, ref=ref)
+                if data is None:
+                    withheld.add(key)  # BUN-RED-7: any failed descriptor withholds the shared bytes
+                    payloads.pop(key, None)
+                else:
+                    payloads[key] = data
         bundle = {'format': BUNDLE_FORMAT, 'roots': roots, 'descriptors': [canonical(self.descriptor(r)) for r in objects],
-                  'payloads': {k: b64(self.blob(k)) for k in digests if k not in withheld}}  # BUN-EXP-2
+                  'payloads': {k: b64(data) for k, data in payloads.items() if data is not None}}  # BUN-EXP-2
         if withheld:
             bundle['withheld'] = sorted(withheld)
         items = [item(ref=r, redistribution=values[r][0], license=values[r][1],
@@ -1093,12 +1192,13 @@ class Store:
                 and all(is_digest(k) for k in bundle['payloads'])
                 and ('withheld' not in bundle or (is_refs(bundle['withheld']) and len(set(bundle['withheld'])) == len(bundle['withheld'])
                                                   and not set(bundle['withheld']) & set(bundle['payloads'])))):
-            raise fail('field_type')  # BUN-IMP-1, BUN-MAN-1. The checks do not use `withheld` (BUN-IMP-2)
+            raise fail('field_type')  # BUN-IMP-1, BUN-MAN-1
         data = {k: unb64(v) for k, v in bundle['payloads'].items()}
-        checked = self.check_batch(bundle['descriptors'], data, incomplete=True)
+        withheld = set(bundle.get('withheld', []))  # BUN-IMP-9; keep the full set for BUN-IMP-11
+        checked = self.check_batch(bundle['descriptors'], data, incomplete=True, withheld=withheld)
         present = self.revisions(bundle['descriptors'])  # a root with a failed check is present (BUN-IMP-2)
         absent = [refused(['bundle_incomplete'], [r]) for r in bundle['roots'] if r not in present]
-        out = self.commit_batch('import', checked, data, absent)
+        out = self.commit_batch('import', checked, data, absent, withheld)
         if out['status'] != 'ok':  # BUN-IMP-4
             return self.envelope('import', out['status'], out['reasons'], [])
         return self.envelope('import', 'ok', [], out['items'])
@@ -1108,7 +1208,7 @@ class Store:
     def table(self, desc: dict) -> dict | None:
         """The table of a data resource under aavanam/table/v1, or None if the payload does not agree with DAT-TBL-1."""
         try:
-            value = parse(self.blob(desc['payload']['digest']).decode('utf-8'))
+            value = parse(self.blob(desc['payload']['digest'], ref=revision(desc)).decode('utf-8'))
         except (FormError, UnicodeDecodeError):
             return None
         if not (isinstance(value, dict) and set(value) == {'columns', 'key', 'rows'}):
@@ -1180,7 +1280,7 @@ class Store:
             return refused(['schema_mismatch'], [ref])
         if desc['data_profile'] != 'aavanam/table/v1':
             return refused(['unsupported_profile'], [ref])
-        if self.blob(desc['payload']['digest']) is None:
+        if self.blob(desc['payload']['digest'], ref=ref) is None:
             return refused(['payload_missing'], [ref])
         table = self.table(desc)
         if table is None:
@@ -1244,7 +1344,7 @@ class Store:
             raise fail('unsupported_profile')  # QRY-LEX-1
         query, matches = request['query'].encode('utf-8'), []
         for ref, desc in self.records(members, {'reading', 'excerpt'}):  # QRY-LEX-2
-            data = self.blob(desc['payload']['digest'])
+            data = self.blob(desc['payload']['digest'], ref=ref)
             count = data.count(query) if data is not None else 0
             if count:
                 matches.append((-count, ref, desc['kind']))
@@ -1266,7 +1366,7 @@ class Store:
         for ref, desc in self.records(members, {'artifact'}):  # CRD-TXT-2, CRD-ORD-1: ascending ref
             if not is_text_media(desc['payload']['media_type']):
                 continue
-            data = self.blob(desc['payload']['digest'])
+            data = self.blob(desc['payload']['digest'], ref=ref)
             if data is None:
                 items.append(refused(['payload_missing'], [ref]))  # CRD-TXT-5
                 continue

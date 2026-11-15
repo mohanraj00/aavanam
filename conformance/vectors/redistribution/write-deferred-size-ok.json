@@ -1,0 +1,211 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A later write accepts bytes with the size of the withheld payload",
+  "clauses": [
+    "BUN-IMP-9",
+    "BUN-IMP-10",
+    "KND-OPQ-1",
+    "STS-MAL-3",
+    "STS-ENV-4",
+    "STS-ENV-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The import keeps the root descriptor without its withheld bytes. The later write carries abc in a different descriptor with the correct size of 3."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "part": {
+      "media_type": "text/plain",
+      "text": "abc"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "note",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "src"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "snap",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-deferred",
+              "observations": [
+                {
+                  "$ref": "note"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      }
+    },
+    {
+      "operation": "export",
+      "as_bundle": "x",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "src"
+          }
+        ],
+        "permit": []
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src"
+              },
+              "withheld": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "import",
+      "fresh_store": true,
+      "request": {
+        "bundle": {
+          "$bundle": "x"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "store": "writer",
+      "request": {
+        "descriptors": [
+          {
+            "as": "carrier",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "part"
+              },
+              "logical_id": "sample-carrier"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -83,6 +83,9 @@ A reference is the digest of the canonical form of a descriptor (IDN-CAN-2). It 
 | `{"$context": "c"}` | The context identity that the envelope of an `ok` step with `"as_context": "c"` returned |
 | `{"$bundle": "x"}` | The bundle that the envelope of an `ok` step with `"as_bundle": "x"` returned |
 | `{"$bundle": "x", "fault": "drop_payload"}` | That bundle without the payload that has the lowest digest |
+| `{"$bundle": "x", "fault": "drop_withheld"}` | That bundle without its `withheld` field; the bytes stay absent |
+| `{"$bundle": "x", "fault": "withheld_size"}` | That bundle with the size of its root payload plus 1; the payload is withheld |
+| `{"$bundle": "x", "fault": "withheld_excerpt_range"}` | That bundle with the end of the last range of its root excerpt plus 1; the excerpt payload is withheld |
 | `{"$bundle": "x", "fault": "format"}` | That bundle with a different `format` |
 | `{"$bundle": "x", "fault": "filter_form"}` | That bundle with an empty object as its `filter`, which is not a filter (DSC-FLT-1) |
 | `{"$absent": "h"}` | A well-formed reference that is not in the store |
@@ -91,6 +94,8 @@ A reference is the digest of the canonical form of a descriptor (IDN-CAN-2). It 
 | `{"$payload": "p", "fault": "size"}` | The payload object with the size plus 1 |
 
 A `create_snapshot` or `create_candidate` step can have `"as_ref": "h"`. If the step is `ok`, the runner binds `{"$ref": "h"}` to the snapshot revision or to the candidate identity. The runner computes this value from the request (PUB-SNP-1, PUB-CND-3), and the item must have it in the field `ref` or `candidate`. A candidate identity is not a reference (PUB-CND-4). The handle is only a test convention.
+
+The faults `withheld_size` and `withheld_excerpt_range` require one bundle root with a withheld `payload`. The runner changes the root descriptor and computes its new revision in `roots`. The other descriptors, bytes and withheld digests stay the same. The saved bundle stays the same.
 
 A step with `"fresh_store": true` runs on an empty store. Before the step, the runner calls `reset()` and removes the context handles. The reference and bundle handles stay. Thus a vector can export from one store and import into a second store, for example a device.
 
@@ -141,6 +146,8 @@ The runner records the validator calls of each step. A `publish` that expects th
 An `ok` call of `create_snapshot` or `create_candidate` that returns a new value must change the fingerprint (PUB-SNP-3, PUB-CND-4). A repeat call must not change it. A `publish` with the disposition `published` must also change the fingerprint (PUB-HED-3).
 
 The vectors run one call at a time. Thus they do not test two concurrent calls (PUB-RCP-3). The tests of a store must cover them.
+
+BUN-IMP-11 has no vectors. The vector format cannot express a race between two connections. These tests in `tests/test_withheld.py` cover the clause: `test_import_rechecks_excerpt_bytes_in_the_transaction`, `test_import_rechecks_payload_size_in_the_transaction` and `test_import_rechecks_payload_digest_in_the_transaction`.
 
 ## Calls to the adapter
 

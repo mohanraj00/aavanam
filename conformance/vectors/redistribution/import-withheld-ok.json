@@ -1,16 +1,18 @@
 {
   "format": "aavanam-vector/v1",
-  "title": "An import of a bundle with no withheld bytes is ok",
+  "title": "A device imports descriptors without their withheld bytes",
   "clauses": [
+    "BUN-MAN-1",
+    "BUN-IMP-1",
     "BUN-IMP-2",
     "BUN-IMP-3",
-    "BUN-RED-4",
+    "BUN-IMP-9",
     "BUN-RED-5",
-    "BUN-RED-6"
+    "BUN-CLS-3"
   ],
   "provenance": {
     "type": "spec",
-    "note": "The positive pair of import-withheld-refused. The export has no permit, so it withholds no object (BUN-RED-4). Each item has withheld false, and the bundle has no field withheld (BUN-RED-5, BUN-RED-6). Each descriptor has its bytes in the bundle, so the import is ok (BUN-IMP-3)."
+    "note": "BUN-IMP-9 keeps the withheld descriptors without bytes. All other descriptor checks pass. This replaces the old import-withheld-refused outcome because BUN-IMP-2 now accepts withheld bytes. The old complete import case stays in import-complete-ok."
   },
   "profile": "aavanam/base/v1",
   "payloads": {
@@ -237,6 +239,9 @@
           {
             "$ref": "snap"
           }
+        ],
+        "permit": [
+          "redistributable"
         ]
       },
       "expect": {
@@ -265,7 +270,7 @@
               },
               "redistribution": "undeclared",
               "license": null,
-              "withheld": false
+              "withheld": true
             }
           },
           {
@@ -277,7 +282,7 @@
               },
               "redistribution": "undeclared",
               "license": null,
-              "withheld": false
+              "withheld": true
             }
           },
           {

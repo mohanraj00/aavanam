@@ -75,7 +75,7 @@ class ProducerTest(unittest.TestCase):
         source = put_ref(store, {'descriptor_profile': BASE, 'kind': 'source', 'payload': obj}, data)
         self.call(store, 'producer_put', key=obj['digest'], data=b64(SECRET))
         self.assertEqual(self.call(store, 'producer_forget', key=obj['digest'], reason='asked')['status'], 'ok')
-        self.assertEqual(store.blob(obj['digest']), SECRET)
+        self.assertEqual(store.blob(obj['digest'], ref=source), SECRET)
         self.assertIsNotNone(store.descriptor(source))
 
     def test_an_export_has_no_producer_data(self):  # PRD-ISO-3
