@@ -165,6 +165,19 @@ jobs:
           set -o pipefail
           "$RUNNER_TEMP/user-env/bin/python" -B -m unittest discover -s tests -p test_pdf_example.py -v 2>&1 | tee pdf.txt
           if grep -q skipped pdf.txt; then echo "::error::A test of the PDF example skipped."; exit 1; fi
+      # The library example (examples/library_hours/) needs groundgate. Its requirements pin the groundgate wheel of
+      # the PDF step above, so the install changes nothing if the pins agree. Require its test to run (issue #83).
+      - name: Run the library example from the installed wheel
+        env:
+          AAVANAM_INSTALLED: "1"
+          AAVANAM_LIBRARY_EXAMPLE: "1"
+        working-directory: ${{ runner.temp }}/clean
+        run: |
+          set -o pipefail
+          "$RUNNER_TEMP/user-env/bin/python" -m pip install --require-hashes --only-binary :all: --no-deps \
+            -r examples/library_hours/requirements.txt
+          "$RUNNER_TEMP/user-env/bin/python" -B -m unittest discover -s tests -p test_library_example.py -v 2>&1 | tee library.txt
+          if grep -q skipped library.txt; then echo "::error::A test of the library example skipped."; exit 1; fi
   # The required check. Add each project job to needs. A skipped job passes. A failed or cancelled job fails.
   ci-ok:
     needs: [changes, shared-project, shared-gates, suite, package]

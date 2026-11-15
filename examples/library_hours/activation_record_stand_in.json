@@ -1,0 +1,29 @@
+{
+  "format": "aavanam-test/activation-record-stand-in/v1",
+  "stand_in": true,
+  "note": [
+    "STAND-IN. This file does not come from an entelos release.",
+    "Entelos has no release with the signed activation record yet (mohanraj00/entelos#105 and mohanraj00/entelos#155).",
+    "The record has the layout of tests/activation_record_stand_in.json, the stand-in of the activation seam test. The test of this example compares the two field lists.",
+    "A record has no signature, and the names and the layout of the fields are an assumption of this project.",
+    "To replace it: pin the entelos release in examples/library_hours/requirements.txt, make the record with that release, and change only the function `activation_of` in examples/library_hours/library_hours.py to read the released layout.",
+    "All values are synthetic and neutral."
+  ],
+  "source": "https://github.com/mohanraj00/entelos/issues/105",
+  "names": "A value that starts with `$` is a name. The example binds it to a reference or a candidate identity of its own store, because these values depend on the content of the store.",
+  "records": {
+    "first": {
+      "candidate": "$candidate",
+      "base": null,
+      "lock": "$lock",
+      "approval": {"producer": "sample-approver", "media_type": "text/plain", "text": "Approved: library opening hours, first update."},
+      "report": {"producer": "sample-runner", "media_type": "text/plain", "text": "Qualified: library opening hours, first update."},
+      "approver": "sample-approver",
+      "producer": "sample-producer",
+      "runner": "sample-runner",
+      "partition": "sample-library-hours",
+      "effective": {"from": "2026-01-01", "until": "2027-01-01"},
+      "request_key": "library-request-0001"
+    }
+  }
+}
