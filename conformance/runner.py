@@ -80,6 +80,10 @@ class Expander:
             if not isinstance(payloads, dict) or not payloads:
                 raise VectorError(f'{self.vid}: bundle {name} has no payload to drop')
             del payloads[min(payloads)]
+        elif fault == 'drop_withheld':
+            if not value.get('withheld'):
+                raise VectorError(f'{self.vid}: bundle {name} has no withheld digest to drop')
+            del value['withheld']
         elif fault == 'format':
             value['format'] = 'sample/bundle/v1'
         elif fault is not None:

@@ -1,31 +1,25 @@
 {
   "format": "aavanam-vector/v1",
-  "title": "An import of a bundle with withheld bytes that the store does not have is incomplete",
+  "title": "A device queries a table whose bytes the bundle has",
   "clauses": [
-    "BUN-IMP-1",
-    "BUN-IMP-2",
-    "BUN-IMP-4",
-    "BUN-MAN-1",
-    "BUN-RED-5",
-    "STS-ENV-3"
+    "BUN-IMP-3",
+    "BUN-RED-4",
+    "BUN-CLS-3",
+    "QRY-DAT-2"
   ],
   "provenance": {
-    "type": "fault",
-    "note": "The export withholds the reading and excerpt bytes (BUN-RED-5). The device store does not have them. The import does not use withheld in its checks (BUN-IMP-1), so BUN-IMP-2 gives bundle_incomplete for each of the two descriptors. Rule 6 of STS-ENV-3 gives both reasons to the envelope, and the result has no items (BUN-IMP-4)."
+    "type": "spec",
+    "note": "The export has no permit, so no object is withheld (BUN-RED-4). The device has the table bytes, and the query gives the one row of the table."
   },
   "profile": "aavanam/base/v1",
   "payloads": {
-    "src": {
-      "media_type": "text/plain",
-      "text": "Sample source bytes."
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"limit\"]}"
     },
-    "rd": {
-      "media_type": "text/plain",
-      "text": "Sample part one. Sample part two."
-    },
-    "ex": {
-      "media_type": "text/plain",
-      "text": "Sample part two."
+    "table": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"p1\", 1]]}"
     }
   },
   "steps": [
@@ -34,12 +28,13 @@
       "request": {
         "descriptors": [
           {
-            "as": "src",
+            "as": "s",
             "value": {
               "descriptor_profile": "aavanam/base/v1",
-              "kind": "source",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
               "payload": {
-                "$payload": "src"
+                "$payload": "schema"
               }
             }
           }
@@ -61,17 +56,16 @@
       "request": {
         "descriptors": [
           {
-            "as": "rd",
+            "as": "t",
             "value": {
               "descriptor_profile": "aavanam/base/v1",
-              "kind": "reading",
-              "source": {
-                "$ref": "src"
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
               },
-              "producer": "sample/reader/v1",
-              "coverage_profile": "aavanam/coverage/v1",
               "payload": {
-                "$payload": "rd"
+                "$payload": "table"
               }
             }
           }
@@ -93,49 +87,13 @@
       "request": {
         "descriptors": [
           {
-            "as": "ex",
-            "value": {
-              "descriptor_profile": "aavanam/base/v1",
-              "kind": "excerpt",
-              "parent": {
-                "$ref": "rd"
-              },
-              "ranges": [
-                {
-                  "start": 17,
-                  "end": 33
-                }
-              ],
-              "payload": {
-                "$payload": "ex"
-              }
-            }
-          }
-        ]
-      },
-      "expect": {
-        "status": "ok",
-        "reasons": [],
-        "items": [
-          {
-            "status": "ok",
-            "reasons": []
-          }
-        ]
-      }
-    },
-    {
-      "operation": "put",
-      "request": {
-        "descriptors": [
-          {
-            "as": "o-src",
+            "as": "o-s",
             "value": {
               "descriptor_profile": "aavanam/base/v1",
               "kind": "observation",
               "subjects": [
                 {
-                  "$ref": "src"
+                  "$ref": "s"
                 }
               ],
               "observation_type": "aavanam/redistribution/v1",
@@ -147,19 +105,20 @@
             }
           },
           {
-            "as": "o-note",
+            "as": "o-t",
             "value": {
               "descriptor_profile": "aavanam/base/v1",
               "kind": "observation",
               "subjects": [
                 {
-                  "$ref": "ex"
+                  "$ref": "t"
                 }
               ],
-              "observation_type": "sample/note/v1",
+              "observation_type": "aavanam/redistribution/v1",
               "scope": {},
               "values": {
-                "note": "cited part"
+                "license": "sample-license-2",
+                "redistribution": "no_redistribution"
               }
             }
           }
@@ -192,10 +151,10 @@
               "collection": "sample-licensed",
               "observations": [
                 {
-                  "$ref": "o-src"
+                  "$ref": "o-s"
                 },
                 {
-                  "$ref": "o-note"
+                  "$ref": "o-t"
                 }
               ]
             }
@@ -238,9 +197,6 @@
           {
             "$ref": "snap"
           }
-        ],
-        "permit": [
-          "redistributable"
         ]
       },
       "expect": {
@@ -253,7 +209,7 @@
             "reasons": [],
             "fields": {
               "ref": {
-                "$ref": "src"
+                "$ref": "s"
               },
               "redistribution": "redistributable",
               "license": "sample-license-1",
@@ -265,11 +221,11 @@
             "reasons": [],
             "fields": {
               "ref": {
-                "$ref": "rd"
+                "$ref": "t"
               },
-              "redistribution": "undeclared",
-              "license": null,
-              "withheld": true
+              "redistribution": "no_redistribution",
+              "license": "sample-license-2",
+              "withheld": false
             }
           },
           {
@@ -277,19 +233,7 @@
             "reasons": [],
             "fields": {
               "ref": {
-                "$ref": "ex"
-              },
-              "redistribution": "undeclared",
-              "license": null,
-              "withheld": true
-            }
-          },
-          {
-            "status": "ok",
-            "reasons": [],
-            "fields": {
-              "ref": {
-                "$ref": "o-src"
+                "$ref": "o-s"
               },
               "redistribution": "no_payload",
               "license": null,
@@ -301,7 +245,7 @@
             "reasons": [],
             "fields": {
               "ref": {
-                "$ref": "o-note"
+                "$ref": "o-t"
               },
               "redistribution": "no_payload",
               "license": null,
@@ -333,16 +277,80 @@
         }
       },
       "expect": {
-        "status": "failed",
-        "reasons": [
-          "bundle_incomplete",
-          "bundle_incomplete"
-        ],
+        "status": "ok",
+        "reasons": [],
         "unordered": true,
-        "items": [],
-        "store_unchanged": true
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c",
+      "request": {
+        "roots": [
+          {
+            "$ref": "snap"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": []
+      },
+      "store": "device"
+    },
+    {
+      "operation": "query_data",
+      "store": "device",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "resources": [
+          {
+            "$ref": "t"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "rows": [
+                {
+                  "part": "p1",
+                  "limit": 1
+                }
+              ]
+            }
+          }
+        ]
       }
     }
-  ],
-  "pair": "redistribution/import-withheld-ok"
+  ]
 }

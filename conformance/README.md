@@ -83,6 +83,7 @@ A reference is the digest of the canonical form of a descriptor (IDN-CAN-2). It 
 | `{"$context": "c"}` | The context identity that the envelope of an `ok` step with `"as_context": "c"` returned |
 | `{"$bundle": "x"}` | The bundle that the envelope of an `ok` step with `"as_bundle": "x"` returned |
 | `{"$bundle": "x", "fault": "drop_payload"}` | That bundle without the payload that has the lowest digest |
+| `{"$bundle": "x", "fault": "drop_withheld"}` | That bundle without its `withheld` field; the bytes stay absent |
 | `{"$bundle": "x", "fault": "format"}` | That bundle with a different `format` |
 | `{"$absent": "h"}` | A well-formed reference that is not in the store |
 | `{"$payload": "p"}` | The payload object of the bytes `p`: `digest`, `media_type` and `size` |

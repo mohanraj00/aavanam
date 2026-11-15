@@ -413,6 +413,15 @@ class RunVectorTest(unittest.TestCase):
         step = {'operation': 'export', 'request': {'roots': ['r']}, 'expect': ok}
         text, digest = source(b'a')
         good = {'format': 'aavanam-bundle/v1', 'roots': ['r'], 'descriptors': [text], 'payloads': {}, 'withheld': [digest]}
+        expander = runner.Expander('t', {})
+        expander.bundles['x'] = copy.deepcopy(good)
+        dropped = expander.bundle('x', 'drop_withheld')
+        self.assertNotIn('withheld', dropped)
+        self.assertEqual(expander.bundle('x', None), good)
+        self.assertEqual(dropped['payloads'], {})
+        expander.bundles['empty'] = dropped
+        with self.assertRaisesRegex(runner.VectorError, 'no withheld digest'):
+            expander.bundle('empty', 'drop_withheld')
         self.assertEqual(runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': good}), 't', {'steps': [step]}), [])
         cases = [({**good, 'withheld': []}, 'one or more different digests'), ({**good, 'withheld': [digest, digest]}, 'one or more'),
                  ({**good, 'payloads': {digest: 'YQ=='}}, 'byte closure'), ({**good, 'withheld': [123]}, 'one or more different digests')]
