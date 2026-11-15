@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Add the half-open range match and the interval overlap match to `query_data` (DAT-DEC-1 to DAT-RNG-6, QRY-DAT-5, #67). A request declares the bound columns and their type, `decimal` or `date`, in the field `ranges`. A missing value gives `missing_value`, and a value of a different type gives `value_type`. The store does not convert a number or a unit. The base profile is at minor version 9.
-- Accept an import of a bundle with absent withheld bytes (BUN-IMP-9 to BUN-IMP-11, #58). The result was `failed` with `bundle_incomplete`, and is now `ok`: the store keeps each descriptor without the bytes and defers the checks. The base profile is at minor version 10.
+- Accept an import of a bundle with absent withheld bytes (BUN-IMP-9 to BUN-IMP-11, BUN-RED-7, #58). The result was `failed` with `bundle_incomplete`, and is now `ok`: the store keeps each descriptor without the bytes and defers the checks. An export withholds absent bytes, keeps each descriptor and reports each affected item with `withheld` `true`. The base profile is at minor version 10.
 
 ## 0.2.0
 

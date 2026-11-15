@@ -1118,8 +1118,10 @@ class Store:
         # BUN-RED-4 and BUN-RED-5: the bytes of a withheld object
         withheld = {p['digest'] for r in objects if permit is not None and values[r][0] != 'no_payload' and values[r][0] not in permit
                     for p in d.payloads(self.descriptor(r))}
+        payloads = {k: self.blob(k) for k in digests if k not in withheld}
+        withheld.update(k for k, data in payloads.items() if data is None)  # BUN-RED-7
         bundle = {'format': BUNDLE_FORMAT, 'roots': roots, 'descriptors': [canonical(self.descriptor(r)) for r in objects],
-                  'payloads': {k: b64(self.blob(k)) for k in digests if k not in withheld}}  # BUN-EXP-2
+                  'payloads': {k: b64(data) for k, data in payloads.items() if data is not None}}  # BUN-EXP-2
         if withheld:
             bundle['withheld'] = sorted(withheld)
         items = [item(ref=r, redistribution=values[r][0], license=values[r][1],
