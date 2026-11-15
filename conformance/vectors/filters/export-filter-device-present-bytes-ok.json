@@ -1,0 +1,574 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A filtered device export includes present bytes",
+  "clauses": [
+    "BUN-FLT-3",
+    "BUN-FLT-4",
+    "BUN-RED-5",
+    "BUN-RED-6",
+    "BUN-RED-7",
+    "BUN-IMP-9",
+    "BUN-IMP-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "BUN-FLT-3 rule 2 applies BUN-RED-7 to the matched closure. The absent and present cases differ only in the first export permit. The filtered bundle omits the snapshot, its observations and its overlays. The final import accepts the filter record without the overlays that gave its values (BUN-FLT-4)."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "text": {
+      "media_type": "text/plain",
+      "text": "abc"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/text/v1",
+              "payload": {
+                "$payload": "text"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "text": {
+                  "$ref": "a"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "a"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "redistributable"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "binding_set": {
+                "$ref": "b"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ov",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u"
+              },
+              "origin": "sample-producer",
+              "values": {
+                "region": "north"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "ov"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-filter",
+        "units": [
+          {
+            "$ref": "u"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os"
+          }
+        ],
+        "observations": [
+          {
+            "$ref": "o"
+          }
+        ]
+      },
+      "as_ref": "n",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "n"
+          }
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "n"
+          }
+        ]
+      },
+      "as_bundle": "x",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a"
+              },
+              "redistribution": "redistributable",
+              "license": "sample-license-1",
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ov"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "os"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "import",
+      "store": "device",
+      "request": {
+        "bundle": {
+          "$bundle": "x"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "o"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ov"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "os"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "store": "device",
+      "request": {
+        "roots": [
+          {
+            "$ref": "n"
+          }
+        ]
+      },
+      "as_context": "d",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "store": "device",
+      "request": {
+        "context": {
+          "$context": "d"
+        },
+        "roots": [
+          {
+            "$ref": "n"
+          }
+        ],
+        "filter": {
+          "equals": {
+            "region": "north"
+          }
+        }
+      },
+      "as_bundle": "y",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "store_unchanged": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a"
+              },
+              "redistribution": "undeclared",
+              "license": null,
+              "withheld": false,
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false,
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u"
+              },
+              "redistribution": "no_payload",
+              "license": null,
+              "withheld": false,
+              "matched": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "import",
+      "fresh_store": true,
+      "request": {
+        "bundle": {
+          "$bundle": "y"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

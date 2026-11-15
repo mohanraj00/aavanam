@@ -119,9 +119,9 @@ Version 0.2.0 is the current version. All 20 contract documents are drafts. Vers
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 357, in 20 documents under `docs/contracts/` |
-| Conformance vectors | 601. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 600. The runner exits with 1 |
+| Contract clauses | 368, in 20 documents under `docs/contracts/` |
+| Conformance vectors | 631. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 630. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
 | Reference implementation | Python over SQLite. The standard library only |
 

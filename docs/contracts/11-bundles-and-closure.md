@@ -4,7 +4,7 @@ State: draft. Prefix: `BUN`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
-This document defines capability closure, bundle manifests, export, license and redistribution status, read-only import and excerpt objects. A device corpus is read-only. Local outputs stay separate.
+This document defines capability closure, bundle manifests, export, the filtered export, license and redistribution status, read-only import and excerpt objects. A device corpus is read-only. Local outputs stay separate.
 
 ## Topics
 
@@ -14,6 +14,7 @@ This document defines capability closure, bundle manifests, export, license and 
 | `MAN` | Bundle manifests and identity |
 | `EXP` | Export |
 | `RED` | License and redistribution status in an export |
+| `FLT` | The filtered export |
 | `IMP` | Read-only import and integrity |
 | `EXC` | Excerpt objects and parent validation |
 
@@ -31,13 +32,13 @@ This document defines capability closure, bundle manifests, export, license and 
 
 ### Bundle manifests
 
-**BUN-MAN-1.** A bundle is a JSON object with the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the field `withheld` (BUN-RED-5). It has no other field. `format` is `aavanam-bundle/v1`. `roots` is a list of one or more references. `descriptors` is a list of descriptor JSON texts. `payloads` is an object. Each key is a payload digest, and each value is the base64 encoding (RFC 4648, section 4) of the bytes. `withheld` is a list of one or more payload digests, with no duplicate. A digest in `withheld` is not a key of `payloads`.
+**BUN-MAN-1.** A bundle is a JSON object with the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the field `withheld` (BUN-RED-5) and the field `filter` (BUN-FLT-4). It has no other field. `format` is `aavanam-bundle/v1`. `roots` is a list of one or more references. `descriptors` is a list of descriptor JSON texts. `payloads` is an object. Each key is a payload digest, and each value is the base64 encoding (RFC 4648, section 4) of the bytes. `withheld` is a list of one or more payload digests, with no duplicate. A digest in `withheld` is not a key of `payloads`.
 
 ### Export
 
-**BUN-EXP-1.** The request of `export` has the fields `context` (CTX-OPN-3) and `roots`, a list of one or more references. It can also have the field `permit` (BUN-RED-4). If a root is not in the store, the result has status `not_found` and reason `unknown_ref`. If a root is in the store but not in the read context, the result has status `not_found` and reason `not_in_context`. The result has a reason for each affected root. In these cases, the result has no items and no `bundle`.
+**BUN-EXP-1.** The request of `export` has the fields `context` (CTX-OPN-3) and `roots`, a list of one or more references. It can also have the field `permit` (BUN-RED-4) and the field `filter` (BUN-FLT-1). If a root is not in the store, the result has status `not_found` and reason `unknown_ref`. If a root is in the store but not in the read context, the result has status `not_found` and reason `not_in_context`. The result has a reason for each affected root. In these cases, the result has no items and no `bundle`.
 
-**BUN-EXP-2.** If each root is in the read context, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1). Its `roots` are the roots of the request. Its `descriptors` have the descriptor of each object in the closure of the roots (KND-DEP-3), one time each. Its `payloads` have the bytes of each digest in the byte closure, except a withheld digest (BUN-RED-5). The bundle MUST NOT have a descriptor or bytes outside the closure.
+**BUN-EXP-2.** This clause and BUN-EXP-3 give the export of a request with no `filter`. BUN-FLT-1 to BUN-FLT-4 give the export of a request with `filter`. If each root is in the read context, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1). Its `roots` are the roots of the request. Its `descriptors` have the descriptor of each object in the closure of the roots (KND-DEP-3), one time each. Its `payloads` have the bytes of each digest in the byte closure, except a withheld digest (BUN-RED-5). The bundle MUST NOT have a descriptor or bytes outside the closure.
 
 **BUN-EXP-3.** The result has one item for each object in the closure of the roots. Each item has status `ok` and the fields `ref`, `redistribution`, `license` and `withheld` (BUN-RED-6). The order of the items and of `descriptors` is not specified.
 
@@ -72,9 +73,38 @@ The license value is the `license` of the statements for rule 5, and null for th
 
 **BUN-RED-7.** An export MUST withhold each digest in the byte closure whose bytes the store does not have, also if the request has no `permit` or its `permit` covers the object. The export MUST list each such digest in `withheld`, omit it from `payloads` and keep each descriptor (BUN-RED-5). Each affected item MUST have `withheld` `true`, with its `redistribution` and `license` values from BUN-RED-2 (BUN-RED-6). The result status stays `ok`.
 
+### Filtered export
+
+**BUN-FLT-1.** The field `filter` of an `export` request is a filter (DSC-FLT-1). If the value does not agree with DSC-FLT-1, the result has status `failed` and reason `field_type`, and it has no items and no `bundle`. The store checks the form of the request first, then the roots (BUN-EXP-1), then the candidates. The candidates of a filtered export are the objects of kind `knowledge-unit` in the closure of the request roots (KND-DEP-3). The store checks each candidate against the filter (DSC-FLT-3), with the overlays of the read context of the request (DSC-FLT-2).
+
+**BUN-FLT-2.** `export` is a complete operation (STS-ENV-4). Thus a filtered export gives a bundle only if the store can tell for each candidate if it matches.
+
+1. If a check of DSC-FLT-3 fails for one or more candidates, the result has no items and no `bundle`. The status is the first status of these outcomes in the order of STS-ENV-3 rule 6, and the reasons are the reasons of the outcomes that have that status.
+2. If not, and no candidate matches the filter (DSC-FLT-4), the result has status `unresolved` and reason `no_match`, and it has no items and no `bundle`. The `refs` of the reason name the request roots. This applies also if the closure of the roots has no candidate.
+3. If not, and the closure of the candidates that match has a candidate that does not match, the result has status `incompatible` and reason `unmatched_dependency`, and it has no items and no `bundle`. The result has one reason for each such candidate, with the candidate in `refs`. A bundle has the closure of its roots (BUN-CLS-1), so the store cannot leave out this candidate. For example, a unit that matches can have an OverlaySet with an overlay about a unit that does not match.
+
+**BUN-FLT-3.** If no rule of BUN-FLT-2 applies, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1).
+
+1. The `roots` of the bundle are the candidates that match the filter, in ascending string order. They are not the roots of the request.
+2. The `descriptors`, the `payloads` and the `withheld` of the bundle are those of BUN-EXP-2, BUN-RED-5 and BUN-RED-7 for the closure of these roots. The bundle MUST NOT have a descriptor or bytes outside this closure. By rule 3 of BUN-FLT-2, this closure has no candidate that does not match. Thus the objects of kind `knowledge-unit` in the bundle are exactly its roots, and the bundle does not have a request root that is a snapshot.
+3. The result has one item for each object in this closure, with the fields of BUN-EXP-3. Each item also has the field `matched`. It is `true` for a root of the bundle, and `false` for each other object.
+
+An overlay that gives a filter value is in the bundle only if it is in the closure of a matched candidate (BUN-CLS-2). An overlay refers to its subject (BND-OVL-1), so the closure of a `knowledge-unit` does not have the overlays about that unit. Thus the store applies the filter on the writer store, and a device store with the bundle has the content that matched.
+
+**BUN-FLT-4.** The field `filter` of a bundle records the filter of the export. A filtered export writes the `filter` of the request into this field, with no change. A bundle of an export with no filter has no field `filter`. At `import`, a `filter` that does not agree with DSC-FLT-1 gives status `failed` and reason `field_type` (BUN-IMP-1). The import does not apply the filter, and it does not check the roots of the bundle against it. The field is a record of the selection, not a proof of it.
+
+**BUN-FLT-5.** A filtered listing and a filtered export give the same content. In one read context, a `list_items` request with the `kinds` value `knowledge-unit` and a filter gives the items L. An `export` request with the same filter, and with roots whose closure has the same objects of kind `knowledge-unit`, gives the bundle B.
+
+1. If each item of L is `ok`, L has one or more items, and rule 4 does not apply, the `roots` of B are the `ref` values of L.
+2. If an item of L is not `ok`, the export is not `ok`, with the status and the reasons of BUN-FLT-2 rule 1.
+3. If L has no items, the export has reason `no_match`.
+4. If each item of L is `ok`, and the closure of an item of L has an object of kind `knowledge-unit` that is not in L, the export has reason `unmatched_dependency` (BUN-FLT-2 rule 3). The listing gives locations, so it does not have this check.
+
+On a device store with an `ok` import of B, a read context with the roots of B has these roots as its only members of kind `knowledge-unit` (BUN-FLT-3 rule 2, BUN-CLS-3).
+
 ### Import
 
-**BUN-IMP-1.** The request of `import` has the field `bundle`. If the value does not agree with BUN-MAN-1, the result has status `failed` and reason `field_type`.
+**BUN-IMP-1.** The request of `import` has the field `bundle`. If the value does not agree with BUN-MAN-1, the result has status `failed` and reason `field_type`. It checks only the form of the field `filter` (BUN-FLT-4).
 
 **BUN-IMP-2.** The store checks each descriptor of the bundle with the steps of STS-MAL-3, with two changes: a reference target or payload bytes can be in the bundle or in the store, and withheld bytes can be absent (BUN-IMP-9). If a reference target or the bytes of a payload are in neither, the result has status `failed` and reason `bundle_incomplete`, except for withheld bytes as BUN-IMP-9 permits. This exception applies also to a device store. If a root is not a descriptor of the bundle, the result also has status `failed` and reason `bundle_incomplete`. A different check that fails gives its own status and reason. If more than one descriptor fails a check, the store applies rule 6 of STS-ENV-3 to the outcomes of the descriptors, as if each descriptor were an item. A root that is not a descriptor of the bundle is one more `failed` outcome. Thus these outcomes give the status and the reasons of the result, but the result has no items (BUN-IMP-4).
 
@@ -96,7 +126,7 @@ The license value is the `license` of the statements for rule 5, and null for th
 
 **BUN-IMP-11.** An import MUST check the withheld descriptors again in its write transaction, with the bytes then in the store or in the write. Bytes that arrived after the first absence check MUST pass the payload bytes step of STS-MAL-3, including the digest and size checks, and each deferred excerpt check that these bytes permit. If a check fails, the import MUST give the status and reason of that check and MUST leave the store unchanged (BUN-IMP-4). The store MUST record the checks that remain deferred in the same transaction as the descriptors.
 
-**BUN-IMP-12.** Before a store uses payload bytes of a descriptor in a read operation, it MUST do each deferred check of that descriptor only. A check of a different descriptor MUST NOT affect this read, even if both descriptors name the same payload digest. A local output store MUST include the deferred checks of the descriptor in its device store and use the bytes of both stores (BUN-IMP-8). This rule applies also if the local output store had the bytes before the device import. If a check fails or still needs absent bytes, the store MUST treat the payload bytes as absent for this descriptor. Thus a read that needs these bytes gives status `not_found` and reason `payload_missing`. Search follows its rule for absent bytes. Before an export includes payload bytes, it MUST apply these checks to each descriptor in the requested closure that names the digest. If any descriptor in this closure fails a check or still needs absent bytes, the export MUST withhold each payload digest of that descriptor (BUN-RED-7). This rule applies also if a descriptor that passes its checks shares the digest. A descriptor outside the requested closure MUST NOT affect the export. A read MUST NOT remove a deferred check or change either store.
+**BUN-IMP-12.** Before a store uses payload bytes of a descriptor in a read operation, it MUST do each deferred check of that descriptor only. A check of a different descriptor MUST NOT affect this read, even if both descriptors name the same payload digest. A local output store MUST include the deferred checks of the descriptor in its device store and use the bytes of both stores (BUN-IMP-8). This rule applies also if the local output store had the bytes before the device import. If a check fails or still needs absent bytes, the store MUST treat the payload bytes as absent for this descriptor. Thus a read that needs these bytes gives status `not_found` and reason `payload_missing`. Search follows its rule for absent bytes. Before an export includes payload bytes, it MUST apply these checks to each descriptor in the closure of its bundle roots that names the digest (BUN-FLT-3 rule 2 for a filtered export). If any descriptor in this closure fails a check or still needs absent bytes, the export MUST withhold each payload digest of that descriptor (BUN-RED-7). This rule applies also if a descriptor that passes its checks shares the digest. A descriptor outside the closure of the bundle roots MUST NOT affect the export. A read MUST NOT remove a deferred check or change either store.
 
 Note: An `ok` import can keep a descriptor of absent bytes. The local output store can already have those bytes. The checks of the descriptor itself run at import (STS-MAL-3, except the payload bytes step). The deferred checks of that descriptor run before new bytes enter the store (BUN-IMP-10) and before the local output store uses bytes for that descriptor that it already has (BUN-IMP-12). Thus the store never serves bytes for a descriptor before each check of that descriptor passes. A different descriptor with the same digest does not block a read. An export has one payload entry per digest, so it withholds a shared digest if any descriptor in its requested closure cannot use those bytes. The importer can find the deferred digests in the `withheld` field of the bundle that it supplied.
 

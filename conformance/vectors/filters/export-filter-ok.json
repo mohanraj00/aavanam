@@ -1,0 +1,857 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A filtered export of one head has the matched unit as its root, records the filter, and gives the same content as the filtered listing",
+  "clauses": [
+    "BUN-EXP-1",
+    "BUN-FLT-1",
+    "BUN-FLT-2",
+    "BUN-FLT-3",
+    "DSC-FLT-1",
+    "DSC-FLT-3",
+    "DSC-FLT-4",
+    "BUN-FLT-4",
+    "BUN-FLT-5",
+    "BUN-MAN-1",
+    "BUN-CLS-3",
+    "DSC-FLT-5",
+    "DAT-RNG-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. One gated head has three units, for two regions and two intervals. The overlays give the values. The activation has an interval in 2030, and the filter does not read it."
+  },
+  "profile": "aavanam/base/v1",
+  "gates": [
+    "notices"
+  ],
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k"
+        },
+        {
+          "$ref": "r1"
+        }
+      ]
+    ]
+  },
+  "payloads": {
+    "schema": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"notice\", \"text\"]}"
+    },
+    "accept": {
+      "media_type": "text/plain",
+      "text": "accepted"
+    },
+    "approval": {
+      "media_type": "text/plain",
+      "text": "approved"
+    },
+    "report": {
+      "media_type": "text/plain",
+      "text": "qualified"
+    },
+    "table-n1": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"notice\", \"text\"], \"key\": [\"notice\"], \"rows\": [[\"notice-north-h1\", \"Sample notice n1.\"]]}"
+    },
+    "table-n2": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"notice\", \"text\"], \"key\": [\"notice\"], \"rows\": [[\"notice-north-h2\", \"Sample notice n2.\"]]}"
+    },
+    "table-s1": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"notice\", \"text\"], \"key\": [\"notice\"], \"rows\": [[\"notice-south-h1\", \"Sample notice s1.\"]]}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "schema"
+              }
+            }
+          },
+          {
+            "as": "r1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "payload": {
+                "$payload": "accept"
+              }
+            }
+          },
+          {
+            "as": "ra",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "sample-approver",
+              "payload": {
+                "$payload": "approval"
+              }
+            }
+          },
+          {
+            "as": "rr",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "sample-runner",
+              "payload": {
+                "$payload": "report"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "t-n1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table-n1"
+              }
+            }
+          },
+          {
+            "as": "t-n2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table-n2"
+              }
+            }
+          },
+          {
+            "as": "t-s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "s"
+              },
+              "payload": {
+                "$payload": "table-s1"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "b-n1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t-n1"
+                }
+              }
+            }
+          },
+          {
+            "as": "b-n2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t-n2"
+                }
+              }
+            }
+          },
+          {
+            "as": "b-s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "binding-set",
+              "bindings": {
+                "data": {
+                  "$ref": "t-s1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "u-n1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "logical_id": "notice-north-h1",
+              "binding_set": {
+                "$ref": "b-n1"
+              }
+            }
+          },
+          {
+            "as": "u-n2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "logical_id": "notice-north-h2",
+              "binding_set": {
+                "$ref": "b-n2"
+              }
+            }
+          },
+          {
+            "as": "u-s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "knowledge-unit",
+              "logical_id": "notice-south-h1",
+              "binding_set": {
+                "$ref": "b-s1"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "o0",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-n1"
+              },
+              "origin": "sample-producer",
+              "values": {
+                "region": "north",
+                "effective_from": "2026-01-01",
+                "effective_until": "2026-07-01"
+              }
+            }
+          },
+          {
+            "as": "o1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-n2"
+              },
+              "origin": "sample-producer",
+              "values": {
+                "region": "north",
+                "effective_from": "2026-07-01",
+                "effective_until": "2027-01-01"
+              }
+            }
+          },
+          {
+            "as": "o2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-s1"
+              },
+              "origin": "sample-producer",
+              "values": {
+                "region": "south",
+                "effective_from": "2026-01-01",
+                "effective_until": "2026-07-01"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "o0"
+                },
+                {
+                  "$ref": "o1"
+                },
+                {
+                  "$ref": "o2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "notices",
+        "units": [
+          {
+            "$ref": "u-n1"
+          },
+          {
+            "$ref": "u-n2"
+          },
+          {
+            "$ref": "u-s1"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os"
+          }
+        ]
+      },
+      "as_ref": "n",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "n"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "as_ref": "k",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "notices"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "l",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "build-lock",
+              "inputs": [
+                {
+                  "$ref": "u-n1"
+                },
+                {
+                  "$ref": "u-n2"
+                },
+                {
+                  "$ref": "u-s1"
+                },
+                {
+                  "$ref": "os"
+                }
+              ],
+              "consumer": "sample-consumer",
+              "completeness": "sample/declared/v1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "activation",
+              "candidate": {
+                "$ref": "k"
+              },
+              "lock": {
+                "$ref": "l"
+              },
+              "approval": {
+                "$ref": "ra"
+              },
+              "report": {
+                "$ref": "rr"
+              },
+              "partition": "notices",
+              "effective_from": "2030-01-01",
+              "effective_until": "2030-02-01",
+              "request_key": "sample-request",
+              "producer": "sample-producer",
+              "runner": "sample-runner",
+              "approver": "sample-approver"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k"
+        },
+        "receipt": {
+          "$ref": "r1"
+        },
+        "activation": {
+          "$ref": "a"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "n"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "heads": [
+          "notices"
+        ]
+      },
+      "as_context": "c",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ],
+        "filter": {
+          "equals": {
+            "region": "north"
+          },
+          "ranges": [
+            {
+              "lower": "effective_from",
+              "upper": "effective_until",
+              "type": "date",
+              "match": "contains",
+              "value": "2026-03-01"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-n1"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "notice-north-h1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "roots": [
+          {
+            "$ref": "n"
+          }
+        ],
+        "filter": {
+          "equals": {
+            "region": "north"
+          },
+          "ranges": [
+            {
+              "lower": "effective_from",
+              "upper": "effective_until",
+              "type": "date",
+              "match": "contains",
+              "value": "2026-03-01"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-n1"
+              },
+              "matched": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-n1"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-n1"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s"
+              },
+              "matched": false
+            }
+          }
+        ]
+      },
+      "as_bundle": "x"
+    },
+    {
+      "operation": "import",
+      "request": {
+        "bundle": {
+          "$bundle": "x"
+        }
+      },
+      "store": "device",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-n1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-n1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-n1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u-n1"
+          }
+        ]
+      },
+      "store": "device",
+      "as_context": "d",
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "d"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-n1"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "notice-north-h1"
+            }
+          }
+        ]
+      },
+      "store": "device"
+    }
+  ]
+}
