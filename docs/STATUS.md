@@ -1,6 +1,6 @@
 # Status
 
-The specification has 20 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
+Version 0.3.0 is the current version. The specification has 20 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
 
 ## Done
 
@@ -10,6 +10,9 @@ The specification has 20 contract documents in the `draft` state. The reference 
 - Activation gate: gated collections, the `activation` kind, the activation checks of `publish` and the `publications` read.
 - Lifecycle and discovery: the changes between two snapshots, the history of a logical ID and the exact item listing (documents 17 and 18).
 - Filters: the half-open range match and the interval match on declared columns, and the filter on declared metadata for a listing and an export.
+- Producer exports: the admitted-facts adapter accepts the optional export members, and the PDF example reads the page from the citation locator (#80, PR 85).
+- Device imports: a bundle with absent withheld bytes keeps each descriptor and defers the byte checks until a read (#58).
+- Activation integration: the seam test checks a valid activation, a refused activation and a repeat (#4). The library example moves one update through the gate and reads the head with a metadata filter (#83). Both use stand-in activation records until entelos publishes the record format in a tagged release.
 
 ## Next
 
