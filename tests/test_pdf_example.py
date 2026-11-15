@@ -91,6 +91,15 @@ class PdfExampleTest(unittest.TestCase):
             self.skipTest('groundgate with its extra pdf is not installed')
         self.assertEqual(metadata.version('groundgate'), PINNED)
 
+    def test_page_of_uses_only_the_citation_locator(self):  # ADP-FXT-5, ADP-FXT-7
+        spec = importlib.util.spec_from_file_location('pdf_facts_example', FOLDER / 'pdf_facts.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(module.page_of({'locator': {'page': 7, 'box': [0, 0, 1, 1]}}), 7)
+        for citation in ({}, {'locator': None}, {'locator': {'page': True}}, {'locator': {'page': 0}}):
+            with self.subTest(citation=citation), self.assertRaises(SystemExit):
+                module.page_of(citation)
+
     def test_the_example_prints_each_fact_with_its_citation(self):
         env = {k: v for k, v in os.environ.items() if not k.startswith('PYTHON')}
         flags = ['-I', '-B']  # -I: no PYTHONPATH, no user site and no script folder on sys.path

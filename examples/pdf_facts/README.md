@@ -37,9 +37,7 @@ You need Python 3.14 or later.
 
 The hashes of `cryptography` and `cffi` are for Linux x86_64 and macOS arm64. On a different platform, the install stops with a hash error.
 
-## Known limit: the page
-
-groundgate 0.15.0 gives the page and the box of a fact in `citation.locator` only if the packet has places. The admitted-facts adapter accepts a locator only on a passage fact (ADP-FXT-4), so the example gives no places. The citation gives the span, the source digest and the text digest. The example takes the page from the layout of the groundgate reading of the PDF, in the function `page_of`. Issue [#80](https://github.com/mohanraj00/aavanam/issues/80) owns the adapter change. After that change, the example takes the page from the export, and changes only `page_of`.
+The example supplies the places and completeness of the reading to the producer. The adapter keeps the page and box in `ext.locator` (ADP-FXT-5, ADP-FXT-7). The function `page_of` reads the page from this citation after the store returns it.
 
 The source digest and the text digest are the digests of groundgate, kept as native identities (ADP-FXT-3). They are not the digests of the aavanam payloads.
 

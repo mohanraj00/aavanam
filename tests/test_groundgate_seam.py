@@ -7,6 +7,7 @@ CI installs the pin from `tests/requirements-seam.txt` and sets AAVANAM_SEAM=1, 
 Without AAVANAM_SEAM=1, an absent package skips this test, because the reference implementation uses only the
 standard library (constitution principle 9).
 """
+import hashlib
 import json
 import os
 import tempfile
@@ -158,6 +159,13 @@ class ExportSeamTest(unittest.TestCase):
         require_pin(self)
         self.source = (INVOICE / 'invoice.txt').read_bytes()
         self.reading = (INVOICE / 'reading.txt').read_bytes()
+        self.export = self.producer_export()
+        self.store = Store()
+        self.addCleanup(self.store.close)
+        self.store.section(SERVING, 'serving')
+        self.store.section(EVIDENCE, 'evidence')
+
+    def producer_export(self, schema=INVOICE_SCHEMA, candidates=INVOICE_CANDIDATES, **inputs):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         path = os.path.join(folder.name, 'invoice.txt')
@@ -165,16 +173,12 @@ class ExportSeamTest(unittest.TestCase):
             file.write(self.source)
         with FolderStore(os.path.join(folder.name, 'store')) as store:
             reading, _ = put_reading(store, path)
-            packet_key, _ = admit_packet(store, self.reading.decode('utf-8'), INVOICE_SCHEMA, INVOICE_CANDIDATES,
-                                         None, reading=reading)
+            packet_key, _ = admit_packet(store, self.reading.decode('utf-8'), schema, candidates,
+                                         None, reading=reading, **inputs)
             packet = load_packet(store, packet_key)
             result = verify(packet.receipt, packet.text, packet.schema, packet.candidates, **packet.inputs())
             self.assertTrue(result.ok, result.problems)
-            self.export = admitted_facts(store, packet)
-        self.store = Store()
-        self.addCleanup(self.store.close)
-        self.store.section(SERVING, 'serving')
-        self.store.section(EVIDENCE, 'evidence')
+            return admitted_facts(store, packet)
 
     def put(self, export):
         return put_export_facts(self.store, json.dumps(export), DECLARATION, source=self.source, reading=self.reading,
@@ -214,6 +218,54 @@ class ExportSeamTest(unittest.TestCase):
             self.assertEqual(record['ext']['receipt_digest'], fact['citation']['receipt_sha256'])
             self.assertEqual(record['ext']['export_identity'], self.export['packet_sha256'])
         self.assertEqual(seen, set(EXPECTED))
+
+    def test_a_packet_with_places_and_completeness_keeps_each_locator(self):  # ADP-FXT-2, ADP-FXT-5, ADP-FXT-7
+        # Synthetic places cover the fixture spans. The box of each span is its one supplied box.
+        places = [[11, 19, 2, 10, 20, 30, 40], [20, 29, 3, 50, 60, 70, 80]]
+        completeness = {'status': 'partial', 'missing': [{'page': 4, 'reason': 'no_text_layer'}]}
+        export = self.producer_export(places=places, completeness=completeness)
+        expected = {'count': {'page': 2, 'box': [10, 20, 30, 40]},
+                    'code': {'page': 3, 'box': [50, 60, 70, 80]}}
+        self.assertEqual(export['completeness'], completeness)
+        self.assertEqual({f['field']: f['citation']['locator'] for f in export['facts']}, expected)
+        serving, evidence = self.put(export)
+        context = self.call('open_context', roots=[serving, evidence])['context']
+        records = self.store.descriptor(self.store.descriptor(evidence)['relation_sets'][0])['members']
+        self.assertEqual(len(records), 2)
+        for ref in records:
+            record = self.store.descriptor(ref)
+            table, = self.call('query_data', context=context, resources=[record['subject']])['items']
+            self.assertEqual(record['ext']['locator'], expected[table['rows'][0]['field']])
+            self.assertEqual(record['ext']['completeness'], completeness)
+
+    def test_record_members_and_a_passage_keep_the_wheel_metadata(self):  # ADP-FXT-4, ADP-FXT-5, ADP-FXT-7
+        schema = {'fields': {'line': {'type': 'record', 'members': {'count': {'type': 'integer'}}},
+                             'note': {'type': 'passage'}}}
+        candidates = [{'id': 'r', 'field': 'line.count', 'record': 'row-1', 'value': 2,
+                       'evidence': {'text': 'Count: 2'}},
+                      {'id': 'p', 'field': 'note', 'value': 'Code: A17', 'evidence': {'start': 20, 'end': 29}}]
+        export = self.producer_export(schema, candidates, outline=[{'start': 20, 'end': 29, 'level': 1},
+                                                                 {'start': 30, 'end': 35, 'level': 1}])
+        facts = {f['field']: f for f in export['facts']}
+        self.assertEqual(set(facts), {'line.count', 'note'})
+        self.assertEqual((facts['line.count']['record'], facts['line.count']['replaced']), ('row-1', False))
+        # The passage digest form is from the pinned producer, with the fixture text as input.
+        expected_digest = 'sha256:' + hashlib.sha256(
+            b'groundgate/0.12:passage\0{"text":"Code: A17"}').hexdigest()
+        self.assertEqual(facts['note']['citation']['passage_sha256'], expected_digest)
+        serving, evidence = self.put(export)
+        context = self.call('open_context', roots=[serving, evidence])['context']
+        records = self.store.descriptor(self.store.descriptor(evidence)['relation_sets'][0])['members']
+        self.assertEqual(len(records), 2)
+        for ref in records:
+            record = self.store.descriptor(ref)
+            table, = self.call('query_data', context=context, resources=[record['subject']])['items']
+            field = table['rows'][0]['field']
+            if field == 'line.count':
+                self.assertEqual((record['ext']['record'], record['ext']['replaced']), ('row-1', False))
+            else:
+                self.assertEqual(record['ext']['passage_sha256'], expected_digest)
+            self.assertEqual(table['rows'][0]['kind'], 'scalar')
 
     def test_a_fact_without_a_citation_or_a_changed_field_fails(self):
         fact = self.export['facts'][0]

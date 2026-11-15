@@ -30,6 +30,7 @@ from pathlib import Path
 from aavanam import Store
 from aavanam.admitted import put_export_facts
 from groundgate import verify
+from groundgate.places import layout_places
 from groundgate.store import FolderStore
 from groundgate.store.export import admitted_facts
 from groundgate.store.packets import admit_packet, load_packet, put_reading
@@ -61,24 +62,21 @@ def candidates(flow: int) -> list[dict]:
     ]
 
 
-def page_of(layout, start: int, end: int) -> int:
-    """The page of the UTF-8 byte span [start, end) of the reading text.
-
-    The adapter accepts no locator on a scalar fact (ADP-FXT-4), so the example gives groundgate no places, and
-    the facts@1 citation has no page. This function takes the page from the layout of the groundgate reading.
-    Issue #80 owns the change to the locator of the export.
-    """
-    pages = {box.page for box in layout.locate(start, end)}
-    if len(pages) != 1:
-        raise SystemExit(f'the span {start}-{end} has no single page: {sorted(pages)}')
-    return pages.pop()
+def page_of(citation: dict) -> int:
+    """Read the page from the stored citation locator (ADP-FXT-5, ADP-FXT-7)."""
+    locator = citation.get('locator')
+    if not isinstance(locator, dict) or type(locator.get('page')) is not int or locator['page'] < 1:
+        raise SystemExit('the citation has no page locator')
+    return locator['page']
 
 
-def run_groundgate(pdf: Path, flow: int, folder: str) -> tuple[dict, bytes, bytes, object]:
-    """Read the PDF and admit the candidates. Return the facts@1 export, the PDF bytes, the text bytes and the layout."""
+def run_groundgate(pdf: Path, flow: int, folder: str) -> tuple[dict, bytes, bytes]:
+    """Read the PDF and admit the candidates. Return the facts@1 export, the PDF bytes and the text bytes."""
     with FolderStore(os.path.join(folder, 'store')) as store:
         reading, extracted = put_reading(store, pdf)
-        packet_key, receipt = admit_packet(store, extracted.text, SCHEMA, candidates(flow), None, reading=reading)
+        packet_key, receipt = admit_packet(
+            store, extracted.text, SCHEMA, candidates(flow), None, reading=reading,
+            places=layout_places(extracted.layout), completeness=extracted.completeness)
         packet = load_packet(store, packet_key)
         result = verify(packet.receipt, packet.text, packet.schema, packet.candidates, **packet.inputs())
         if not result.ok:
@@ -86,7 +84,7 @@ def run_groundgate(pdf: Path, flow: int, folder: str) -> tuple[dict, bytes, byte
         for decision in sorted(receipt.to_dict()['decisions'], key=lambda d: d['field']):
             print('groundgate', decision['field'], decision['outcome'])
         export = admitted_facts(store, packet)
-    return export, pdf.read_bytes(), extracted.text.encode('utf-8'), extracted.layout
+    return export, pdf.read_bytes(), extracted.text.encode('utf-8')
 
 
 def call(store: Store, operation: str, request: dict) -> dict:
@@ -117,7 +115,7 @@ def publish(store: Store, serving: str, head: str | None) -> str:
     return published['items'][0]['head']
 
 
-def facts(store: Store, serving: str, evidence: str, layout) -> list[dict]:
+def facts(store: Store, serving: str, evidence: str) -> list[dict]:
     """Read each fact of the two snapshots with the read operation, and give its value and its citation."""
     context = call(store, 'open_context', {'roots': [serving, evidence]})['context']
     root = read(store, context, evidence)['descriptor']
@@ -136,7 +134,7 @@ def facts(store: Store, serving: str, evidence: str, layout) -> list[dict]:
             source = read(store, context, reading)['descriptor']['source']
             span = record['ext']['citation']
             out.append({'field': row['field'], 'value': row['value'], 'text': cited,
-                        'page': page_of(layout, span['start'], span['end']),
+                        'page': page_of(record['ext']),
                         'span': [span['start'], span['end']], 'source': natives.get(source),
                         'text_digest': natives.get(reading)})
     out.sort(key=lambda fact: fact['field'])
@@ -161,21 +159,21 @@ def main() -> None:
     head = None
     for name, flow in (('datasheet-v1.pdf', 120), ('datasheet-v2.pdf', 135)):
         with tempfile.TemporaryDirectory() as folder:
-            export, source, text, layout = run_groundgate(HERE / name, flow, folder)
+            export, source, text = run_groundgate(HERE / name, flow, folder)
         serving, evidence = put_export_facts(
             store, json.dumps(export), DECLARATION, source=source, reading=text, source_media_type='application/pdf',
             source_locator='example/' + name, producer='example/pdf-reader/v1',
             native_scheme='example/admitted-citation/v1', serving=SERVING, evidence=EVIDENCE)
         head = publish(store, serving, head)
         print('published', name, 'head is the new snapshot', head == serving)
-        found = facts(store, head, evidence, layout)
+        found = facts(store, head, evidence)
         show('fact', found)
-        versions.append((serving, evidence, layout, found))
+        versions.append((serving, evidence, found))
 
-    first_serving, first_evidence, first_layout, first_found = versions[0]
-    again = facts(store, first_serving, first_evidence, first_layout)
+    first_serving, first_evidence, first_found = versions[0]
+    again = facts(store, first_serving, first_evidence)
     print('first snapshot unchanged', again == first_found)
-    changed = [fact['field'] for fact, new in zip(first_found, versions[1][3]) if fact['value'] != new['value']]
+    changed = [fact['field'] for fact, new in zip(first_found, versions[1][2]) if fact['value'] != new['value']]
     print('changed in the second snapshot', changed)
 
 

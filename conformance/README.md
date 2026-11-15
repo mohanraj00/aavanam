@@ -160,3 +160,9 @@ The request of a `put` step is a list of descriptor entries. Each entry has `val
 If a `put` step is `ok`, each item must have a field `ref`, the revision of its descriptor (IDN-CAN-2). The runner computes the revision of each sent descriptor: it omits the empty sets, sorts the reference sets (KND-SCH-3, KND-SCH-5) and encodes the result with RFC 8785. It compares the revision with the returned `ref`, and binds the handle to it. For other operations, the runner replaces the handles and sends the request without other changes.
 
 These request forms are a test convention, not an API. The adapter maps them to the API of its implementation.
+
+## Application adapter vectors
+
+`tests/vectors/admitted-export.json` holds the input vectors of the optional producer export members (ADP-FXT-2, ADP-FXT-4, ADP-FXT-5, ADP-FXT-7). These calls are application adapter calls, not store operations. `tests/test_admitted_facts.py` runs them with `make check`.
+
+Each vector has an `id`, `clauses`, `provenance`, `fact_index`, `fact`, `citation`, `export` and `expect`. The test starts with the synthetic delivery export in `fixtures/admitted-export/kinds.json`. It applies `export` to the export, `fact` to the fact at `fact_index`, and `citation` to that fact's citation. An `ok` vector has `ext`, the expected optional evidence members. A `refused` vector has `pair`, the ID of an `ok` vector, and MUST leave the store unchanged. The expected values come from the cited clauses and the fixture definition. They do not come from an adapter run.
