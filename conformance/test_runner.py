@@ -429,6 +429,38 @@ class RunVectorTest(unittest.TestCase):
             problems = runner.run_vector(Scripted({**envelope('export', 'ok', []), 'bundle': bundle}), 't', {'steps': [step]})
             self.assertTrue(problems and words in problems[0], (words, problems))
 
+    def test_deferred_bundle_faults_keep_identity_and_absent_bytes(self):
+        # BUN-IMP-10: change only the deferred check input and its root identity.
+        text, digest = source(b'abc')
+        source_desc = json.loads(text)
+        excerpt = {'descriptor_profile': runner.BASE_PROFILE, 'kind': 'excerpt', 'parent': rev(source_desc),
+                   'ranges': [{'start': 0, 'end': 3}], 'payload': source_desc['payload']}
+        for fault, root in (('withheld_size', source_desc), ('withheld_excerpt_range', excerpt)):
+            with self.subTest(fault=fault):
+                original = {'format': 'aavanam-bundle/v1', 'roots': [rev(root)],
+                            'descriptors': [runner.canonical(root)], 'payloads': {}, 'withheld': [digest]}
+                expander = runner.Expander('t', {})
+                expander.bundles['x'] = copy.deepcopy(original)
+                changed = expander.bundle('x', fault)
+                expected = copy.deepcopy(root)
+                if fault == 'withheld_size':
+                    expected['payload']['size'] = 4
+                else:
+                    expected['ranges'][-1]['end'] = 4
+                self.assertEqual(changed, {**original, 'roots': [rev(expected)],
+                                           'descriptors': [runner.canonical(expected)]})
+                self.assertNotEqual(changed['roots'], original['roots'])
+                self.assertEqual(expander.bundle('x', None), original)
+                for invalid, message in (({**original, 'roots': []}, 'one root descriptor'),
+                                         ({**original, 'roots': [rev(root), REF_A]}, 'one root descriptor'),
+                                         ({**original, 'withheld': []}, 'no withheld payload')):
+                    expander.bundles['bad'] = invalid
+                    with self.assertRaisesRegex(runner.VectorError, message):
+                        expander.bundle('bad', fault)
+        expander.bundles['source'] = {**original, 'roots': [rev(source_desc)], 'descriptors': [text]}
+        with self.assertRaisesRegex(runner.VectorError, 'not an excerpt'):
+            expander.bundle('source', 'withheld_excerpt_range')
+
     def test_export_compares_canonical_descriptors(self):
         ok = {'status': 'ok', 'reasons': []}
         refs = ['sha256:' + c * 64 for c in 'abc']

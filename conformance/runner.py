@@ -86,6 +86,25 @@ class Expander:
             del value['withheld']
         elif fault == 'format':
             value['format'] = 'sample/bundle/v1'
+        elif fault in ('withheld_size', 'withheld_excerpt_range'):
+            # Plant a fault behind absent bytes, with a valid root revision (BUN-IMP-9, BUN-IMP-10).
+            schemas = check_spec.schemas()
+            descriptors = [json.loads(t) for t in value['descriptors']]
+            roots = value['roots']
+            matches = [(n, d) for n, d in enumerate(descriptors) if len(roots) == 1 and revision(d, schemas) == roots[0]]
+            if len(matches) != 1:
+                raise VectorError(f'{self.vid}: bundle {name} needs one root descriptor for {fault}')
+            n, desc = matches[0]
+            if desc.get('payload', {}).get('digest') not in value.get('withheld', []):
+                raise VectorError(f'{self.vid}: bundle {name} root has no withheld payload for {fault}')
+            if fault == 'withheld_size':
+                desc['payload']['size'] += 1
+            else:
+                if desc.get('kind') != 'excerpt' or not desc.get('ranges'):
+                    raise VectorError(f'{self.vid}: bundle {name} root is not an excerpt for {fault}')
+                desc['ranges'][-1]['end'] += 1
+            value['descriptors'][n] = canonical(desc)
+            value['roots'] = [revision(desc, schemas)]
         elif fault is not None:
             raise VectorError(f'{self.vid}: unknown bundle fault {fault}')
         return value
