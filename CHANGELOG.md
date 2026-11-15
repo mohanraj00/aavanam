@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Add the half-open range match and the interval overlap match to `query_data` (DAT-DEC-1 to DAT-RNG-6, QRY-DAT-5, #67). A request declares the bound columns and their type, `decimal` or `date`, in the field `ranges`. A missing value gives `missing_value`, and a value of a different type gives `value_type`. The store does not convert a number or a unit. The base profile is at minor version 9.
+- Add the filter on declared metadata to `list_items` and `export` (DSC-FLT-1 to DSC-FLT-6, BUN-FLT-1 to BUN-FLT-5, #5). A filter has exact clauses and half-open interval clauses on the overlay values of each item. The store reads no filter value from an activation. An item with absent, missing or conflicting metadata gives a closed status, not a match. A filtered export has the matched units as its roots, and its bundle records the filter. It gives no bundle if a matched unit has a unit that does not match in its closure. The base profile is at minor version 10.
 
 ## 0.2.0
 
