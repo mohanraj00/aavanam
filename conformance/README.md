@@ -146,7 +146,7 @@ An `ok` call of `create_snapshot` or `create_candidate` that returns a new value
 
 The vectors run one call at a time. Thus they do not test two concurrent calls (PUB-RCP-3). The tests of a store must cover them.
 
-BUN-IMP-11 has no vectors because the format cannot express a race between two connections; `test_import_rechecks_excerpt_bytes_in_the_transaction`, `test_import_rechecks_payload_size_in_the_transaction` and `test_import_rechecks_payload_digest_in_the_transaction` in `tests/test_withheld.py` cover this clause.
+BUN-IMP-11 has no vectors. The vector format cannot express a race between two connections. These tests in `tests/test_withheld.py` cover the clause: `test_import_rechecks_excerpt_bytes_in_the_transaction`, `test_import_rechecks_payload_size_in_the_transaction` and `test_import_rechecks_payload_digest_in_the_transaction`.
 
 ## Calls to the adapter
 
