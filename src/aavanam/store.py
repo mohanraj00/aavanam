@@ -17,7 +17,8 @@ import sqlite3
 import threading
 import uuid
 from collections import deque
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
@@ -132,6 +133,46 @@ def joined(outcomes: list[dict]) -> dict:
 
 def is_count(value, least: int = 0) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= least
+
+
+DECIMAL = re.compile(r'-?(0|[1-9][0-9]*)(\.[0-9]+)?', re.ASCII)
+DAY = re.compile(r'([0-9]{4})-([0-9]{2})-([0-9]{2})', re.ASCII)
+
+
+def typed(kind: str, value):
+    """The value in the order of its declared type, or None if it is not a value of the type (DAT-DEC-1, DAT-DAY-1).
+
+    A decimal compares by its exact numeric value (DAT-DEC-2). A date compares in calendar order (DAT-DAY-2).
+    """
+    if not isinstance(value, str):
+        return None
+    if kind == 'decimal':
+        return Decimal(value) if len(value) <= 64 and DECIMAL.fullmatch(value) else None
+    found = DAY.fullmatch(value)
+    try:
+        return date(*map(int, found.groups())) if found else None
+    except ValueError:
+        return None
+
+
+def is_range_clause(clause) -> bool:
+    """The form of a range clause (DAT-RNG-1)."""
+    if not isinstance(clause, dict) or clause.get('type') not in ('decimal', 'date'):
+        return False
+    match = clause.get('match')
+    values = {'contains': ('value',), 'overlaps': ('start', 'end')}.get(match) if isinstance(match, str) else None
+    if values is None or set(clause) != {'lower', 'upper', 'type', 'match', *values}:
+        return False
+    return (all(isinstance(clause[f], str) for f in ('lower', 'upper'))
+            and all(typed(clause['type'], clause[f]) is not None for f in values))
+
+
+def range_matches(clause: dict, lower, upper) -> bool:
+    """The half-open match of DAT-RNG-2 and DAT-RNG-3. An empty range or interval gives False (DAT-RNG-4)."""
+    kind = clause['type']
+    if clause['match'] == 'contains':
+        return lower <= typed(kind, clause['value']) < upper
+    return max(lower, typed(kind, clause['start'])) < min(upper, typed(kind, clause['end']))
 
 
 def form(request: dict, fields: dict, code: str = 'field_type') -> None:
@@ -1082,8 +1123,8 @@ class Store:
         table = self.table(desc)
         if table is None:
             return refused(['payload_form'], [ref])
-        where = request.get('where', {})
-        unknown = [c for c in where if c not in table['columns']]
+        where, ranges = request.get('where', {}), request.get('ranges', [])
+        unknown = [c for c in [*where, *(r[f] for r in ranges for f in ('lower', 'upper'))] if c not in table['columns']]
         if unknown:
             return refused(['unknown_column'] * len(unknown), [ref])
         metadata = {}
@@ -1101,6 +1142,16 @@ class Store:
         columns = table['columns']
         rows = [dict(zip(columns, r)) for r in table['rows']
                 if all(canonical(r[columns.index(c)]) == canonical(v) for c, v in where.items())]
+        # QRY-DAT-5: the ranges of the rows that match where. A missing value stops before a value type.
+        cells = [(r[c[f]], c['type']) for r in rows for c in ranges for f in ('lower', 'upper')]
+        missing = sum(v is None for v, _ in cells)
+        if missing:
+            return refused(['missing_value'] * missing, [ref])  # DAT-MIS-2
+        wrong = sum(typed(kind, v) is None for v, kind in cells)
+        if wrong:
+            return refused(['value_type'] * wrong, [ref])  # DAT-RNG-5
+        rows = [r for r in rows
+                if all(range_matches(c, typed(c['type'], r[c['lower']]), typed(c['type'], r[c['upper']])) for c in ranges)]
         offset, limit = request.get('offset', 0), request.get('limit')
         rest = rows[offset:]
         more = limit is not None and len(rest) > limit
@@ -1112,6 +1163,7 @@ class Store:
     def op_query_data(self, request: dict) -> dict:
         form(request, {'context': (True, is_str), 'resources': (True, is_refs),
                        'where': (False, lambda v: isinstance(v, dict) and is_ijson(v)),
+                       'ranges': (False, lambda v: isinstance(v, list) and v and all(map(is_range_clause, v))),
                        'metadata': (False, lambda v: isinstance(v, list) and v and all(isinstance(k, str) for k in v)
                                     and len(set(v)) == len(v)),
                        'precedence': (False, lambda v: isinstance(v, list) and all(isinstance(k, str) for k in v)),

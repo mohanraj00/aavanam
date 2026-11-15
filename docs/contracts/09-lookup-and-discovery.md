@@ -33,6 +33,7 @@ The topic `SEM` has no clauses. The semantic index is reserved: `semantic_search
 | Field | Value |
 |---|---|
 | `where` | An object. Each key is a column name. Each value is an I-JSON value |
+| `ranges` | A list of one or more range clauses (DAT-RNG-1) |
 | `metadata` | A list of one or more metadata keys (BND-OVL-2). No key occurs two times |
 | `precedence` | A list of strings, highest first (BND-OVL-3) |
 | `schema` | A reference. The schema that the consumer expects |
@@ -49,19 +50,28 @@ If a request field does not agree with this table, the result has status `failed
 4. Profile: if the store does not support the `data_profile`, DAT-PRF-2 gives `unsupported_profile`.
 5. Payload bytes: if the bytes of the payload are not in the store, the item has status `not_found` and reason `payload_missing`.
 6. Payload form: DAT-TBL-3 gives `payload_form`.
-7. Columns: if a key of `where` is not in `columns`, the item has status `unresolved` and reason `unknown_column`.
+7. Columns: if a key of `where`, or the `lower` or the `upper` of a range clause, is not in `columns`, the item has status `unresolved` and reason `unknown_column`.
 8. Metadata: for each key of `metadata`, the candidates are the overlays in the read context that have the resource as subject and that key in `values`. If a key has no candidate, the item has status `unresolved` and reason `no_metadata`. Then, if BND-OVL-3 gives `overlay_conflict` for a key, the item has status `ambiguous` and reason `overlay_conflict`.
+9. Missing values: QRY-DAT-5 gives `missing_value`.
+10. Value types: QRY-DAT-5 gives `value_type`.
 
 The item has one reason for each affected value, for example one `no_metadata` for each key with no candidate. STS-ENV-3 gives the envelope status.
 
 **QRY-DAT-3.** If no check of QRY-DAT-2 fails, the item has status `ok` and the fields `ref`, `rows` and `next`. If the request has `metadata`, the item also has the field `metadata`. An item that is not `ok` has no field `rows`, `next` or `metadata`.
 
-1. A row matches if, for each key of `where`, the value of the row in that column is equal to the value of `where` (DAT-TBL-2). If the request has no `where`, each row matches.
+1. A row matches if, for each key of `where`, the value of the row in that column is equal to the value of `where` (DAT-TBL-2), and each clause of `ranges` matches the row (QRY-DAT-5). If the request has no `where` and no `ranges`, each row matches.
 2. `rows` is the list of the matched rows, in the table order, from the position `offset` in that list. If the request has `limit`, `rows` has `limit` rows or fewer. Each row is an object. Its keys are the column names, and its values are the values of the row.
 3. `metadata` is an object. Each key is a key of the request `metadata`, and its value is the value that BND-OVL-3 applies.
 4. An item that is not `ok` has no `rows` and no `metadata`.
 
 **QRY-DAT-4.** If an `ok` item has more matched rows after `offset` than `limit`, `next` is the sum of `offset` and `limit`, and a declared bound stopped the operation (STS-ENV-3 rule 2). If not, `next` is null. To read the next rows, a consumer sends the same request with `offset` equal to `next`. The context does not change between the two reads (CTX-OPN-2).
+
+**QRY-DAT-5.** The range clauses apply to the rows that match each key of `where`, and to no other row. Thus a `where` clause on a unit column selects the rows that a range clause compares (DAT-UNT-2). For such a row and one clause, the range of the row is the pair of its values in the columns `lower` and `upper` of the clause (DAT-RNG-1). The store checks these ranges in two steps, in this order:
+
+1. If a value of such a range is missing (DAT-MIS-1), the item has status `unresolved` and reason `missing_value` (DAT-MIS-2). The item has one reason for each missing value of each clause.
+2. If a value of such a range is not a value of the declared type, the item has status `incompatible` and reason `value_type` (DAT-RNG-5). The item has one reason for each such value of each clause.
+
+If no step fails, a clause matches a row if it matches the range of the row (DAT-RNG-2, DAT-RNG-3, DAT-RNG-4). A row MUST match each clause of `ranges`. The store does not read a value of a row that does not match `where`, so a missing value in such a row has no effect.
 
 ### Lexical search
 
