@@ -430,9 +430,28 @@ class Store:
         return desc['kind'] if desc else None
 
     def blob(self, key: str) -> bytes | None:
+        """Read bytes only after each deferred check in the store view passes (BUN-IMP-12)."""
+        data = self.raw_blob(key)
+        if data is not None:
+            # A record can name only an absent parent digest, though the excerpt bytes are present.
+            stores = (self, self.device) if self.device else (self,)
+            refs = {r for store in stores for (r,) in store.db.execute('SELECT DISTINCT ref FROM deferred')}
+            for ref in sorted(refs):
+                desc = self.descriptor(ref)
+                if key not in {p['digest'] for p in d.payloads(desc)}:
+                    continue
+                try:
+                    self.step_payloads(desc, self.descriptor, self.raw_blob, False)
+                    self.step_content(desc, self.descriptor, self.raw_blob, False)
+                except d.Refusal:
+                    return None  # failed and incomplete checks use the absent-byte read rules
+        return data
+
+    def raw_blob(self, key: str) -> bytes | None:
+        """Stored bytes for integrity checks. Read operations use blob() (BUN-IMP-10 to BUN-IMP-12)."""
         row = self.db.execute('SELECT data FROM blobs WHERE digest = ?', (key,)).fetchone()
         if row is None:
-            return self.device.blob(key) if self.device else None  # BUN-IMP-8
+            return self.device.raw_blob(key) if self.device else None  # BUN-IMP-8
         return bytes(row[0])
 
     def targets(self, ref: str) -> set[str]:
@@ -477,7 +496,7 @@ class Store:
             deferred = set()
             if withheld:  # BUN-IMP-11: bytes can arrive after the first absence check
                 lookup = lambda r: batch.get(r) or self.descriptor(r)
-                data_of = lambda k: blobs[k] if k in blobs else self.blob(k)
+                data_of = lambda k: blobs[k] if k in blobs else self.raw_blob(k)
                 found = {}
                 for ref, desc in batch.items():
                     try:
@@ -500,7 +519,7 @@ class Store:
                 raise DeferredFailure(found)
             if self.role == 'output':  # the objects and bytes of the device store are already here (BUN-IMP-8)
                 objects = {r: o for r, o in objects.items() if self.device.descriptor(r) is None}
-                blobs = {k: b for k, b in blobs.items() if self.device.blob(k) is None}
+                blobs = {k: b for k, b in blobs.items() if self.device.raw_blob(k) is None}
             # A second connection can declare a section after the check of call(), so check again here (PUB-SEC-2)
             found = {ref: self.section_violations(desc, lambda r: objects.get(r) or self.descriptor(r)) for ref, desc in objects.items()}
             if any(found.values()):
@@ -523,9 +542,9 @@ class Store:
 
     def deferred_failures(self, objects: dict[str, dict], blobs: dict[str, bytes]) -> dict[str, list[str]]:
         """Check stored descriptors before new bytes arrive, with the original batch (BUN-IMP-10)."""
-        new = {k: b for k, b in blobs.items() if self.blob(k) is None}
+        new = {k: b for k, b in blobs.items() if self.raw_blob(k) is None}
         lookup = lambda r: objects.get(r) or self.descriptor(r)
-        data_of = lambda k: new[k] if k in new else self.blob(k)
+        data_of = lambda k: new[k] if k in new else self.raw_blob(k)
         found: dict[str, list[str]] = {}
         for key in new:
             for ref in sorted(self.deferred_refs(key)):
@@ -751,7 +770,7 @@ class Store:
             return batch.get(ref) or self.descriptor(ref)
 
         def data_of(key):
-            return data[key] if key in data else self.blob(key)
+            return data[key] if key in data else self.raw_blob(key)
 
         for n, desc in enumerate(out):
             if 'status' in desc:
