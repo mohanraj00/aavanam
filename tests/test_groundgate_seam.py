@@ -230,13 +230,15 @@ class ExportSeamTest(unittest.TestCase):
         self.assertEqual({f['field']: f['citation']['locator'] for f in export['facts']}, expected)
         serving, evidence = self.put(export)
         context = self.call('open_context', roots=[serving, evidence])['context']
-        records = self.store.descriptor(self.store.descriptor(evidence)['relation_sets'][0])['members']
+        relation = self.store.descriptor(self.store.descriptor(evidence)['relation_sets'][0])
+        self.assertEqual(relation['ext'], {'completeness': completeness})
+        records = relation['members']
         self.assertEqual(len(records), 2)
         for ref in records:
             record = self.store.descriptor(ref)
             table, = self.call('query_data', context=context, resources=[record['subject']])['items']
             self.assertEqual(record['ext']['locator'], expected[table['rows'][0]['field']])
-            self.assertEqual(record['ext']['completeness'], completeness)
+            self.assertNotIn('completeness', record['ext'])
 
     def test_record_members_and_a_passage_keep_the_wheel_metadata(self):  # ADP-FXT-4, ADP-FXT-5, ADP-FXT-7
         schema = {'fields': {'line': {'type': 'record', 'members': {'count': {'type': 'integer'}}},

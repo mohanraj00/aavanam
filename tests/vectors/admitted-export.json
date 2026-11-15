@@ -14,7 +14,8 @@
     "citation": {},
     "export": {},
     "expect": "ok",
-    "ext": {}
+    "ext": {},
+    "relation_ext": {}
   },
   {
     "id": "locator-scalar",
@@ -51,7 +52,8 @@
           300
         ]
       }
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "passage-digest-scalar",
@@ -72,7 +74,8 @@
     "expect": "ok",
     "ext": {
       "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "locator-date",
@@ -109,7 +112,8 @@
           300
         ]
       }
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "passage-digest-date",
@@ -130,7 +134,8 @@
     "expect": "ok",
     "ext": {
       "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "locator-record",
@@ -167,7 +172,8 @@
           300
         ]
       }
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "passage-digest-record",
@@ -188,7 +194,8 @@
     "expect": "ok",
     "ext": {
       "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "locator-passage",
@@ -225,7 +232,8 @@
           300
         ]
       }
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "passage-digest-passage",
@@ -246,7 +254,8 @@
     "expect": "ok",
     "ext": {
       "passage_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "record-scalar-false",
@@ -269,7 +278,8 @@
     "ext": {
       "record": "row-2",
       "replaced": false
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "record-scalar-true",
@@ -292,7 +302,8 @@
     "ext": {
       "record": "row-2",
       "replaced": true
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "record-date-false",
@@ -315,7 +326,8 @@
     "ext": {
       "record": "row-2",
       "replaced": false
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "record-date-true",
@@ -338,7 +350,8 @@
     "ext": {
       "record": "row-2",
       "replaced": true
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "record-record-false",
@@ -361,7 +374,8 @@
     "ext": {
       "record": "row-2",
       "replaced": false
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "record-record-true",
@@ -384,7 +398,8 @@
     "ext": {
       "record": "row-2",
       "replaced": true
-    }
+    },
+    "relation_ext": {}
   },
   {
     "id": "completeness-complete",
@@ -394,7 +409,7 @@
     ],
     "provenance": {
       "type": "spec",
-      "note": "The cited clauses define the accepted form and the unchanged extension values."
+      "note": "ADP-FXT-7 keeps completeness unchanged on the relation set. It is absent from each evidence record and its native identity. This replaces the earlier per-evidence expectation."
     },
     "fact_index": 0,
     "fact": {},
@@ -406,7 +421,8 @@
       }
     },
     "expect": "ok",
-    "ext": {
+    "ext": {},
+    "relation_ext": {
       "completeness": {
         "status": "complete",
         "missing": []
@@ -421,7 +437,7 @@
     ],
     "provenance": {
       "type": "spec",
-      "note": "The cited clauses define the accepted form and the unchanged extension values."
+      "note": "ADP-FXT-7 keeps completeness unchanged on the relation set. It is absent from each evidence record and its native identity. This replaces the earlier per-evidence expectation."
     },
     "fact_index": 0,
     "fact": {},
@@ -446,7 +462,8 @@
       }
     },
     "expect": "ok",
-    "ext": {
+    "ext": {},
+    "relation_ext": {
       "completeness": {
         "status": "partial",
         "missing": [

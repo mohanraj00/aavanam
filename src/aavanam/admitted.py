@@ -358,8 +358,6 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
         if fact['locator'] is not None:
             ext['locator'] = fact['locator']
         more = dict(fact['more'])
-        if 'completeness' in export:
-            more['completeness'] = export['completeness']
         ext.update(more)
         if identity:
             ext['export_identity'] = export[identity]
@@ -367,7 +365,7 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
         records.add(record)
         identity_parts = [*digests, fact['receipt'], start, end, field, key, kind, value, fact['unit'],
                           fact['url'], fact['locator']]
-        # ADP-FXT-7: old exports keep their identities; optional metadata distinguishes new citations.
+        # ADP-FXT-7: old exports keep their identities; optional fact and citation members distinguish citations.
         if more:
             identity_parts.append(more)
         native_id = canonical(identity_parts)
@@ -377,7 +375,9 @@ def put_export_facts(store: Store, export_json: str, declaration: dict, *, sourc
     bindings = add('binding-set', bindings={f'fact/{n}': ref for n, ref in enumerate(sorted(subjects))})
     unit = add('knowledge-unit', binding_set=bindings)
     overlay_set = add('overlay-set', members=sorted(locators))
-    relations = add('relation-set', members=sorted(records))
+    # ADP-FXT-7: completeness describes the export. Store it once, outside evidence and its native identities.
+    relation_ext = {'ext': {'completeness': export['completeness']}} if 'completeness' in export else {}
+    relations = add('relation-set', members=sorted(records), **relation_ext)
     serving_root = add('snapshot', collection=serving, units=[unit], overlay_sets=[overlay_set])
     evidence_root = add('snapshot', collection=evidence, relation_sets=[relations], native_mappings=sorted(mappings))
     result = store.call('put', {'descriptors': list(descriptors.values()), 'payloads': payloads})
