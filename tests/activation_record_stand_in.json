@@ -1,0 +1,42 @@
+{
+  "format": "aavanam-test/activation-record-stand-in/v1",
+  "stand_in": true,
+  "note": [
+    "STAND-IN. This file does not come from an entelos release.",
+    "Entelos has no release with the signed activation record yet (mohanraj00/entelos#105 and mohanraj00/entelos#155).",
+    "Each record has the field list of mohanraj00/entelos#105: the candidate, the base snapshot, the input lock, the approval and report receipts, the approver, the producer, the runner, the partition, the half-open effective interval and the request key.",
+    "A record has no signature, and the names and the layout of the fields are an assumption of this project.",
+    "To replace it: pin the entelos release in the seam requirements, make these records with that release, and change only the function `descriptor_of` in tests/test_activation_seam.py to read the released layout. Then set `stand_in` to false or remove this file.",
+    "All values are synthetic and neutral."
+  ],
+  "source": "https://github.com/mohanraj00/entelos/issues/105",
+  "names": "A value that starts with `$` is a name. The test binds it to a reference or a candidate identity of its own store, because these values depend on the content of the store.",
+  "records": {
+    "first": {
+      "candidate": "$candidate-1",
+      "base": null,
+      "lock": "$lock-1",
+      "approval": {"producer": "sample-approver", "media_type": "text/plain", "text": "Approved: sample notices, first update."},
+      "report": {"producer": "sample-runner", "media_type": "text/plain", "text": "Qualified: sample notices, first update."},
+      "approver": "sample-approver",
+      "producer": "sample-producer",
+      "runner": "sample-runner",
+      "partition": "sample-notices",
+      "effective": {"from": "2026-01-01", "until": "2026-07-01"},
+      "request_key": "sample-request-0001"
+    },
+    "second": {
+      "candidate": "$candidate-2",
+      "base": "$snapshot-1",
+      "lock": "$lock-2",
+      "approval": {"producer": "sample-approver", "media_type": "text/plain", "text": "Approved: sample notices, second update."},
+      "report": {"producer": "sample-runner", "media_type": "text/plain", "text": "Qualified: sample notices, second update."},
+      "approver": "sample-approver",
+      "producer": "sample-producer",
+      "runner": "sample-runner",
+      "partition": "sample-notices",
+      "effective": {"from": "2026-07-01", "until": "2027-01-01"},
+      "request_key": "sample-request-0002"
+    }
+  }
+}
