@@ -77,6 +77,7 @@ The reason table:
 | `role_schema_mismatch` | `incompatible` | A bound object does not have the schema that its declared role gives (BND-ROL-2) |
 | `schema_mismatch` | `incompatible` | A data resource does not have the schema that the request gives (QRY-DAT-2) |
 | `value_type` | `incompatible` | A value that a range clause compares is not a value of the declared type (DAT-RNG-5) |
+| `unmatched_dependency` | `incompatible` | The closure of a matched candidate of a filtered export has a candidate that does not match the filter (BUN-FLT-2) |
 | `binding_skew` | `incompatible` | Two collections pin different revisions of one shared input, and the skew policy rejects this (CTX-SKW-4) |
 | `head_moved` | `incompatible` | An expected head is not the current head |
 | `check_outside_snapshot` | `incompatible` | The subject of a check is not in the closure of the snapshot of the candidate (PUB-CND-2) |

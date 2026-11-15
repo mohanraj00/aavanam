@@ -79,11 +79,12 @@ The license value is the `license` of the statements for rule 5, and null for th
 
 1. If a check of DSC-FLT-3 fails for one or more candidates, the result has no items and no `bundle`. The status is the first status of these outcomes in the order of STS-ENV-3 rule 6, and the reasons are the reasons of the outcomes that have that status.
 2. If not, and no candidate matches the filter (DSC-FLT-4), the result has status `unresolved` and reason `no_match`, and it has no items and no `bundle`. The `refs` of the reason name the request roots. This applies also if the closure of the roots has no candidate.
+3. If not, and the closure of the candidates that match has a candidate that does not match, the result has status `incompatible` and reason `unmatched_dependency`, and it has no items and no `bundle`. The result has one reason for each such candidate, with the candidate in `refs`. A bundle has the closure of its roots (BUN-CLS-1), so the store cannot leave out this candidate. For example, a unit that matches can have an OverlaySet with an overlay about a unit that does not match.
 
 **BUN-FLT-3.** If no rule of BUN-FLT-2 applies, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1).
 
 1. The `roots` of the bundle are the candidates that match the filter, in ascending string order. They are not the roots of the request.
-2. The `descriptors`, the `payloads` and the `withheld` of the bundle are those of BUN-EXP-2 and BUN-RED-5 for the closure of these roots. The bundle MUST NOT have a descriptor or bytes outside this closure. Thus it does not have a candidate that does not match, and it does not have a request root that is a snapshot.
+2. The `descriptors`, the `payloads` and the `withheld` of the bundle are those of BUN-EXP-2 and BUN-RED-5 for the closure of these roots. The bundle MUST NOT have a descriptor or bytes outside this closure. By rule 3 of BUN-FLT-2, this closure has no candidate that does not match. Thus the objects of kind `knowledge-unit` in the bundle are exactly its roots, and the bundle does not have a request root that is a snapshot.
 3. The result has one item for each object in this closure, with the fields of BUN-EXP-3. Each item also has the field `matched`. It is `true` for a root of the bundle, and `false` for each other object.
 
 An overlay that gives a filter value is in the bundle only if it is in the closure of a matched candidate (BUN-CLS-2). An overlay refers to its subject (BND-OVL-1), so the closure of a `knowledge-unit` does not have the overlays about that unit. Thus the store applies the filter on the writer store, and a device store with the bundle has the content that matched.
@@ -92,11 +93,12 @@ An overlay that gives a filter value is in the bundle only if it is in the closu
 
 **BUN-FLT-5.** A filtered listing and a filtered export give the same content. In one read context, a `list_items` request with the `kinds` value `knowledge-unit` and a filter gives the items L. An `export` request with the same filter, and with roots whose closure has the same objects of kind `knowledge-unit`, gives the bundle B.
 
-1. If each item of L is `ok`, and L has one or more items, the `roots` of B are the `ref` values of L.
+1. If each item of L is `ok`, L has one or more items, and rule 4 does not apply, the `roots` of B are the `ref` values of L.
 2. If an item of L is not `ok`, the export is not `ok`, with the status and the reasons of BUN-FLT-2 rule 1.
 3. If L has no items, the export has reason `no_match`.
+4. If each item of L is `ok`, and the closure of an item of L has an object of kind `knowledge-unit` that is not in L, the export has reason `unmatched_dependency` (BUN-FLT-2 rule 3). The listing gives locations, so it does not have this check.
 
-On a device store with an `ok` import of B, a read context with the roots of B has these roots as its only members of kind `knowledge-unit` (BUN-CLS-3).
+On a device store with an `ok` import of B, a read context with the roots of B has these roots as its only members of kind `knowledge-unit` (BUN-FLT-3 rule 2, BUN-CLS-3).
 
 ### Import
 

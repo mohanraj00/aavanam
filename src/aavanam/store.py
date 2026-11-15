@@ -1061,6 +1061,9 @@ class Store:
             roots = [r for r, o in checked if o]
             if not roots:
                 return self.envelope('export', 'unresolved', [reason('no_match', request['roots'])], [], context)
+            inside = sorted(r for r in self.closure(roots) if self.kind(r) == 'knowledge-unit' and r not in roots)
+            if inside:  # BUN-FLT-2 rule 3: the closure of a match has a unit that does not match
+                return self.envelope('export', 'incompatible', [reason('unmatched_dependency', [r]) for r in inside], [], context)
         objects = sorted(self.closure(roots))
         statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
         values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
