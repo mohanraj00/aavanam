@@ -1,0 +1,5 @@
+# The pinned groundgate of the library example (examples/library_hours/README.md).
+# Install with --require-hashes --only-binary :all: --no-deps. The hash is the hash of the published wheel.
+# groundgate 0.15.0 is the release of tests/requirements-seam.txt. The example reads a text source, so it needs no extra.
+# Entelos has no Python package and no release with the activation record, so this file pins no entelos version.
+groundgate==0.15.0 --hash=sha256:a9ea36fa785acef9dfc7331644f7d548fc2e7ccb462d206cc7940d31db55c5a9

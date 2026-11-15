@@ -1,0 +1,3 @@
+Sample Town Library: opening hours.
+North branch, winter season, 2026-01-01 to 2026-04-01: open 09:00 to 17:00.
+South branch, summer season, 2026-06-01 to 2026-09-01: open 10:00 to 20:00.
