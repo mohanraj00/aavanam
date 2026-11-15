@@ -82,6 +82,8 @@ class Expander:
             del payloads[min(payloads)]
         elif fault == 'format':
             value['format'] = 'sample/bundle/v1'
+        elif fault == 'filter_form':
+            value['filter'] = {}  # not a filter (DSC-FLT-1, BUN-FLT-4)
         elif fault is not None:
             raise VectorError(f'{self.vid}: unknown bundle fault {fault}')
         return value
@@ -362,13 +364,13 @@ def unique_keys(pairs: list) -> dict:
 
 
 def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, stored: dict[str, str]) -> list[str]:
-    """Check the bundle of an export result (BUN-MAN-1, BUN-EXP-1, BUN-EXP-2 and BUN-RED-5)."""
+    """Check the bundle of an export result (BUN-MAN-1, BUN-EXP-1, BUN-EXP-2, BUN-RED-5, BUN-FLT-3 and BUN-FLT-4)."""
     if operation != 'export':
         return []
     bundle = actual.get('bundle')
     if expect['status'] != 'ok':
         return [] if bundle is None else ['a refused export has a bundle (BUN-EXP-1)']
-    if not isinstance(bundle, dict) or set(bundle) - {'withheld'} != {'format', 'roots', 'descriptors', 'payloads'}:
+    if not isinstance(bundle, dict) or set(bundle) - {'withheld', 'filter'} != {'format', 'roots', 'descriptors', 'payloads'}:
         return ['bundle does not have the fields of BUN-MAN-1']
     problems = []
     withheld = bundle.get('withheld', [])
@@ -377,7 +379,19 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
         return ['bundle withheld is not a list of one or more different digests (BUN-MAN-1)']
     if bundle['format'] != 'aavanam-bundle/v1':
         problems.append(f'bundle format is {bundle["format"]!r} (BUN-MAN-1)')
-    if not isinstance(bundle['roots'], list) or sorted(map(str, bundle['roots'])) != sorted(map(str, request.get('roots', []))):
+    if 'filter' in request:
+        # BUN-FLT-3: the roots are the matched items, in ascending string order. BUN-FLT-4: the bundle records the filter.
+        items = actual.get('items') if isinstance(actual.get('items'), list) else []
+        matched = [i.get('ref') for i in items if isinstance(i, dict) and i.get('matched') is True]
+        if not all(isinstance(i, dict) and isinstance(i.get('matched'), bool) for i in items):
+            problems.append('an item of a filtered export has no boolean field matched (BUN-FLT-3)')
+        if not matched or bundle['roots'] != sorted(map(str, matched)):
+            problems.append('bundle roots are not the matched items in ascending order (BUN-FLT-3)')
+        if 'filter' not in bundle or json.dumps(bundle['filter'], sort_keys=True) != json.dumps(request['filter'], sort_keys=True):
+            problems.append('bundle filter is not the filter of the request (BUN-FLT-4)')
+    elif 'filter' in bundle:
+        problems.append('a bundle of an export with no filter has a filter (BUN-FLT-4)')
+    elif not isinstance(bundle['roots'], list) or sorted(map(str, bundle['roots'])) != sorted(map(str, request.get('roots', []))):
         problems.append('bundle roots are not the request roots (BUN-EXP-2)')
     texts, payloads = bundle['descriptors'], bundle['payloads']
     if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts) or not isinstance(payloads, dict):

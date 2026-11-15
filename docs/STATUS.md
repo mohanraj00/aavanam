@@ -9,6 +9,7 @@ The specification has 20 contract documents in the `draft` state. The reference 
 - Transfer and composition: export, import, device stores and composed contexts, with end-to-end acceptance vectors. An export reports the license and the redistribution status of each item, and withholds the bytes that its target does not permit.
 - Activation gate: gated collections, the `activation` kind, the activation checks of `publish` and the `publications` read.
 - Lifecycle and discovery: the changes between two snapshots, the history of a logical ID and the exact item listing (documents 17 and 18).
+- Filters: the half-open range match and the interval match on declared columns, and the filter on declared metadata for a listing and an export.
 
 ## Next
 

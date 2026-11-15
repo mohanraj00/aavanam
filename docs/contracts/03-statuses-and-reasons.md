@@ -66,8 +66,9 @@ The reason table:
 | `unbound_role` | `unresolved` | A declared role has no binding in the BindingSet |
 | `no_head` | `unresolved` | A logical ID has no head in the read context, or a collection has no head in the catalog (CTX-VIW-2) |
 | `unknown_column` | `unresolved` | A column in the request is not a column of the table (QRY-DAT-2) |
-| `no_metadata` | `unresolved` | No overlay in the read context gives a value for a requested metadata key (QRY-DAT-2) |
-| `missing_value` | `unresolved` | A value that a range clause compares is missing (DAT-MIS-2) |
+| `no_metadata` | `unresolved` | No overlay in the read context gives a value for a requested metadata key (QRY-DAT-2, DSC-FLT-3) |
+| `missing_value` | `unresolved` | A value that a range clause or a filter compares is missing (DAT-MIS-2, DSC-FLT-3) |
+| `no_match` | `unresolved` | No candidate of a filtered export matches the filter (BUN-FLT-2) |
 | `multiple_heads` | `ambiguous` | A logical ID has more than one head in the read context |
 | `overlay_conflict` | `ambiguous` | Two overlays give different values, and no precedence selects one |
 | `collection_conflict` | `ambiguous` | A read context has two different snapshots of one collection (CTX-CMP-1) |
@@ -76,6 +77,7 @@ The reason table:
 | `role_schema_mismatch` | `incompatible` | A bound object does not have the schema that its declared role gives (BND-ROL-2) |
 | `schema_mismatch` | `incompatible` | A data resource does not have the schema that the request gives (QRY-DAT-2) |
 | `value_type` | `incompatible` | A value that a range clause compares is not a value of the declared type (DAT-RNG-5) |
+| `unmatched_dependency` | `incompatible` | The closure of a matched candidate of a filtered export has a candidate that does not match the filter (BUN-FLT-2) |
 | `binding_skew` | `incompatible` | Two collections pin different revisions of one shared input, and the skew policy rejects this (CTX-SKW-4) |
 | `head_moved` | `incompatible` | An expected head is not the current head |
 | `check_outside_snapshot` | `incompatible` | The subject of a check is not in the closure of the snapshot of the candidate (PUB-CND-2) |
@@ -162,11 +164,11 @@ The operation table:
 | `create_candidate` | 13 | `ok`, `not_found`, `incompatible`, `unsupported`, `failed` |
 | `publish` | 13 | `ok`, `not_found`, `incompatible`, `unsupported`, `failed` |
 | `publications` | 13 | `ok`, `failed` |
-| `export` | 11 | `ok`, `not_found`, `unsupported`, `failed` |
+| `export` | 11 | `ok`, `not_found`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
 | `import` | 11 | `ok`, `incompatible`, `unsupported`, `failed` |
 | `snapshot_changes` | 17 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
 | `item_history` | 17 | `ok`, `failed` |
-| `list_items` | 18 | `ok`, `partial`, `unsupported`, `failed` |
+| `list_items` | 18 | `ok`, `partial`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
 | `read` | 20 | `ok`, `not_found`, `unsupported`, `failed` |
 | `search_text` | 20 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
 | `producer_put` | 19 | `ok`, `incompatible`, `unsupported`, `failed` |
