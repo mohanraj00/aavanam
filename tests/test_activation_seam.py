@@ -9,7 +9,7 @@ A workflow producer activates an update and publishes it to a gated collection. 
 The activation records are a STAND-IN. They come from `tests/activation_record_stand_in.json`, not from a release
 of the producer. No release writes the proposed activation record yet. The note in that file
 says how to replace it with a pinned release. `resolve` maps the record to the store descriptor.
-The rule checks also read the record layout.
+The shared check_record applies record rules 1 to 8 before resolve checks the manifest.
 
 The content and record contracts at commit 4d9d66e map to PUB-ACT-1 as follows.
 
@@ -32,7 +32,7 @@ The manifest lists the content members and inputs.lock, in ascending item_id ord
 use descriptor byte digests and sizes. The stored descriptor text is canonical JSON (IDN-CAN-2).
 Its byte digest equals its store reference. The manifest identity and store candidate identity stay separate.
 
-resolve checks the manifest hash, format, fields, schema, item order and the record head fields.
+resolve first checks record rules 1 to 8. It then checks the manifest hash, format, fields, schema, item order and the record head fields.
 It then selects the lock bytes, candidate, published base and receipt wrappers through the typed fields above.
 A failed check raises a refusal reason before any store call. A known base must be the consumer head,
 except for a repeat of an earlier publication (PUB-HED-5). The guard requires the complete descriptor
@@ -49,87 +49,23 @@ from __future__ import annotations
 
 import copy
 import json
-import re
 import runpy
 import unittest
-from datetime import date
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from support import BASE, ROOT, Store, candidate, payload, put_ref
 
 STAND_IN = ROOT / 'tests/activation_record_stand_in.json'
 COLLECTION = 'sample-notices'
 POLICY = 'sample-policy'
-# The record table and schema at commit 4d9d66e. No schema package is needed.
-FIELDS = {'format', 'scope', 'function', 'event_ref', 'request_key', 'candidate', 'base', 'collection', 'partition',
-          'from', 'until', 'source_ref', 'snapshot_ref', 'report_ref', 'decision_ref', 'producer', 'runner', 'approver',
-          'activator', 'targets', 'supersedes', 'applicability'}
-REQUIRED = FIELDS - {'collection', 'partition'}
-REF = r'sha256:[0-9a-f]{64}'
-
 
 MAPPING = runpy.run_path(str(ROOT / 'examples/library_hours/activation_mapping.py'))
+FIELDS = MAPPING['FIELDS']
+check_record = MAPPING['check_record']
 json_object = MAPPING['json_object']
 manifest_text = MAPPING['manifest_text']
 resolve = MAPPING['resolve']
 digest = MAPPING['digest']
-
-
-def check_record(record: dict, record_kind: str | None) -> None:
-    """Apply consumer rules 1 to 8 at commit 4d9d66e. Rule 1 requires the record kind 'activation'.
-
-    A missing kind (None) or another value gives unexpected_record_kind.
-    json_object checks duplicate names before this function gets a record object.
-    """
-    def require(ok, rule):
-        if not ok:
-            raise ValueError(rule)
-
-    def matches(value, pattern):
-        return isinstance(value, str) and re.fullmatch(pattern, value) is not None
-
-    require(record_kind == 'activation', 'unexpected_record_kind')  # rule 1
-    require(isinstance(record, dict), 'json')  # rule 2
-    require(record.get('format') == 'entelos.record/1', 'unsupported_record_format')  # rule 3
-    # Rule 4: check names in text order, including candidate fields. Applicability names are data.
-    for key, value in record.items():
-        require(key in FIELDS, 'unknown_field:' + key)
-        if key == 'candidate' and isinstance(value, dict):
-            for field in value:
-                require(field in {'kind', 'ref'}, 'unknown_field:candidate.' + field)
-    # Rule 5: the closed schema, including optional names and all applicability levels.
-    require(REQUIRED <= record.keys(), 'schema')
-    for key in ('scope', 'function', 'producer', 'runner', 'approver', 'activator'):
-        require(isinstance(record[key], str) and len(record[key]) >= 1, 'schema')
-    require(isinstance(record['request_key'], str), 'schema')
-    for key in ('event_ref', 'source_ref', 'snapshot_ref', 'report_ref', 'decision_ref'):
-        require(matches(record[key], REF), 'schema')
-    require(matches(record['base'], '(' + REF + ')?'), 'schema')
-    cand = record['candidate']
-    require(isinstance(cand, dict) and set(cand) == {'kind', 'ref'}, 'schema')
-    require(cand['kind'] in ('content', 'cel-bundle') and matches(cand['ref'], REF), 'schema')
-    for key in ('collection', 'partition'):
-        if key in record:
-            require(matches(record[key], r'[A-Za-z0-9._-]{1,128}'), 'schema')
-    for key in ('from', 'until'):
-        require(matches(record[key], r'[0-9]{4}-[0-9]{2}-[0-9]{2}'), 'schema')
-    for key in ('targets', 'supersedes'):
-        require(isinstance(record[key], list) and all(matches(ref, REF) for ref in record[key]), 'schema')
-    require(isinstance(record['applicability'], dict), 'schema')
-    for values in record['applicability'].values():
-        require(isinstance(values, dict), 'schema')
-        for levels in values.values():
-            require(isinstance(levels, list) and 1 <= len(levels) <= 8, 'schema')
-            require(all(isinstance(level, str) and 1 <= len(level) <= 256 for level in levels), 'schema')
-    content = cand['kind'] == 'content'
-    require(all((key in record) == content for key in ('collection', 'partition')), 'candidate_fields')  # rule 6
-    if content:
-        require(record['function'] == 'content:' + record['collection'] + '/' + record['partition'], 'subject')  # rule 7
-    try:
-        start, end = date.fromisoformat(record['from']), date.fromisoformat(record['until'])
-    except ValueError as error:
-        raise ValueError('interval') from error
-    require(start < end, 'interval')  # rule 8
 
 
 def records() -> dict[str, dict]:
@@ -152,6 +88,7 @@ class Seam:
     """A gated collection and a consumer table keyed by the content manifest reference."""
 
     def __init__(self):
+        self.record_kind = json_object(STAND_IN.read_text(encoding='utf-8')).get('record_kind')
         self.store = Store()
         self.store.gate(COLLECTION)  # PUB-GAT-1: before the first call
         self.validations = []
@@ -207,8 +144,7 @@ class Seam:
 
     def descriptor(self, record: dict) -> dict:
         record = bind_record(record, self.bound)
-        check_record(record, 'activation')
-        return resolve(record, self.manifests, self.consumer)
+        return resolve(record, self.record_kind, self.manifests, self.consumer)
 
     def activate(self, record: dict) -> tuple[dict, str]:
         """Resolve before any write, then publish (PUB-ACT-1, PUB-HED-3)."""
@@ -288,7 +224,7 @@ class ActivationSeamTest(unittest.TestCase):
         expected = copy.deepcopy(sentinel)
         with patch(__name__ + '.resolve', return_value=sentinel) as mapped:
             self.assertIs(seam.descriptor(record), sentinel)
-            mapped.assert_called_once_with(bind_record(record, seam.bound), seam.manifests, seam.consumer)
+            mapped.assert_called_once_with(bind_record(record, seam.bound), seam.record_kind, seam.manifests, seam.consumer)
             with patch(__name__ + '.put_ref', return_value='sample-activation') as written, \
                     patch.object(seam.store, 'call', return_value={'status': 'incompatible'}):
                 seam.activate(record)
@@ -296,9 +232,11 @@ class ActivationSeamTest(unittest.TestCase):
             self.assertEqual(sentinel, expected)
         example = runpy.run_path(str(ROOT / 'examples/library_hours/library_hours.py'))
         activation_of = example['activation_of']
-        with patch.dict(activation_of.__globals__, resolve=lambda *args: sentinel), \
+        with patch.dict(activation_of.__globals__, resolve=Mock(return_value=sentinel)), \
                 patch.dict(activation_of.__globals__, put=lambda store, descriptor: self.assertIs(descriptor, sentinel)):
-            activation_of(seam.store, record, seam.manifests, seam.consumer)
+            activation_of(seam.store, record, seam.record_kind, seam.manifests, seam.consumer)
+            activation_of.__globals__['resolve'].assert_called_once_with(
+                record, seam.record_kind, seam.manifests, seam.consumer)
         self.assertEqual(sentinel, expected)
 
     def test_the_typed_fields_select_each_dependency(self):
@@ -332,6 +270,38 @@ class ActivationSeamTest(unittest.TestCase):
                 self.seam.activate(record)
             called.assert_not_called()
         self.assertEqual(self.seam.store.fingerprint(), before)
+
+    def test_resolve_checks_record_rules_before_other_checks_or_store_calls(self):
+        seam = self.seam
+        first = bind_record(self.records['first'], seam.bound)
+        expected = resolve(first, seam.record_kind, seam.manifests, seam.consumer)  # positive pair
+        self.assertEqual(expected['candidate'], seam.stored['candidate-1'])
+        activation_of = runpy.run_path(str(ROOT / 'examples/library_hours/library_hours.py'))['activation_of']
+        faults = [
+            (None, None, 'unexpected_record_kind'),
+            (first, 'event', 'unexpected_record_kind'),
+            ([], 'activation', 'json'),
+            ({**first, 'format': 'other/1'}, 'activation', 'unsupported_record_format'),
+            ({**first, 'owner': 'sample'}, 'activation', 'unknown_field:owner'),
+            ({key: value for key, value in first.items() if key != 'candidate'}, 'activation', 'schema'),
+            ({**first, 'candidate': None}, 'activation', 'schema'),
+            ({**first, 'candidate': {'kind': 'cel-bundle', 'ref': first['candidate']['ref']}},
+             'activation', 'candidate_fields'),
+            ({**first, 'function': 'content:other/other'}, 'activation', 'subject'),
+            ({**first, 'until': '2025-12-31'}, 'activation', 'interval'),
+        ]
+        before = seam.store.fingerprint()
+        for record, kind, reason in faults:
+            with self.subTest(reason=reason, record=record), \
+                    patch.object(seam.store, 'call', side_effect=AssertionError('store called')) as called:
+                # Absent mapping tables must not mask a record rule reason.
+                with self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                    resolve(record, kind, None, None)
+                with self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                    activation_of(seam.store, record, kind, seam.manifests, seam.consumer)
+                called.assert_not_called()
+            self.assertEqual(seam.store.fingerprint(), before)
+        self.assertEqual(seam.activate(first)[0]['status'], 'ok')
 
     def test_a_changed_manifest_byte_is_refused(self):
         record = self.records['first']

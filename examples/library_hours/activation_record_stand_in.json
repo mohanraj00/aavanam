@@ -8,7 +8,7 @@
     "A later change must pin a release that writes the record, replace these stand-ins with records from that release, and update the mapping and the rule checks if needed.",
     "All values are synthetic and neutral. The five reference values are hashes of distinct sample library texts and do not come from the example content."
   ],
-  "source": "https://github.com/mohanraj00/entelos/blob/4d9d66ed9487645e28052d3a5e5e8b721ea22ec9/src/protocol/activation/ACTIVATION.md",
+  "source": "entelos src/protocol/activation/ACTIVATION.md at commit 4d9d66ed9487645e28052d3a5e5e8b721ea22ec9",
   "names": "A value that starts with `$` is a name. Bind candidate.ref and a nonempty base to the SHA-256 reference of the exact content manifest bytes. The consumer maps that reference to its store candidate or published snapshot.",
   "records": {
     "first": {

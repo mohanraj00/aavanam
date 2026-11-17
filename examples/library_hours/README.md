@@ -28,7 +28,9 @@ Each `$name` in `candidate.ref` and a nonempty `base` binds to a content manifes
 This reference is `sha256:` and the SHA-256 of the exact UTF-8 manifest bytes. It is not the store candidate identity.
 The seam test checks both stand-in files.
 
-The shared file `activation_mapping.py` supplies `resolve(record, manifests, consumer)` to the example and test.
+The shared file `activation_mapping.py` supplies `resolve(record, record_kind, manifests, consumer)` to the example and test.
+It first calls the shared `check_record` for record rules 1 to 8: record kind, JSON object, format,
+field names, schema, candidate fields, subject and interval. The caller supplies the record kind from the stand-in file.
 The manifest has format `entelos.content/1`, the collection, the partition, the base manifest reference and
 items in ascending `item_id` order. Each content member has its stored descriptor digest and byte size.
 The item `inputs.lock` has the digest and byte size of the stored build lock. Stored descriptor text is canonical

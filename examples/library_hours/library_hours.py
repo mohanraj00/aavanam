@@ -14,7 +14,7 @@ The example does the steps of issue #83:
 5. A filtered read of the head for one branch and one date (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2) gives one fact.
 
 The activation record is a STAND-IN (activation_record_stand_in.json). No release writes the proposed activation
-record at commit 4d9d66e yet. The shared `activation_mapping.py` checks the manifest and resolves the record.
+record at commit 4d9d66e yet. The shared `activation_mapping.py` checks record rules 1 to 8, checks the manifest and resolves the record.
 The table in `activation_of` gives each descriptor value and its typed record field.
 
 An unexpected outcome stops the example with exit status 1.
@@ -146,7 +146,7 @@ def candidate_snapshot(store: Store, adapter_snapshot: str) -> tuple[str, list[s
     return snapshot, adapter['units'] + overlay_sets
 
 
-def activation_of(store: Store, record: dict, manifests: dict, consumer: dict) -> str:
+def activation_of(store: Store, record: dict, record_kind: str | None, manifests: dict, consumer: dict) -> str:
     """Write only the descriptor that resolve returns (PUB-ACT-1).
 
     | Descriptor value | Typed record field and consumer mapping |
@@ -164,7 +164,7 @@ def activation_of(store: Store, record: dict, manifests: dict, consumer: dict) -
     The store keeps dates and names as strings (PUB-ACT-5). The profile and kind are local constants.
     No removed member needs a reference in this first update (PUB-ACT-2).
     """
-    return put(store, resolve(record, manifests, consumer))
+    return put(store, resolve(record, record_kind, manifests, consumer))
 
 
 def head(store: Store) -> str | None:
@@ -206,7 +206,8 @@ def main() -> None:
         raise SystemExit('the gate did not refuse the publish')
 
     # Step 4: the activation record approves the update. The lock covers each changed member (PUB-ACT-3 check 5).
-    record = json.loads(STAND_IN.read_text(encoding='utf-8'))['records']['first']
+    stand_in = MAPPING['json_object'](STAND_IN.read_text(encoding='utf-8'))
+    record = stand_in['records']['first']
     lock = put(store, {'descriptor_profile': BASE, 'kind': 'build-lock', 'inputs': sorted(members),
                        'consumer': 'example/library-reader', 'completeness': 'example/declared/v1'})
     objects = {}
@@ -220,7 +221,7 @@ def main() -> None:
                 for key in ('decision_ref', 'report_ref')}
     consumer = {'objects': objects, 'candidates': {manifest_ref: candidate}, 'published': {},
                 'head': None, 'receipts': receipts}
-    activation = activation_of(store, record, {manifest_ref: text}, consumer)
+    activation = activation_of(store, record, stand_in.get('record_kind'), {manifest_ref: text}, consumer)
     published = call(store, 'publish', {'candidate': candidate, 'receipt': acceptance,
                                         'activation': activation})['items'][0]
     print('publish with the activation:', published['status'], published['disposition'],
