@@ -91,9 +91,10 @@ def json_object(text: str) -> dict:
     return out
 
 
-def check_record(record: dict, record_kind: str | None = None) -> None:
-    """Apply consumer rules 1 to 8 at commit 4d9d66e. Rule 1 needs an explicit record kind.
+def check_record(record: dict, record_kind: str | None) -> None:
+    """Apply consumer rules 1 to 8 at commit 4d9d66e. Rule 1 requires the record kind 'activation'.
 
+    A missing kind (None) or another value gives unexpected_record_kind.
     json_object checks duplicate names before this function gets a record object.
     """
     def require(ok, rule):
@@ -103,7 +104,7 @@ def check_record(record: dict, record_kind: str | None = None) -> None:
     def matches(value, pattern):
         return isinstance(value, str) and re.fullmatch(pattern, value) is not None
 
-    require(record_kind is None or record_kind == 'activation', 'unexpected_record_kind')  # rule 1
+    require(record_kind == 'activation', 'unexpected_record_kind')  # rule 1
     require(isinstance(record, dict), 'json')  # rule 2
     require(record.get('format') == 'entelos.record/1', 'unsupported_record_format')  # rule 3
     # Rule 4: check names in text order, including candidate fields. Applicability names are data.
@@ -294,6 +295,8 @@ class ActivationSeamTest(unittest.TestCase):
                 check_record({**copy.deepcopy(record), **change}, 'activation')
         with self.assertRaisesRegex(ValueError, '^unexpected_record_kind$'):
             check_record(record, 'event')
+        with self.assertRaisesRegex(ValueError, '^unexpected_record_kind$'):
+            check_record(record, None)
         for text in ('[]', '{"candidate":{"ref":"one","ref":"two"}}', '{"value":NaN}'):
             with self.subTest(text=text), self.assertRaisesRegex(ValueError, '^json$'):
                 json_object(text)
