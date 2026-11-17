@@ -26,6 +26,12 @@ binding is a test value, not proof that native identities are equal. The record 
 fields. This fixture gives both fields the store collection name. These choices prove no general producer adapter.
 The applicability of the facts comes from the application overlays below, not from the empty record `applicability`.
 
+The example derives `lock`, `base`, `approval` and `report`. PUB-ACT-3 checks 3 to 5 run on the derived lock;
+check 2 runs on the derived base. The receipt checks at `put` run on derived approval and report receipts with
+`decision_ref` and `report_ref` as payload text (PUB-ACT-1). Store-side gate behavior is still proved for each check.
+This example does not prove that the record declares these values. The producer record does not yet give them.
+These are gaps of this PR. The guard test in `tests/test_activation_seam.py` requires a mapping change if the record adds them.
+
 When a release writes the activation record, a later change must do these steps:
 
 1. Pin that release in `requirements.txt`.

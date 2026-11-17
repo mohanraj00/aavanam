@@ -45,6 +45,21 @@ The candidate binding does not prove that the native candidate identities are eq
 store snapshot, although the record names a base candidate. A receipt payload is a reference, not receipt content.
 These stand-ins prove no signed record check or production integration.
 
+What the record does not prove
+-----------------------------
+
+- lock: the test derives a build lock from the changed store members. PUB-ACT-3 checks 3 to 5, including check 4,
+  run on this derived lock. The seam test does not prove that the record declares the store lock.
+- base: the test derives a store snapshot binding from a base candidate reference. PUB-ACT-3 check 2 runs on this
+  derived base. The seam test does not prove that the record declares the store snapshot.
+- approval: the test derives a store receipt with decision_ref as its payload text. The receipt checks at put
+  (PUB-ACT-1, KND-REF-2, KND-REF-3) run on this derived receipt. The seam test does not prove that the record declares it.
+- report: the test derives a store receipt with report_ref as its payload text. The receipt checks at put
+  (PUB-ACT-1, KND-REF-2, KND-REF-3) run on this derived receipt. The seam test does not prove that the record declares it.
+
+The store-side gate behavior is still proved for each check. The producer record does not yet give these four
+descriptor values. These are gaps of this PR. The guard test below requires a mapping change if the record adds them.
+
 Each expected outcome comes from the clauses of document 13, not from a run of the store.
 """
 from __future__ import annotations
@@ -275,6 +290,44 @@ class ActivationSeamTest(unittest.TestCase):
                              for name in names if name.startswith('$')}
                     check_record(bind_record(record, bound), text.get('record_kind'))
 
+    def test_the_record_gives_no_dependency_that_the_test_derives(self):
+        message = ('If a record layout adds such a field, map the descriptor value from that field '
+                   'and remove the derived value.')
+        derived_fields = {'lock', 'approval', 'report', 'inputs'}
+        self.assertFalse(FIELDS & derived_fields, message)
+        seam = self.seam
+        self.assertEqual(seam.activate(self.records['first'])[0]['status'], 'ok')
+        seam.first_is_head()
+        # The library record uses another name for the first candidate of this test store.
+        seam.bound['$candidate'] = seam.bound['$candidate-1']
+        seam.locks['$candidate'] = seam.bound['$lock-1']
+        expected_locks = {'$candidate-1': seam.bound['$lock-1'], '$candidate-2': seam.bound['$lock-2'],
+                          '$candidate': seam.bound['$lock-1']}
+        for path in (STAND_IN, ROOT / 'examples/library_hours/activation_record_stand_in.json'):
+            for name, record in json_object(path.read_text(encoding='utf-8'))['records'].items():
+                with self.subTest(file=str(path), record=name):
+                    # No field gives a store lock, receipt or snapshot. base names a producer candidate.
+                    self.assertFalse(record.keys() & derived_fields, message)
+                    descriptor = seam.descriptor(record)
+                    self.assertEqual(descriptor['lock'], expected_locks[record['candidate']['ref']], message)
+                    self.assertEqual(descriptor.get('base'),
+                                     seam.bound[record['base']] if record['base'] else None, message)
+                    for field, reference in (('approval', 'decision_ref'), ('report', 'report_ref')):
+                        receipt = seam.store.descriptor(descriptor[field])
+                        self.assertEqual(receipt['kind'], 'receipt', message)
+                        self.assertEqual(receipt['payload']['media_type'], 'text/plain', message)
+                        data = seam.store.blob(receipt['payload']['digest'], ref=descriptor[field])
+                        self.assertEqual(data.decode('utf-8'), record[reference], message)
+
+    def test_the_stand_in_references_are_distinct(self):
+        seen = set()
+        for path in (STAND_IN, ROOT / 'examples/library_hours/activation_record_stand_in.json'):
+            for name, record in json_object(path.read_text(encoding='utf-8'))['records'].items():
+                for field in ('event_ref', 'source_ref', 'snapshot_ref', 'report_ref', 'decision_ref'):
+                    with self.subTest(file=str(path), record=name, field=field):
+                        self.assertNotIn(record[field], seen, 'Each stand-in reference must be distinct in both files.')
+                        seen.add(record[field])
+
     def test_the_rule_check_refuses_changed_records(self):
         record = bind_record(self.records['first'], self.seam.bound)
         check_record(record, 'activation')  # positive pair for each fault below
@@ -328,6 +381,7 @@ class ActivationSeamTest(unittest.TestCase):
         seam, bound = self.seam, self.seam.bound
         first, second = self.records['first'], self.records['second']
         # The faults of a descriptor, with the reasons of PUB-ACT-3. Each fault changes a valid descriptor.
+        # The lock faults change the derived lock of the test, not a record field.
         bound['$candidate-other'] = candidate(seam.store, bound['$snapshot-2'], POLICY)
         with_no_head = [
             ({'partition': 'sample-other'}, ['activation_mismatch']),  # check 2: the partition

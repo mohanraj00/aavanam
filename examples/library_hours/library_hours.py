@@ -149,6 +149,12 @@ def activation_of(store: Store, record: dict, bound: dict[str, str], lock: str) 
 
     This function is the mapping from the layout of the record. The store keeps the interval, the request key and the
     names as strings. It does not evaluate them (PUB-ACT-5).
+
+    The example derives lock, base, approval and report. PUB-ACT-3 checks 3 to 5 run on the derived lock;
+    check 2 runs on the derived base. The receipt checks at put run on derived approval and report receipts
+    with decision_ref and report_ref as payload text (PUB-ACT-1). Store-side gate behavior is still proved
+    for each check. This example does not prove that the record declares these values. The producer record
+    does not yet give them. These are gaps of this PR, guarded by tests/test_activation_seam.py.
     """
     # Derived receipts contain the native references as opaque payloads. They are not fetched receipt content.
     approval = receipt(store, 'sample-reference-adapter', record['decision_ref'])
