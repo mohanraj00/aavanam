@@ -493,10 +493,11 @@ class ActivationSeamTest(unittest.TestCase):
         def gate_refused(record, expected, request_candidate=None):
             descriptor = seam.descriptor(record)
             activation = put_ref(seam.store, descriptor)
+            head = seam.head()
             before = seam.store.fingerprint()
             result = seam.store.call('publish', {'candidate': request_candidate or descriptor['candidate'],
                                                  'receipt': seam.acceptance, 'activation': activation})
-            self.refused(result, 'incompatible', expected, seam.consumer['head'], before)
+            self.refused(result, 'incompatible', expected, head, before)
 
         seam.descriptor(first)  # positive pair for the record and manifest faults
         gate_refused(partition(first), ['activation_mismatch'])
@@ -505,6 +506,18 @@ class ActivationSeamTest(unittest.TestCase):
         seam.consumer['candidates'][changed['candidate']['ref']] = other
         gate_refused(changed, ['activation_mismatch'], stored['candidate-1'])
         gate_refused(lock_of(first, 'lock-2'), ['lock_outside_snapshot'])
+        # PUB-ACT-3 check 2: the activation names a base, but the candidate expects no head.
+        consumer = copy.deepcopy(seam.consumer)
+        try:
+            base = seam.bound['$candidate-2']
+            changed = seam.changed_manifest(first, lambda obj: obj.update(base=base))
+            changed['base'] = base
+            seam.consumer['published'][base] = stored['snapshot-2']
+            seam.consumer['head'] = stored['snapshot-2']
+            self.assertIsNone(seam.head())
+            gate_refused(changed, ['activation_mismatch'])
+        finally:
+            seam.consumer = consumer
         self.assertEqual(seam.validations, [])
         self.assertEqual(seam.activate(first)[0]['status'], 'ok')
         seam.first_is_head()

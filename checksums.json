@@ -748,7 +748,7 @@
   "tests/activation_record_stand_in.json": "d9b6b8b05a50a07e4dd1f1213424871269e0f6fac84a7346e5f11e8962764eab",
   "tests/requirements-seam.txt": "a9f090f6e0a5a1db42383db54e2dc2d9444c9a93fcfe4e84c529473ab080b07b",
   "tests/support.py": "3ce96765b46f741ab92b238b8dd926e3e791ffc455abe39f597116cb8a22c84f",
-  "tests/test_activation_seam.py": "a4c2e35f1ed2d860f0e5767e182ff348befc668ab08f445a6e0729b6282c4b9d",
+  "tests/test_activation_seam.py": "8ab4284c628751446c61d9f98306b2f9a363c7fa3471905a7f4f8af179ca6b01",
   "tests/test_admitted_facts.py": "71e090838f8a0006b583557afc76107afe870817c330b1580fe425ea4853d241",
   "tests/test_claude_review.py": "dcf69927d976ed9d44858506b7eb09344df8dd27062bd3b313a53dc7a15dd13c",
   "tests/test_counts.py": "bd6b788a63c03bbc6854426f74160c272746fa29d8f461ce374eda93e85f5c5c",
