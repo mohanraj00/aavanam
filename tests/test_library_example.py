@@ -44,7 +44,7 @@ class StandInTest(unittest.TestCase):
         record = example['records']['first']
         self.assertEqual(frozenset(record), fields.pop())
         self.assertEqual(record['partition'], 'sample-library-hours')  # PUB-ACT-3 check 2
-        self.assertLess(record['effective']['from'], record['effective']['until'])  # a half-open interval
+        self.assertLess(record['from'], record['until'])  # a half-open interval
 
     def test_the_requirements_pin_no_unreleased_version(self):
         lines = [line for line in (FOLDER / 'requirements.txt').read_text(encoding='utf-8').splitlines()

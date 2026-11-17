@@ -7,68 +7,126 @@ A workflow producer activates an update and publishes it to a gated collection. 
 - a repeat with the same request key gives the earlier outcome.
 
 The activation records are a STAND-IN. They come from `tests/activation_record_stand_in.json`, not from a release
-of the producer. The producer project has no release with the signed activation record yet. The note in that file
-says how to replace it with a pinned release. Only `descriptor_of` reads the layout of a record.
+of the producer. No release writes the proposed activation record yet. The note in that file
+says how to replace it with a pinned release. `resolve` maps the record to the store descriptor.
+The shared check_record applies record rules 1 to 8 before resolve checks the manifest.
+
+The content and record contracts at commit 4d9d66e map to PUB-ACT-1 as follows.
+
+| Descriptor value | Typed record field and consumer mapping |
+|---|---|
+| candidate | candidate.ref -> consumer store candidate |
+| lock | candidate.ref -> checked manifest -> inputs.lock digest and size -> stored lock |
+| base | base -> consumer published snapshot; empty gives no base |
+| approval | decision_ref -> store receipt wrapper |
+| report | report_ref -> store receipt wrapper |
+| partition | partition, checked against the manifest |
+| effective_from, effective_until | from, until |
+| request_key, producer, runner, approver | the record fields with the same names |
+
+The consumer mapping
+--------------------
+
+Each stand-in name in candidate.ref and base binds to the SHA-256 of exact manifest bytes.
+The manifest lists the content members and inputs.lock, in ascending item_id order. The item names
+use descriptor byte digests and sizes. The stored descriptor text is canonical JSON (IDN-CAN-2).
+Its byte digest equals its store reference. The manifest identity and store candidate identity stay separate.
+
+resolve first checks record rules 1 to 8. It then checks the manifest hash, format, fields, schema, item order and the record head fields.
+It then selects the lock bytes, candidate, published base and receipt wrappers through the typed fields above.
+A failed check raises a refusal reason before any store call. A known base must be the consumer head,
+except for a repeat of an earlier publication (PUB-HED-5). The guard requires the complete descriptor
+from resolve in both callers. No caller can add or replace a dependency after resolve.
+
+Receipt payloads contain decision_ref and report_ref only. Receipt content stays in the producer.
+The profile and kind are local constants. These updates remove no member, so removed is absent (PUB-ACT-2).
+The collection and partition names agree by fixture design. This is no general mapping of the two head models.
+These stand-ins prove no signature check or production integration.
 
 Each expected outcome comes from the clauses of document 13, not from a run of the store.
 """
 from __future__ import annotations
 
+import copy
 import json
+import runpy
 import unittest
+from unittest.mock import Mock, patch
 
 from support import BASE, ROOT, Store, candidate, payload, put_ref
 
 STAND_IN = ROOT / 'tests/activation_record_stand_in.json'
 COLLECTION = 'sample-notices'
 POLICY = 'sample-policy'
-# The field list of the activation record of the producer (the issue in the `source` of the stand-in).
-FIELDS = {'candidate', 'base', 'lock', 'approval', 'report', 'approver', 'producer', 'runner', 'partition', 'effective',
-          'request_key'}
+
+MAPPING = runpy.run_path(str(ROOT / 'examples/library_hours/activation_mapping.py'))
+FIELDS = MAPPING['FIELDS']
+check_record = MAPPING['check_record']
+json_object = MAPPING['json_object']
+manifest_text = MAPPING['manifest_text']
+resolve = MAPPING['resolve']
+digest = MAPPING['digest']
 
 
 def records() -> dict[str, dict]:
-    return json.loads(STAND_IN.read_text(encoding='utf-8'))['records']
+    return json_object(STAND_IN.read_text(encoding='utf-8'))['records']
 
 
-def descriptor_of(record: dict, bound: dict[str, str], receipts: dict[str, str]) -> dict:
-    """The `activation` descriptor of one record (PUB-ACT-1). This function is the mapping from the record layout.
+def bind_value(value: str, bound: dict[str, str]) -> str:
+    return bound[value] if value.startswith('$') else value
 
-    The store keeps the interval, the request key and the names as strings. It does not evaluate them (PUB-ACT-5).
-    """
-    out = {'descriptor_profile': BASE, 'kind': 'activation', 'candidate': bound[record['candidate']],
-           'lock': bound[record['lock']], 'approval': receipts['approval'], 'report': receipts['report'],
-           'partition': record['partition'], 'effective_from': record['effective']['from'],
-           'effective_until': record['effective']['until'], 'request_key': record['request_key'],
-           'producer': record['producer'], 'runner': record['runner'], 'approver': record['approver']}
-    if record['base'] is not None:
-        out['base'] = bound[record['base']]
+
+def bind_record(record: dict, bound: dict[str, str]) -> dict:
+    """Bind the two stand-in fields to exact manifest byte references."""
+    out = copy.deepcopy(record)
+    out['candidate']['ref'] = bind_value(record['candidate']['ref'], bound)
+    out['base'] = bind_value(record['base'], bound)
     return out
 
 
 class Seam:
-    """One gated collection with two updates, and the calls of a producer that activates a record."""
+    """A gated collection and a consumer table keyed by the content manifest reference."""
 
     def __init__(self):
+        self.record_kind = json_object(STAND_IN.read_text(encoding='utf-8')).get('record_kind')
         self.store = Store()
         self.store.gate(COLLECTION)  # PUB-GAT-1: before the first call
         self.validations = []
         self.store.accept(POLICY, lambda cand, rcpt, act: self.validations.append((cand, rcpt, act)) or True)
-        self.acceptance = self.receipt({'producer': 'example/reviewer', 'media_type': 'text/plain', 'text': 'accepted'})
+        self.acceptance = self.receipt('accepted', 'example/reviewer')
+        self.consumer = {'objects': {}, 'candidates': {}, 'published': {}, 'head': None, 'receipts': {}}
+        self.manifests, self.bound, self.stored = {}, {}, {}
         first, second = self.schema('Sample notice, first text.'), self.schema('Sample notice, second text.')
-        snap1, snap2 = self.snapshot(first), self.snapshot(second)
-        # The second update replaces the member of the first update, with the first snapshot as its base.
-        self.bound = {'$snapshot-1': snap1, '$snapshot-2': snap2, '$candidate-1': candidate(self.store, snap1, POLICY),
-                      '$lock-1': self.lock(first), '$lock-2': self.lock(second)}
+        self.stored = {'snapshot-1': self.snapshot(first), 'snapshot-2': self.snapshot(second),
+                       'lock-1': self.lock(first), 'lock-2': self.lock(second)}
+        for name, record in records().items():
+            number = '1' if name == 'first' else '2'
+            base = '' if name == 'first' else self.bound['$candidate-1']
+            text = manifest_text(self.store, self.stored['snapshot-' + number], record['partition'], base,
+                                 self.stored['lock-' + number], self.consumer['objects'])
+            ref = digest(text.encode('utf-8'))
+            self.bound[record['candidate']['ref']] = ref
+            self.manifests[ref] = text
+            self.prepare_receipts(record)
+        self.stored['candidate-1'] = candidate(self.store, self.stored['snapshot-1'], POLICY)
+        self.consumer['candidates'][self.bound['$candidate-1']] = self.stored['candidate-1']
 
     def first_is_head(self) -> None:
-        """Bind the candidate of the second update. Its expected head is the first snapshot, the head now (PUB-CND-2)."""
-        self.bound['$candidate-2'] = candidate(self.store, self.bound['$snapshot-2'], POLICY, self.bound['$snapshot-1'])
+        """Make the second store candidate after the first publication (PUB-CND-2)."""
+        self.stored['candidate-2'] = candidate(self.store, self.stored['snapshot-2'], POLICY, self.stored['snapshot-1'])
+        self.consumer['candidates'][self.bound['$candidate-2']] = self.stored['candidate-2']
 
-    def receipt(self, value: dict) -> str:
-        obj, data = payload(value['text'])
-        return put_ref(self.store, {'descriptor_profile': BASE, 'kind': 'receipt', 'producer': value['producer'],
-                                    'payload': {**obj, 'media_type': value['media_type']}}, data)
+    def receipt(self, text: str, producer: str = 'sample-reference-adapter') -> str:
+        obj, data = payload(text)
+        return put_ref(self.store, {'descriptor_profile': BASE, 'kind': 'receipt', 'producer': producer,
+                                    'payload': obj}, data)
+
+    def prepare_receipts(self, record: dict) -> None:
+        # Receipt content stays in entelos. The wrappers contain only the typed record references.
+        for key in ('decision_ref', 'report_ref'):
+            ref = record[key]
+            if ref not in self.consumer['receipts']:
+                self.consumer['receipts'][ref] = self.receipt(ref)
 
     def schema(self, text: str) -> str:
         obj, data = payload(text)
@@ -84,16 +142,38 @@ class Seam:
         return put_ref(self.store, {'descriptor_profile': BASE, 'kind': 'build-lock', 'inputs': [member],
                                     'consumer': 'sample-consumer', 'completeness': 'sample/declared/v1'})
 
+    def descriptor(self, record: dict) -> dict:
+        record = bind_record(record, self.bound)
+        return resolve(record, self.record_kind, self.manifests, self.consumer)
+
     def activate(self, record: dict) -> tuple[dict, str]:
-        """The calls of the producer for one record: write the receipts and the activation, then publish."""
-        receipts = {name: self.receipt(record[name]) for name in ('approval', 'report')}
-        activation = put_ref(self.store, descriptor_of(record, self.bound, receipts))
-        result = self.store.call('publish', {'candidate': self.bound[record['candidate']], 'receipt': self.acceptance,
+        """Resolve before any write, then publish (PUB-ACT-1, PUB-HED-3)."""
+        descriptor = self.descriptor(record)
+        activation = put_ref(self.store, descriptor)
+        result = self.store.call('publish', {'candidate': descriptor['candidate'], 'receipt': self.acceptance,
                                              'activation': activation})
+        if result['status'] == 'ok':
+            ref = bind_record(record, self.bound)['candidate']['ref']
+            self.consumer['published'].setdefault(ref, result['items'][0]['head'])
+            self.consumer['head'] = result['items'][0]['head']
         return result, activation
 
+    def changed_manifest(self, record: dict, change) -> dict:
+        """Give changed manifest bytes their own reference and keep the consumer candidate mapping."""
+        out = bind_record(record, self.bound)
+        old = out['candidate']['ref']
+        obj = json.loads(self.manifests[old])
+        change(obj)
+        text = json.dumps(obj, separators=(',', ':'))
+        ref = digest(text.encode('utf-8'))
+        self.manifests[ref] = text
+        if old in self.consumer['candidates']:
+            self.consumer['candidates'][ref] = self.consumer['candidates'][old]
+        out['candidate']['ref'] = ref
+        return out
+
     def head(self) -> str | None:
-        """The head of the collection in the catalog, or None (CTX-VIW-2)."""
+        """Read the head of the collection, or None (CTX-VIW-2)."""
         entry = self.store.call('open_context', {'heads': [COLLECTION]})['items'][0]
         if entry['status'] == 'ok':
             return entry['ref']
@@ -112,6 +192,7 @@ class ActivationSeamTest(unittest.TestCase):
     def setUp(self):
         self.records = records()
         self.seam = Seam()
+        self.addCleanup(self.seam.store.close)
 
     def refused(self, result: dict, status: str, reasons: list[str], head, before: str):
         """A refusal gives the reason, and it changes no head and no other part of the store (PUB-HED-6, STS-ENV-4)."""
@@ -119,83 +200,331 @@ class ActivationSeamTest(unittest.TestCase):
         self.assertEqual(self.seam.head(), head)
         self.assertEqual(self.seam.store.fingerprint(), before)
 
-    def test_the_stand_in_has_the_field_list_of_the_record(self):
-        text = json.loads(STAND_IN.read_text(encoding='utf-8'))
-        self.assertIs(text['stand_in'], True)  # change this test when a pinned release replaces the stand-in
-        for name, record in self.records.items():
-            with self.subTest(record=name):
-                self.assertEqual(set(record), FIELDS)
-                self.assertLess(record['effective']['from'], record['effective']['until'])  # a half-open interval
+    def test_each_stand_in_obeys_the_consumer_rules(self):
+        for path in (STAND_IN, ROOT / 'examples/library_hours/activation_record_stand_in.json'):
+            text = json_object(path.read_text(encoding='utf-8'))
+            self.assertIs(text['stand_in'], True)
+            bound = {}
+            for name, record in text['records'].items():
+                with self.subTest(file=str(path), record=name):
+                    self.assertEqual(set(record), FIELDS)
+                    # Each name binds to a manifest byte digest, also for the example collection.
+                    snap = self.seam.store.call('create_snapshot', {'collection': record['collection']})['items'][0]['ref']
+                    manifest = manifest_text(self.seam.store, snap, record['partition'],
+                                             bound.get(record['base'], ''), self.seam.stored['lock-1'], {})
+                    bound[record['candidate']['ref']] = digest(manifest.encode('utf-8'))
+                    check_record(bind_record(record, bound), text.get('record_kind'))
+
+    def test_each_descriptor_value_comes_from_resolve(self):
+        seam = self.seam
+        sentinel = {key: 'sample-' + key for key in ('descriptor_profile', 'kind', 'candidate', 'lock', 'base',
+                    'approval', 'report', 'partition', 'effective_from', 'effective_until', 'request_key',
+                    'producer', 'runner', 'approver')}
+        record = self.records['first']
+        expected = copy.deepcopy(sentinel)
+        with patch(__name__ + '.resolve', return_value=sentinel) as mapped:
+            self.assertIs(seam.descriptor(record), sentinel)
+            mapped.assert_called_once_with(bind_record(record, seam.bound), seam.record_kind, seam.manifests, seam.consumer)
+            with patch(__name__ + '.put_ref', return_value='sample-activation') as written, \
+                    patch.object(seam.store, 'call', return_value={'status': 'incompatible'}):
+                seam.activate(record)
+            written.assert_called_once_with(seam.store, expected)
+            self.assertEqual(sentinel, expected)
+        example = runpy.run_path(str(ROOT / 'examples/library_hours/library_hours.py'))
+        activation_of = example['activation_of']
+        with patch.dict(activation_of.__globals__, resolve=Mock(return_value=sentinel)), \
+                patch.dict(activation_of.__globals__, put=lambda store, descriptor: self.assertIs(descriptor, sentinel)):
+            activation_of(seam.store, record, seam.record_kind, seam.manifests, seam.consumer)
+            activation_of.__globals__['resolve'].assert_called_once_with(
+                record, seam.record_kind, seam.manifests, seam.consumer)
+        self.assertEqual(sentinel, expected)
+
+    def test_the_typed_fields_select_each_dependency(self):
+        seam = self.seam
+        for name, number in (('first', '1'), ('second', '2')):
+            record = self.records[name]
+            descriptor = seam.descriptor(record)
+            ref = bind_record(record, seam.bound)['candidate']['ref']
+            manifest = json.loads(seam.manifests[ref])
+            item = next(item for item in manifest['items'] if item['item_id'] == 'inputs.lock')
+            lock, data = seam.consumer['objects'][item['digest']]
+            self.assertEqual((descriptor['lock'], digest(data), len(data)),
+                             (seam.stored['lock-' + number], item['digest'], item['size']))
+            self.assertEqual(lock, item['digest'])  # the store reference hashes the stored descriptor bytes
+            self.assertEqual(descriptor['candidate'], seam.consumer['candidates'][ref])
+            self.assertNotEqual(ref, descriptor['candidate'])
+            self.assertEqual(descriptor.get('base'), None if number == '1' else seam.stored['snapshot-1'])
+            for field, reference in (('approval', 'decision_ref'), ('report', 'report_ref')):
+                receipt = seam.store.descriptor(descriptor[field])
+                self.assertEqual(receipt['kind'], 'receipt')
+                self.assertEqual(seam.store.blob(receipt['payload']['digest'], ref=descriptor[field]).decode(),
+                                 record[reference])
+            self.assertEqual(seam.activate(record)[0]['status'], 'ok')
+            if number == '1':
+                seam.first_is_head()
+
+    def resolution_refused(self, record: dict, reason: str):
+        before = self.seam.store.fingerprint()
+        with patch.object(self.seam.store, 'call', side_effect=AssertionError('store called')) as called:
+            with self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                self.seam.activate(record)
+            called.assert_not_called()
+        self.assertEqual(self.seam.store.fingerprint(), before)
+
+    def test_resolve_checks_record_rules_before_other_checks_or_store_calls(self):
+        seam = self.seam
+        first = bind_record(self.records['first'], seam.bound)
+        expected = resolve(first, seam.record_kind, seam.manifests, seam.consumer)  # positive pair
+        self.assertEqual(expected['candidate'], seam.stored['candidate-1'])
+        activation_of = runpy.run_path(str(ROOT / 'examples/library_hours/library_hours.py'))['activation_of']
+        faults = [
+            (None, None, 'unexpected_record_kind'),
+            (first, 'event', 'unexpected_record_kind'),
+            ([], 'activation', 'json'),
+            ({**first, 'format': 'other/1'}, 'activation', 'unsupported_record_format'),
+            ({**first, 'owner': 'sample'}, 'activation', 'unknown_field:owner'),
+            ({key: value for key, value in first.items() if key != 'candidate'}, 'activation', 'schema'),
+            ({**first, 'candidate': None}, 'activation', 'schema'),
+            ({**first, 'candidate': {'kind': 'cel-bundle', 'ref': first['candidate']['ref']}},
+             'activation', 'candidate_fields'),
+            ({**first, 'function': 'content:other/other'}, 'activation', 'subject'),
+            ({**first, 'until': '2025-12-31'}, 'activation', 'interval'),
+        ]
+        before = seam.store.fingerprint()
+        for record, kind, reason in faults:
+            with self.subTest(reason=reason, record=record), \
+                    patch.object(seam.store, 'call', side_effect=AssertionError('store called')) as called:
+                # Absent mapping tables must not mask a record rule reason.
+                with self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                    resolve(record, kind, None, None)
+                with self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                    activation_of(seam.store, record, kind, seam.manifests, seam.consumer)
+                called.assert_not_called()
+            self.assertEqual(seam.store.fingerprint(), before)
+        self.assertEqual(seam.activate(first)[0]['status'], 'ok')
+
+    def test_a_changed_manifest_byte_is_refused(self):
+        record = self.records['first']
+        self.seam.descriptor(record)  # positive pair
+        ref = self.seam.bound[record['candidate']['ref']]
+        text = self.seam.manifests[ref]
+        self.seam.manifests[ref] = text.replace('sample-notices', 'sample-noticet', 1)
+        self.resolution_refused(record, 'candidate_mismatch')
+        self.seam.manifests[ref] = text
+        self.assertEqual(self.seam.activate(record)[0]['status'], 'ok')
+
+    def test_a_manifest_without_the_lock_is_refused(self):
+        first = self.records['first']
+        self.seam.descriptor(first)  # positive pair
+        record = self.seam.changed_manifest(first, lambda obj: obj.update(
+            items=[item for item in obj['items'] if item['item_id'] != 'inputs.lock']))
+        self.resolution_refused(record, 'missing_lock')
+        self.assertEqual(self.seam.activate(first)[0]['status'], 'ok')
+
+    def test_an_absent_lock_digest_or_wrong_size_is_refused(self):
+        first = self.records['first']
+        for change in ({'digest': 'sha256:' + '0' * 64}, {'size': 0}):
+            with self.subTest(change=change):
+                self.seam.descriptor(first)  # positive pair
+                def fault(obj):
+                    next(item for item in obj['items'] if item['item_id'] == 'inputs.lock').update(change)
+                self.resolution_refused(self.seam.changed_manifest(first, fault), 'lock_not_found')
+        self.assertEqual(self.seam.activate(first)[0]['status'], 'ok')
+
+    def test_record_and_manifest_head_fields_must_agree(self):
+        first = bind_record(self.records['first'], self.seam.bound)
+        self.seam.descriptor(first)  # positive pair
+        for field in ('base', 'collection', 'partition'):
+            record = copy.deepcopy(first)
+            record[field] = 'sha256:' + '0' * 64 if field == 'base' else 'sample-other'
+            if field != 'base':
+                record['function'] = 'content:' + record['collection'] + '/' + record['partition']
+            with self.subTest(field=field):
+                self.resolution_refused(record, field + '_mismatch')
+        self.assertEqual(self.seam.activate(first)[0]['status'], 'ok')
+
+    def test_an_unknown_or_old_published_base_is_refused(self):
+        seam = self.seam
+        self.assertEqual(seam.activate(self.records['first'])[0]['status'], 'ok')
+        seam.first_is_head()
+        second = self.records['second']
+        seam.descriptor(second)  # positive pair
+        unknown = 'sha256:' + '0' * 64
+        record = seam.changed_manifest(second, lambda obj: obj.update(base=unknown))
+        record['base'] = unknown
+        self.resolution_refused(record, 'base_unknown')
+        head = seam.consumer['head']
+        seam.consumer['head'] = seam.stored['snapshot-2']
+        self.resolution_refused(second, 'base_not_current')
+        seam.consumer['head'] = head
+        self.assertEqual(seam.activate(second)[0]['status'], 'ok')
+
+    def test_the_manifest_rules_refuse_invalid_text(self):
+        first = self.records['first']
+        faults = [
+            (lambda obj: obj.update(format='other/1'), 'format'),
+            (lambda obj: obj.update(format='entelos.content/2'), 'unsupported_content_format'),
+            (lambda obj: obj.update(extra=True), 'unknown_field'),
+            (lambda obj: obj['items'][0].update(extra=True), 'unknown_field'),
+            (lambda obj: obj['items'].reverse(), 'item_order'),
+            (lambda obj: obj['items'].append(obj['items'][0]), 'duplicate_item'),
+            (lambda obj: obj['items'][0].update(digest='sha256:A'), 'schema'),
+            (lambda obj: obj['items'][0].update(size=True), 'schema'),
+        ]
+        for fault, reason in faults:
+            with self.subTest(reason=reason):
+                self.seam.descriptor(first)  # positive pair
+                self.resolution_refused(self.seam.changed_manifest(first, fault), reason)
+        # Duplicate JSON fields are refused even when the candidate hash agrees with the text.
+        text = self.seam.manifests[self.seam.bound['$candidate-1']]
+        text = text.replace('{', '{"base":"",', 1)
+        ref = digest(text.encode())
+        record = bind_record(first, self.seam.bound)
+        record['candidate']['ref'] = ref
+        self.seam.manifests[ref] = text
+        self.resolution_refused(record, 'json')
+        self.assertEqual(self.seam.activate(first)[0]['status'], 'ok')
+
+    def test_the_stand_in_references_are_distinct(self):
+        seen = set()
+        for path in (STAND_IN, ROOT / 'examples/library_hours/activation_record_stand_in.json'):
+            for name, record in json_object(path.read_text(encoding='utf-8'))['records'].items():
+                for field in ('event_ref', 'source_ref', 'snapshot_ref', 'report_ref', 'decision_ref'):
+                    with self.subTest(file=str(path), record=name, field=field):
+                        self.assertNotIn(record[field], seen, 'Each stand-in reference must be distinct in both files.')
+                        seen.add(record[field])
+
+    def test_the_rule_check_refuses_changed_records(self):
+        record = bind_record(self.records['first'], self.seam.bound)
+        check_record(record, 'activation')  # positive pair for each fault below
+        faults = [
+            ({'format': 'other/1'}, 'unsupported_record_format'),
+            ({'owner': 'sample'}, 'unknown_field:owner'),
+            ({'candidate': {**record['candidate'], 'digest': 'sample'}}, 'unknown_field:candidate.digest'),
+            ({'approver': 7}, 'schema'),
+            ({'event_ref': 'sha256:A'}, 'schema'),
+            ({'applicability': {'sample': {'region': []}}}, 'schema'),
+            ({'candidate': {'kind': 'cel-bundle', 'ref': record['candidate']['ref']}}, 'candidate_fields'),
+            ({'function': 'content:other/other'}, 'subject'),
+            ({'until': record['from']}, 'interval'),
+            ({'until': '2026-02-30'}, 'interval'),
+        ]
+        for change, reason in faults:
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, '^' + reason + '$'):
+                check_record({**copy.deepcopy(record), **change}, 'activation')
+        with self.assertRaisesRegex(ValueError, '^unexpected_record_kind$'):
+            check_record(record, 'event')
+        with self.assertRaisesRegex(ValueError, '^unexpected_record_kind$'):
+            check_record(record, None)
+        for text in ('[]', '{"candidate":{"ref":"one","ref":"two"}}', '{"value":NaN}'):
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, '^json$'):
+                json_object(text)
 
     def test_the_head_moves_only_with_a_valid_activation(self):
-        seam, bound = self.seam, self.seam.bound
+        seam, bound = self.seam, self.seam.stored
         self.assertIsNone(seam.head())
         # PUB-GAT-3: no activation in a gated collection. The store does not call the validator.
         before = seam.store.fingerprint()
-        result = seam.store.call('publish', {'candidate': bound['$candidate-1'], 'receipt': seam.acceptance})
+        result = seam.store.call('publish', {'candidate': bound['candidate-1'], 'receipt': seam.acceptance})
         self.refused(result, 'incompatible', ['activation_required'], None, before)
         self.assertEqual(seam.validations, [])
         # PUB-HED-3 step 5.3: a valid activation moves the head, and the catalog records it (PUB-LOG-2).
         result, activation = seam.activate(self.records['first'])
         self.assertEqual(result['status'], 'ok', result)
-        self.assertEqual((result['items'][0]['disposition'], result['items'][0]['head']), ('published', bound['$snapshot-1']))
-        self.assertEqual(seam.head(), bound['$snapshot-1'])
-        self.assertEqual(seam.validations, [(bound['$candidate-1'], seam.acceptance, activation)])  # PUB-RCP-2
+        self.assertEqual((result['items'][0]['disposition'], result['items'][0]['head']), ('published', bound['snapshot-1']))
+        self.assertEqual(seam.head(), bound['snapshot-1'])
+        self.assertEqual(seam.validations, [(bound['candidate-1'], seam.acceptance, activation)])  # PUB-RCP-2
         # The second update moves the head again, from its base.
         seam.first_is_head()
         result, second = seam.activate(self.records['second'])
         self.assertEqual((result['status'], result['items'][0]['disposition']), ('ok', 'published'))
-        self.assertEqual(seam.head(), bound['$snapshot-2'])
+        self.assertEqual(seam.head(), bound['snapshot-2'])
         log = seam.publications()
         self.assertEqual([(p['activation'], p['previous_head'], p['head']) for p in log],
-                         [(activation, None, bound['$snapshot-1']), (second, bound['$snapshot-1'], bound['$snapshot-2'])])
+                         [(activation, None, bound['snapshot-1']), (second, bound['snapshot-1'], bound['snapshot-2'])])
 
     def test_a_refused_activation_leaves_the_head_and_gives_the_reason(self):
-        seam, bound = self.seam, self.seam.bound
+        seam, stored = self.seam, self.seam.stored
         first, second = self.records['first'], self.records['second']
-        # The faults of a record, with the reasons of PUB-ACT-3. Each fault changes one field of a valid record.
-        bound['$candidate-other'] = candidate(seam.store, bound['$snapshot-2'], POLICY)
-        with_no_head = [
-            ({**first, 'partition': 'sample-other'}, ['activation_mismatch']),  # check 2: the partition
-            ({**first, 'candidate': '$candidate-other'}, ['activation_mismatch']),  # check 2: a different candidate
-            ({**first, 'base': '$snapshot-2'}, ['activation_mismatch']),  # check 2: a base, and no expected head
-            ({**first, 'lock': '$lock-2'}, ['lock_outside_snapshot']),  # check 4: the lock covers a different update
-        ]
-        for record, reasons in with_no_head:
-            with self.subTest(head=None, reasons=reasons, changed=[k for k in record if record[k] != first[k]]):
-                receipts = {name: seam.receipt(record[name]) for name in ('approval', 'report')}
-                activation = put_ref(seam.store, descriptor_of(record, bound, receipts))
-                before = seam.store.fingerprint()
-                result = seam.store.call('publish', {'candidate': bound['$candidate-1'], 'receipt': seam.acceptance,
-                                                     'activation': activation})
-                self.refused(result, 'incompatible', reasons, None, before)
-        self.assertEqual(seam.validations, [])  # PUB-GAT-3: no validator call if a check fails
+        other = candidate(seam.store, stored['snapshot-2'], POLICY)
+
+        def partition(record):
+            out = seam.changed_manifest(record, lambda obj: obj.update(partition='sample-other'))
+            out.update(partition='sample-other', function='content:' + COLLECTION + '/sample-other')
+            return out
+
+        def lock_of(record, name):
+            ref, data = seam.consumer['objects'][stored[name]]
+            def fault(obj):
+                next(item for item in obj['items'] if item['item_id'] == 'inputs.lock').update(
+                    digest=digest(data), size=len(data))
+            return seam.changed_manifest(record, fault)
+
+        def gate_refused(record, expected, request_candidate=None):
+            descriptor = seam.descriptor(record)
+            activation = put_ref(seam.store, descriptor)
+            head = seam.head()
+            before = seam.store.fingerprint()
+            result = seam.store.call('publish', {'candidate': request_candidate or descriptor['candidate'],
+                                                 'receipt': seam.acceptance, 'activation': activation})
+            self.refused(result, 'incompatible', expected, head, before)
+
+        seam.descriptor(first)  # positive pair for the record and manifest faults
+        gate_refused(partition(first), ['activation_mismatch'])
+        # A typed candidate.ref selects the other store candidate. The request still names the first.
+        changed = seam.changed_manifest(first, lambda obj: obj.update(metadata={'sample': 'other'}))
+        seam.consumer['candidates'][changed['candidate']['ref']] = other
+        gate_refused(changed, ['activation_mismatch'], stored['candidate-1'])
+        gate_refused(lock_of(first, 'lock-2'), ['lock_outside_snapshot'])
+        # PUB-ACT-3 check 2: the activation names a base, but the candidate expects no head.
+        consumer = copy.deepcopy(seam.consumer)
+        try:
+            base = seam.bound['$candidate-2']
+            changed = seam.changed_manifest(first, lambda obj: obj.update(base=base))
+            changed['base'] = base
+            seam.consumer['published'][base] = stored['snapshot-2']
+            seam.consumer['head'] = stored['snapshot-2']
+            self.assertIsNone(seam.head())
+            gate_refused(changed, ['activation_mismatch'])
+        finally:
+            seam.consumer = consumer
+        self.assertEqual(seam.validations, [])
         self.assertEqual(seam.activate(first)[0]['status'], 'ok')
         seam.first_is_head()
-        with_head = [
-            ({**second, 'base': None}, ['activation_mismatch']),  # check 2: no base, and an expected head
-            ({**second, 'lock': '$lock-1'}, ['lock_outside_snapshot']),  # check 4: the lock covers the first update
-            ({**second, 'partition': 'sample-other', 'base': None}, ['activation_mismatch', 'activation_mismatch']),
-        ]
-        for record, reasons in with_head:
-            with self.subTest(head='first', reasons=reasons):
-                receipts = {name: seam.receipt(record[name]) for name in ('approval', 'report')}
-                activation = put_ref(seam.store, descriptor_of(record, bound, receipts))
-                before = seam.store.fingerprint()
-                result = seam.store.call('publish', {'candidate': bound['$candidate-2'], 'receipt': seam.acceptance,
-                                                     'activation': activation})
-                self.refused(result, 'incompatible', reasons, bound['$snapshot-1'], before)
+        seam.descriptor(second)  # positive pair
+        # This candidate expects no head. The record base selects the published first snapshot.
+        changed = seam.changed_manifest(second, lambda obj: obj.update(metadata={'sample': 'old-candidate'}))
+        seam.consumer['candidates'][changed['candidate']['ref']] = other
+        gate_refused(changed, ['activation_mismatch'])
+        gate_refused(lock_of(second, 'lock-1'), ['lock_outside_snapshot'])
+        # A stale consumer can have no head, while the store candidate expects the first snapshot.
+        # Change record and manifest base together. The store must still apply PUB-ACT-3 check 2.
+        for wrong_partition in (False, True):
+            record = partition(second) if wrong_partition else second
+            changed = seam.changed_manifest(record, lambda obj: obj.update(base=''))
+            changed['base'] = ''
+            current = seam.consumer['head']
+            seam.consumer['head'] = None
+            descriptor = seam.descriptor(changed)
+            seam.consumer['head'] = current
+            activation = put_ref(seam.store, descriptor)
+            before = seam.store.fingerprint()
+            result = seam.store.call('publish', {'candidate': stored['candidate-2'], 'receipt': seam.acceptance,
+                                                 'activation': activation})
+            reasons = ['activation_mismatch'] * (2 if wrong_partition else 1)
+            self.refused(result, 'incompatible', reasons, current, before)
         self.assertEqual(len(seam.publications()), 1)
-        # A validator that does not accept the record is also a refusal (PUB-HED-3 step 4).
         seam.store.accept(POLICY, lambda cand, rcpt, act: False)
-        receipts = {name: seam.receipt(second[name]) for name in ('approval', 'report')}
-        activation = put_ref(seam.store, descriptor_of(second, bound, receipts))
+        activation = put_ref(seam.store, seam.descriptor(second))
         before = seam.store.fingerprint()
-        result = seam.store.call('publish', {'candidate': bound['$candidate-2'], 'receipt': seam.acceptance, 'activation': activation})
-        self.refused(result, 'incompatible', ['receipt_rejected'], bound['$snapshot-1'], before)
+        result = seam.store.call('publish', {'candidate': stored['candidate-2'], 'receipt': seam.acceptance,
+                                             'activation': activation})
+        self.refused(result, 'incompatible', ['receipt_rejected'], stored['snapshot-1'], before)
+        seam.store.accept(POLICY, lambda cand, rcpt, act: True)
+        self.assertEqual(seam.activate(second)[0]['status'], 'ok')
 
     def test_a_repeat_with_the_same_request_key_gives_the_earlier_outcome(self):
-        seam, bound = self.seam, self.seam.bound
+        seam, bound = self.seam, self.seam.stored
         first, second = self.records['first'], self.records['second']
         result, activation = seam.activate(first)
         self.assertEqual(result['items'][0]['disposition'], 'published')
@@ -204,7 +533,7 @@ class ActivationSeamTest(unittest.TestCase):
         again, same = seam.activate(first)
         self.assertEqual(same, activation)
         self.assertEqual((again['status'], again['items'][0]['disposition'], again['items'][0]['head']),
-                         ('ok', 'already_published', bound['$snapshot-1']))
+                         ('ok', 'already_published', bound['snapshot-1']))
         self.assertEqual(seam.store.fingerprint(), before)
         self.assertEqual(len(seam.validations), 1)  # no second validator call
         self.assertEqual(len(seam.publications()), 1)  # no second publication (PUB-LOG-2)
@@ -213,13 +542,14 @@ class ActivationSeamTest(unittest.TestCase):
         self.assertEqual(seam.activate(second)[0]['items'][0]['disposition'], 'published')
         late, _ = seam.activate(first)
         self.assertEqual((late['status'], late['items'][0]['disposition'], late['items'][0]['head']),
-                         ('ok', 'superseded', bound['$snapshot-2']))
-        self.assertEqual(seam.head(), bound['$snapshot-2'])
+                         ('ok', 'superseded', bound['snapshot-2']))
+        self.assertEqual(seam.head(), bound['snapshot-2'])
         self.assertEqual(len(seam.publications()), 2)
 
     def test_a_repeat_of_a_refused_record_gives_the_same_refusal(self):
-        seam, bound = self.seam, self.seam.bound
-        record = {**self.records['first'], 'partition': 'sample-other'}
+        seam, bound = self.seam, self.seam.stored
+        record = seam.changed_manifest(self.records['first'], lambda obj: obj.update(partition='sample-other'))
+        record.update(partition='sample-other', function='content:' + COLLECTION + '/sample-other')
         outcomes = []
         for _ in range(2):
             result, activation = seam.activate(record)
@@ -230,7 +560,7 @@ class ActivationSeamTest(unittest.TestCase):
         self.assertEqual(seam.publications(), [])
         # The valid record with the same request key is then the first publication.
         result, _ = seam.activate(self.records['first'])
-        self.assertEqual((result['items'][0]['disposition'], seam.head()), ('published', bound['$snapshot-1']))
+        self.assertEqual((result['items'][0]['disposition'], seam.head()), ('published', bound['snapshot-1']))
 
 
 if __name__ == '__main__':
