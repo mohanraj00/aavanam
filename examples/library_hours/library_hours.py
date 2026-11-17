@@ -1,12 +1,12 @@
-"""One update from a source document to the head of a gated collection, with groundgate, entelos and aavanam.
+"""One update from a source document to the head of a gated collection.
 
-Run it from a clean environment that has the aavanam wheel and the pinned groundgate (examples/library_hours/README.md):
+Run it with the installed store library and pinned fact producer (examples/library_hours/README.md):
 
     python3 -I examples/library_hours/library_hours.py
 
 The example does the steps of issue #83:
 
-1. groundgate admits two facts from a synthetic source document: the opening hours of two library branches.
+1. The fact producer admits two facts from a synthetic source document: the opening hours of two library branches.
 2. The admitted-facts adapter writes the facts to the store (ADP-FXT-1 to ADP-FXT-7). The application declares the
    branch and the dates of each fact in overlays (DSC-FLT-2), and makes the candidate snapshot.
 3. A publish to the gated collection with no activation is refused (PUB-GAT-3). The head does not move.
@@ -14,7 +14,8 @@ The example does the steps of issue #83:
 5. A filtered read of the head for one branch and one date (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2) gives one fact.
 
 The activation record is a STAND-IN (activation_record_stand_in.json). No release writes the proposed activation
-record at commit 4d9d66e yet. Only the function `activation_of` reads the layout of the record.
+record at commit 4d9d66e yet. The shared `activation_mapping.py` checks the manifest and resolves the record.
+The table in `activation_of` gives each descriptor value and its typed record field.
 
 An unexpected outcome stops the example with exit status 1.
 """
@@ -24,18 +25,18 @@ import base64
 import hashlib
 import json
 import os
+import runpy
 import sys
 import tempfile
 from pathlib import Path
 
 from aavanam import Store
 from aavanam.admitted import put_export_facts
-from groundgate import verify
-from groundgate.store import FolderStore
-from groundgate.store.export import admitted_facts
-from groundgate.store.packets import admit_packet, load_packet, put_reading
 
 HERE = Path(__file__).resolve().parent
+MAPPING = runpy.run_path(str(HERE / 'activation_mapping.py'))
+resolve = MAPPING['resolve']
+manifest_text = MAPPING['manifest_text']
 SOURCE = HERE / 'hours.txt'
 STAND_IN = HERE / 'activation_record_stand_in.json'
 SERVING = 'sample-library-hours'
@@ -73,6 +74,11 @@ ROW = {'selector_profile': 'aavanam/row/v1', 'index': 0}
 
 def run_groundgate(folder: str) -> tuple[dict, bytes]:
     """Read the source and admit the candidates. Return the facts@1 export and the reading bytes."""
+    from groundgate import verify
+    from groundgate.store import FolderStore
+    from groundgate.store.export import admitted_facts
+    from groundgate.store.packets import admit_packet, load_packet, put_reading
+
     with FolderStore(os.path.join(folder, 'store')) as store:
         reading, extracted = put_reading(store, SOURCE)
         packet_key, receipt = admit_packet(store, extracted.text, SCHEMA, CANDIDATES, None, reading=reading)
@@ -81,7 +87,7 @@ def run_groundgate(folder: str) -> tuple[dict, bytes]:
         if not result.ok:
             raise SystemExit(f'groundgate verify failed: {result.problems}')
         for decision in sorted(receipt.to_dict()['decisions'], key=lambda d: d['field']):
-            print('groundgate', decision['field'], decision['outcome'])
+            print('producer', decision['field'], decision['outcome'])
         export = admitted_facts(store, packet)
     return export, extracted.text.encode('utf-8')
 
@@ -140,38 +146,25 @@ def candidate_snapshot(store: Store, adapter_snapshot: str) -> tuple[str, list[s
     return snapshot, adapter['units'] + overlay_sets
 
 
-def bind_value(value: str, bound: dict[str, str]) -> str:
-    return bound[value] if value.startswith('$') else value
+def activation_of(store: Store, record: dict, manifests: dict, consumer: dict) -> str:
+    """Write only the descriptor that resolve returns (PUB-ACT-1).
 
+    | Descriptor value | Typed record field and consumer mapping |
+    |---|---|
+    | candidate | candidate.ref -> store candidate |
+    | lock | candidate.ref -> checked manifest -> inputs.lock digest and size -> stored lock |
+    | base | base -> published store snapshot; empty gives no base |
+    | approval | decision_ref -> receipt wrapper |
+    | report | report_ref -> receipt wrapper |
+    | partition | partition, checked against the manifest |
+    | effective_from, effective_until | from, until |
+    | request_key, producer, runner, approver | the record fields with the same names |
 
-def activation_of(store: Store, record: dict, bound: dict[str, str], lock: str) -> str:
-    """Write the receipts and the `activation` descriptor of one record (PUB-ACT-1). Return the activation.
-
-    This function is the mapping from the layout of the record. The store keeps the interval, the request key and the
-    names as strings. It does not evaluate them (PUB-ACT-5).
-
-    The example derives lock, base, approval and report. PUB-ACT-3 checks 3 to 5 run on the derived lock;
-    check 2 runs on the derived base. The receipt checks at put run on derived approval and report receipts
-    with decision_ref and report_ref as payload text (PUB-ACT-1). Store-side gate behavior is still proved
-    for each check. This example does not prove that the record declares these values. The producer record
-    does not yet give them. These are gaps of this PR, guarded by tests/test_activation_seam.py.
+    Receipt content stays in the producer. Each wrapper contains only a record reference.
+    The store keeps dates and names as strings (PUB-ACT-5). The profile and kind are local constants.
+    No removed member needs a reference in this first update (PUB-ACT-2).
     """
-    # Derived receipts contain the native references as opaque payloads. They are not fetched receipt content.
-    approval = receipt(store, 'sample-reference-adapter', record['decision_ref'])
-    report = receipt(store, 'sample-reference-adapter', record['report_ref'])
-    # Derived profile and kind name the store descriptor. The record format is not a descriptor profile.
-    # Derived lock covers the changed members of the store snapshot. No record field is an input lock.
-    # The candidate binding is a test value. It proves no equality between native identity schemes.
-    descriptor = {'descriptor_profile': BASE, 'kind': 'activation', 'candidate': bind_value(record['candidate']['ref'], bound),
-                  'lock': lock, 'approval': approval, 'report': report,
-                  'partition': record['partition'], 'effective_from': record['from'],
-                  'effective_until': record['until'], 'request_key': record['request_key'],
-                  'producer': record['producer'], 'runner': record['runner'], 'approver': record['approver']}
-    # Derived base is the bound expected store head. An empty record base gives no descriptor base.
-    if record['base']:
-        descriptor['base'] = bind_value(record['base'], bound)
-    # Derived removed is absent: this first update removes no member (PUB-ACT-2).
-    return put(store, descriptor)
+    return put(store, resolve(record, manifests, consumer))
 
 
 def head(store: Store) -> str | None:
@@ -192,7 +185,7 @@ def main() -> None:
     store.gate(SERVING)  # PUB-GAT-1: before the first call
     store.accept(POLICY, validate)
 
-    # Steps 1 and 2: groundgate admits the facts, and the adapter writes them.
+    # Steps 1 and 2: the producer admits the facts, and the adapter writes them.
     with tempfile.TemporaryDirectory() as folder:
         export, reading = run_groundgate(folder)
     adapter_snapshot, _ = put_export_facts(
@@ -216,11 +209,25 @@ def main() -> None:
     record = json.loads(STAND_IN.read_text(encoding='utf-8'))['records']['first']
     lock = put(store, {'descriptor_profile': BASE, 'kind': 'build-lock', 'inputs': sorted(members),
                        'consumer': 'example/library-reader', 'completeness': 'example/declared/v1'})
-    activation = activation_of(store, record, {'$candidate': candidate}, lock)
+    objects = {}
+    text = manifest_text(store, snapshot, record['partition'], '', lock, objects)
+    manifest_ref = 'sha256:' + hashlib.sha256(text.encode('utf-8')).hexdigest()
+    # Bind the stand-in name to the manifest bytes, not to the store candidate identity.
+    bound = {record['candidate']['ref']: manifest_ref}
+    record['candidate']['ref'] = bound[record['candidate']['ref']]
+    # Receipt content stays in entelos. Each wrapper contains only its typed record reference.
+    receipts = {record[key]: receipt(store, 'sample-reference-adapter', record[key])
+                for key in ('decision_ref', 'report_ref')}
+    consumer = {'objects': objects, 'candidates': {manifest_ref: candidate}, 'published': {},
+                'head': None, 'receipts': receipts}
+    activation = activation_of(store, record, {manifest_ref: text}, consumer)
     published = call(store, 'publish', {'candidate': candidate, 'receipt': acceptance,
                                         'activation': activation})['items'][0]
     print('publish with the activation:', published['status'], published['disposition'],
           'head is the candidate snapshot', head(store) == snapshot)
+
+    consumer['published'][manifest_ref] = snapshot
+    consumer['head'] = snapshot
 
     # Step 5: a filtered read of the head for one branch and one date.
     context = call(store, 'open_context', {'heads': [SERVING]})['context']

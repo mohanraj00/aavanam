@@ -1,49 +1,74 @@
-# Library example: one update from groundgate through an activation to a gated head
+# Library example: one update through an activation to a gated head
 
-This example moves one update from a source document to the head of a gated collection. It uses three projects: groundgate admits the facts, an entelos activation record approves the update, and aavanam moves the head only with that record. It does the steps of issue #83:
+This example moves one update from a source document to the head of a gated collection.
+A fact producer admits two facts. An activation record names the approved content manifest.
+The consumer resolves its typed references. The store then checks the activation before it moves the head.
 
-1. groundgate reads the synthetic source `hours.txt` and admits two facts: the opening hours of the north branch in winter and of the south branch in summer.
-2. The admitted-facts adapter writes the facts to the store (ADP-FXT-1 to ADP-FXT-7). The application declares the branch and the dates of each fact in an overlay (DSC-FLT-2), and makes the candidate snapshot of the gated collection `sample-library-hours`.
-3. A publish with no activation is refused with the reason `activation_required` (PUB-GAT-3). The head does not move.
-4. The activation record approves the update. The build lock covers each changed member of the snapshot (PUB-ACT-3 check 5). The publish with the activation moves the head.
-5. A filtered read of the head for the north branch on 2026-02-10 gives one fact. The filter uses an exact match on `branch` and the range match `contains` on `valid_from` and `valid_until` (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2).
+1. The fact producer reads the synthetic source `hours.txt` and admits the opening hours of two branches.
+2. The admitted-facts adapter writes the facts (ADP-FXT-1 to ADP-FXT-7). The application declares the branch and dates
+   of each fact in an overlay (DSC-FLT-2), and makes a candidate snapshot of `sample-library-hours`.
+3. A publish with no activation gives `activation_required` (PUB-GAT-3). The head does not move.
+4. The consumer builds a content manifest from the snapshot members and the stored build lock. The record
+   names the exact manifest bytes. The consumer checks and resolves the record, then writes the activation.
+   A publish with this activation moves the head (PUB-ACT-3).
+5. A filtered read for the north branch on 2026-02-10 gives one fact. The filter uses an exact `branch` match
+   and a `contains` range match on `valid_from` and `valid_until` (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2).
 
-The test [tests/test_library_example.py](../../tests/test_library_example.py) runs the example and compares its output with the output in this file.
+The test [tests/test_library_example.py](../../tests/test_library_example.py) compares the output with this file.
 
 ## Stand-in activation record
 
-The activation record is a stand-in. It uses the proposed record table of `ACTIVATION.md` at commit `4d9d66e`.
-No entelos release writes this record yet. Thus `requirements.txt` pins no release of the activation producer.
+The record is a stand-in. It uses the proposed record and content contracts at commit `4d9d66e`.
+No producer release writes this record yet. The record has no signature. These checks prove no signature check
+or production integration. The store does not evaluate the effective interval or verify an actor (PUB-ACT-5).
+The application validator decides (PUB-RCP-2).
 
-The file `activation_record_stand_in.json` uses the same layout as `tests/activation_record_stand_in.json`.
-The seam test applies the consumer rules to both files, after it binds the store values. The record has no signature.
-The store does not verify a signature or evaluate the effective interval (PUB-ACT-5). The application validator decides
-(PUB-RCP-2). The mapping table is in the docstring of `tests/test_activation_seam.py`.
+The file `activation_record_stand_in.json` uses the layout of `tests/activation_record_stand_in.json`.
+Each `$name` in `candidate.ref` and a nonempty `base` binds to a content manifest reference.
+This reference is `sha256:` and the SHA-256 of the exact UTF-8 manifest bytes. It is not the store candidate identity.
+The seam test checks both stand-in files.
 
-The example derives a build lock from the changed snapshot members. It writes store receipts with `decision_ref` and
-`report_ref` as opaque payloads. These receipts contain references, not the receipt content of the producer. The candidate
-binding is a test value, not proof that native identities are equal. The record has separate `collection` and `partition`
-fields. This fixture gives both fields the store collection name. These choices prove no general producer adapter.
-The applicability of the facts comes from the application overlays below, not from the empty record `applicability`.
+The shared file `activation_mapping.py` supplies `resolve(record, manifests, consumer)` to the example and test.
+The manifest has format `entelos.content/1`, the collection, the partition, the base manifest reference and
+items in ascending `item_id` order. Each content member has its stored descriptor digest and byte size.
+The item `inputs.lock` has the digest and byte size of the stored build lock. Stored descriptor text is canonical
+JSON. Its SHA-256 equals its store reference (IDN-CAN-2), so this item names the exact lock bytes.
 
-The example derives `lock`, `base`, `approval` and `report`. PUB-ACT-3 checks 3 to 5 run on the derived lock;
-check 2 runs on the derived base. The receipt checks at `put` run on derived approval and report receipts with
-`decision_ref` and `report_ref` as payload text (PUB-ACT-1). Store-side gate behavior is still proved for each check.
-This example does not prove that the record declares these values. The producer record does not yet give them.
-These are gaps of this PR. The guard test in `tests/test_activation_seam.py` requires a mapping change if the record adds them.
+| Descriptor value | Typed record field and consumer mapping |
+|---|---|
+| candidate | `candidate.ref` selects the consumer store candidate |
+| lock | `candidate.ref` selects the checked manifest; `inputs.lock` selects stored bytes by digest and size |
+| base | `base` selects the published store snapshot; empty gives no base |
+| approval | `decision_ref` selects a store receipt wrapper |
+| report | `report_ref` selects a store receipt wrapper |
+| partition | `partition`, checked against the manifest |
+| effective_from, effective_until | `from`, `until` |
+| request_key, producer, runner, approver | The record fields with the same names |
+
+The consumer checks the manifest hash, format, schema, field names, item order and digest form. Its collection,
+partition and base must equal the record fields. A lock must exist with the declared digest and size. A nonempty
+base must select a snapshot in the consumer publication table and equal its current head. A repeat of an earlier
+publication remains safe (PUB-HED-5). A failed check gives a refusal reason before any store call.
+
+Receipt wrappers contain only the typed record references. Receipt content stays in the producer.
+The descriptor profile and kind are local constants. This first update removes no member (PUB-ACT-2).
+The collection and partition names agree by fixture design. This is no general mapping of the two head models.
+The fact applicability comes from application overlays, not from the empty record `applicability`.
+The guard test requires each descriptor value to come from `resolve`.
 
 When a release writes the activation record, a later change must do these steps:
 
 1. Pin that release in `requirements.txt`.
 2. Replace the stand-in with a record from that release.
-3. Update `activation_of` and the rule checks if the released layout needs a change.
+3. Update `resolve` and the rule checks if the released layout needs a change.
 
 ## Files
 
 - `library_hours.py`: the example.
+- `activation_mapping.py`: the shared consumer mapping. It uses only the standard library.
 - `hours.txt`: the synthetic source document. It names no real library, place or person.
 - `activation_record_stand_in.json`: the stand-in activation record.
-- `requirements.txt`: groundgate 0.15.0, pinned with its hash. The example reads a text source, so groundgate needs no extra and no dependency.
+- `requirements.txt`: the fact producer at version 0.15.0, pinned with its hash. A text source needs no extra dependency.
 
 ## Applicability is declared metadata
 
@@ -55,9 +80,9 @@ The filter reads `list_items` items. Each fact is one data resource, so the filt
 
 You need Python 3.14 or later.
 
-1. Do steps 1 to 4 of [Run an example from a clean checkout](../README.md#run-an-example-from-a-clean-checkout). Then the environment `../aavanam-user` has the aavanam wheel.
+1. Do steps 1 to 4 of [Run an example from a clean checkout](../README.md#run-an-example-from-a-clean-checkout). Then the environment `../aavanam-user` has the store wheel.
 
-2. Install the pinned groundgate in the same environment:
+2. Install the pinned fact producer in the same environment:
 
    ```bash
    ../aavanam-user/bin/python -m pip install --require-hashes --only-binary :all: --no-deps -r examples/library_hours/requirements.txt
@@ -72,8 +97,8 @@ You need Python 3.14 or later.
 Output of `library_hours.py`:
 
 ```text
-groundgate north_winter admitted
-groundgate south_summer admitted
+producer north_winter admitted
+producer south_summer admitted
 adapter wrote 2 facts to sample-library-hours
 publish with no activation: incompatible ['activation_required'] head None
 publish with the activation: ok published head is the candidate snapshot True

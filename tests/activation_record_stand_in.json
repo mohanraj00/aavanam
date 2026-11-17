@@ -3,13 +3,13 @@
   "stand_in": true,
   "note": [
     "STAND-IN. The record layout is proposed in ACTIVATION.md at commit 4d9d66e.",
-    "No entelos release writes the record yet. This file has no signature.",
+    "No producer release writes the record yet. This file has no signature.",
     "record_kind is the kind of the signed record that a release will give.",
     "A later change must pin a release that writes the record, replace these stand-ins with records from that release, and update the mapping and the rule checks if needed.",
     "All values are synthetic and neutral."
   ],
   "source": "https://github.com/mohanraj00/entelos/blob/4d9d66ed9487645e28052d3a5e5e8b721ea22ec9/src/protocol/activation/ACTIVATION.md",
-  "names": "A value that starts with `$` is a name. Bind candidate.ref to the candidate identity of the test store, and base to its expected head. These bindings do not prove that the native identities are equal.",
+  "names": "A value that starts with `$` is a name. Bind candidate.ref and a nonempty base to the SHA-256 reference of the exact content manifest bytes. The consumer maps that reference to its store candidate or published snapshot.",
   "records": {
     "first": {
       "format": "entelos.record/1",
@@ -48,7 +48,7 @@
         "kind": "content",
         "ref": "$candidate-2"
       },
-      "base": "$snapshot-1",
+      "base": "$candidate-1",
       "collection": "sample-notices",
       "partition": "sample-notices",
       "from": "2026-07-01",
