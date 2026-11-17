@@ -13,8 +13,8 @@ The example does the steps of issue #83:
 4. The activation record approves the update. The publish with the activation moves the head (PUB-ACT-3).
 5. A filtered read of the head for one branch and one date (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2) gives one fact.
 
-The activation record is a STAND-IN (activation_record_stand_in.json). Entelos has no release with the activation
-record yet. Only the function `activation_of` reads the layout of the record.
+The activation record is a STAND-IN (activation_record_stand_in.json). No release writes the proposed activation
+record at commit 4d9d66e yet. Only the function `activation_of` reads the layout of the record.
 
 An unexpected outcome stops the example with exit status 1.
 """
@@ -140,21 +140,31 @@ def candidate_snapshot(store: Store, adapter_snapshot: str) -> tuple[str, list[s
     return snapshot, adapter['units'] + overlay_sets
 
 
-def activation_of(store: Store, record: dict, bound: dict[str, str]) -> str:
+def bind_value(value: str, bound: dict[str, str]) -> str:
+    return bound[value] if value.startswith('$') else value
+
+
+def activation_of(store: Store, record: dict, bound: dict[str, str], lock: str) -> str:
     """Write the receipts and the `activation` descriptor of one record (PUB-ACT-1). Return the activation.
 
     This function is the mapping from the layout of the record. The store keeps the interval, the request key and the
     names as strings. It does not evaluate them (PUB-ACT-5).
     """
-    approval = receipt(store, record['approval']['producer'], record['approval']['text'])
-    report = receipt(store, record['report']['producer'], record['report']['text'])
-    descriptor = {'descriptor_profile': BASE, 'kind': 'activation', 'candidate': bound[record['candidate']],
-                  'lock': bound[record['lock']], 'approval': approval, 'report': report,
-                  'partition': record['partition'], 'effective_from': record['effective']['from'],
-                  'effective_until': record['effective']['until'], 'request_key': record['request_key'],
+    # Derived receipts contain the native references as opaque payloads. They are not fetched receipt content.
+    approval = receipt(store, 'sample-reference-adapter', record['decision_ref'])
+    report = receipt(store, 'sample-reference-adapter', record['report_ref'])
+    # Derived profile and kind name the store descriptor. The record format is not a descriptor profile.
+    # Derived lock covers the changed members of the store snapshot. No record field is an input lock.
+    # The candidate binding is a test value. It proves no equality between native identity schemes.
+    descriptor = {'descriptor_profile': BASE, 'kind': 'activation', 'candidate': bind_value(record['candidate']['ref'], bound),
+                  'lock': lock, 'approval': approval, 'report': report,
+                  'partition': record['partition'], 'effective_from': record['from'],
+                  'effective_until': record['until'], 'request_key': record['request_key'],
                   'producer': record['producer'], 'runner': record['runner'], 'approver': record['approver']}
-    if record['base'] is not None:
-        descriptor['base'] = bound[record['base']]
+    # Derived base is the bound expected store head. An empty record base gives no descriptor base.
+    if record['base']:
+        descriptor['base'] = bind_value(record['base'], bound)
+    # Derived removed is absent: this first update removes no member (PUB-ACT-2).
     return put(store, descriptor)
 
 
@@ -200,7 +210,7 @@ def main() -> None:
     record = json.loads(STAND_IN.read_text(encoding='utf-8'))['records']['first']
     lock = put(store, {'descriptor_profile': BASE, 'kind': 'build-lock', 'inputs': sorted(members),
                        'consumer': 'example/library-reader', 'completeness': 'example/declared/v1'})
-    activation = activation_of(store, record, {'$candidate': candidate, '$lock': lock})
+    activation = activation_of(store, record, {'$candidate': candidate}, lock)
     published = call(store, 'publish', {'candidate': candidate, 'receipt': acceptance,
                                         'activation': activation})['items'][0]
     print('publish with the activation:', published['status'], published['disposition'],

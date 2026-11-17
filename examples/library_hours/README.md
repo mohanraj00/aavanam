@@ -12,15 +12,25 @@ The test [tests/test_library_example.py](../../tests/test_library_example.py) ru
 
 ## Stand-in activation record
 
-The activation record is a stand-in. It is not the output of an entelos release. Entelos has no Python package and no release with the activation record yet (mohanraj00/entelos#105 and mohanraj00/entelos#155). Thus `requirements.txt` pins no entelos version.
+The activation record is a stand-in. It uses the proposed record table of `ACTIVATION.md` at commit `4d9d66e`.
+No entelos release writes this record yet. Thus `requirements.txt` pins no release of the activation producer.
 
-The file `activation_record_stand_in.json` has the layout of `tests/activation_record_stand_in.json`, the stand-in of the activation seam test (issue #4). The record has no signature. The store does not verify a signature or evaluate the effective interval (PUB-ACT-5). The validator of the application decides (PUB-RCP-2).
+The file `activation_record_stand_in.json` uses the same layout as `tests/activation_record_stand_in.json`.
+The seam test applies the consumer rules to both files, after it binds the store values. The record has no signature.
+The store does not verify a signature or evaluate the effective interval (PUB-ACT-5). The application validator decides
+(PUB-RCP-2). The mapping table is in the docstring of `tests/test_activation_seam.py`.
 
-When entelos has a release with the activation record, do these steps:
+The example derives a build lock from the changed snapshot members. It writes store receipts with `decision_ref` and
+`report_ref` as opaque payloads. These receipts contain references, not the receipt content of the producer. The candidate
+binding is a test value, not proof that native identities are equal. The record has separate `collection` and `partition`
+fields. This fixture gives both fields the store collection name. These choices prove no general producer adapter.
+The applicability of the facts comes from the application overlays below, not from the empty record `applicability`.
 
-1. Pin the release in `requirements.txt`.
-2. Make the record with that release.
-3. Change only the function `activation_of` in `library_hours.py` to read the released layout.
+When a release writes the activation record, a later change must do these steps:
+
+1. Pin that release in `requirements.txt`.
+2. Replace the stand-in with a record from that release.
+3. Update `activation_of` and the rule checks if the released layout needs a change.
 
 ## Files
 

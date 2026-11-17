@@ -2,28 +2,41 @@
   "format": "aavanam-test/activation-record-stand-in/v1",
   "stand_in": true,
   "note": [
-    "STAND-IN. This file does not come from an entelos release.",
-    "Entelos has no release with the signed activation record yet (mohanraj00/entelos#105 and mohanraj00/entelos#155).",
-    "The record has the layout of tests/activation_record_stand_in.json, the stand-in of the activation seam test. The test of this example compares the two field lists.",
-    "A record has no signature, and the names and the layout of the fields are an assumption of this project.",
-    "To replace it: pin the entelos release in examples/library_hours/requirements.txt, make the record with that release, and change only the function `activation_of` in examples/library_hours/library_hours.py to read the released layout.",
+    "STAND-IN. The record layout is proposed in ACTIVATION.md at commit 4d9d66e.",
+    "No entelos release writes the record yet. This file has no signature.",
+    "A later change must pin a release that writes the record, replace these stand-ins with records from that release, and update the mapping and the rule checks if needed.",
     "All values are synthetic and neutral."
   ],
-  "source": "https://github.com/mohanraj00/entelos/issues/105",
-  "names": "A value that starts with `$` is a name. The example binds it to a reference or a candidate identity of its own store, because these values depend on the content of the store.",
+  "source": "https://github.com/mohanraj00/entelos/blob/4d9d66ed9487645e28052d3a5e5e8b721ea22ec9/src/protocol/activation/ACTIVATION.md",
+  "names": "A value that starts with `$` is a name. Bind candidate.ref to the candidate identity of the test store, and base to its expected head. These bindings do not prove that the native identities are equal.",
   "records": {
     "first": {
-      "candidate": "$candidate",
-      "base": null,
-      "lock": "$lock",
-      "approval": {"producer": "sample-approver", "media_type": "text/plain", "text": "Approved: library opening hours, first update."},
-      "report": {"producer": "sample-runner", "media_type": "text/plain", "text": "Qualified: library opening hours, first update."},
-      "approver": "sample-approver",
+      "format": "entelos.record/1",
+      "scope": "sample-scope",
+      "function": "content:sample-library-hours/sample-library-hours",
+      "event_ref": "sha256:2c5cc709fc3e5824782cec94f1664f3be20ec694fd0eeecaac13af0997df93be",
+      "request_key": "library-request-0001",
+      "candidate": {
+        "kind": "content",
+        "ref": "$candidate"
+      },
+      "base": "",
+      "collection": "sample-library-hours",
+      "partition": "sample-library-hours",
+      "from": "2026-01-01",
+      "until": "2027-01-01",
+      "source_ref": "sha256:05b976ce1e82f5873a2477de81bdb169becadc4d582a2f6876057377852e8a95",
+      "snapshot_ref": "sha256:0b5886ef3e15d285e6c1dd10915b48cb590e365630e3298c71902312d6429033",
+      "report_ref": "sha256:a37f0e7c788e5b5790f1c0101cd050bbf614025405ff4537468080c79ce3dcb3",
+      "decision_ref": "sha256:f2a10644ab46e61fb8734bf93a424bd0c7f8d9a2dac3201b3d7f9db384015f5f",
       "producer": "sample-producer",
       "runner": "sample-runner",
-      "partition": "sample-library-hours",
-      "effective": {"from": "2026-01-01", "until": "2027-01-01"},
-      "request_key": "library-request-0001"
+      "approver": "sample-approver",
+      "activator": "sample-activator",
+      "targets": [],
+      "supersedes": [],
+      "applicability": {}
     }
-  }
+  },
+  "record_kind": "activation"
 }
