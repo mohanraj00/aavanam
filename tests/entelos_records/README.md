@@ -23,7 +23,9 @@ go run .
 
 The program uses a fixed public test seed from `seed.txt` for Ed25519 signing.
 The entelos Host writes a `submitted_at` timestamp on each snapshot. The program installs a fixed clock with value `2026-01-01T00:00:00Z`.
-Because the seed, the clock and the inputs are fixed, repeated runs make the same record bytes, references and signatures.
+The entelos Host also writes its build identity into its reports. By default, this identity holds the Go version and the output of `git --version`. Thus the default value changes with the toolchain.
+The program sets the Host build identity to a fixed test value: the text `sha256:` and 64 zeros. The records are test data. The fixed build value is not the identity of a real build.
+Because the seed, the clock, the build value and the inputs are fixed, repeated runs make the same record bytes, references and signatures with each toolchain.
 
 ## Files
 

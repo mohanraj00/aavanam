@@ -140,6 +140,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// The Host build identity holds the Go version and the output of
+	// "git --version". The program sets a fixed test value, so the records
+	// do not depend on the toolchain.
+	host.BuildRef = "sha256:" + strings.Repeat("0", 64)
 	host.Clock = fixedClock("2026-01-01T00:00:00Z")
 	host.SetSigner(signer)
 	host.SetPublisher(publisher)
