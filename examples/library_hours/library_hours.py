@@ -15,6 +15,12 @@ The example does the steps of issue #83:
 
 The activation record comes from entelos v0.5.0 (first_signed.json). The shared `activation_mapping.py`
 checks record rules 1 to 8, checks the manifest and resolves the record.
+
+This example does NOT check the signature, `record_ref`, `key_id` or the key set of `first_signed.json`.
+It decodes the record bytes and takes `record_kind` from the envelope without a check.
+A real consumer must check the signed record (SIGNED.md) first, for example with
+`entelos-verify --keys keyset.json first_signed.json`. It must take the record bytes and the record kind
+only from a successful check. The test `tests/test_activation_seam.py` does this check against the pinned entelos.
 The table in `activation_of` gives each descriptor value and its typed record field.
 
 An unexpected outcome stops the example with exit status 1.
@@ -206,6 +212,11 @@ def main() -> None:
         raise SystemExit('the gate did not refuse the publish')
 
     # Step 4: the activation record approves the update. The lock covers each changed member (PUB-ACT-3 check 5).
+    # This example does NOT check the signature, record_ref, key_id or the key set. It takes the record bytes
+    # and record_kind from the envelope without a check. A real consumer must check the signed record first
+    # (SIGNED.md), for example with entelos-verify, and use only the record bytes and kind of a successful check.
+    # tests/test_activation_seam.py does this check against the pinned entelos.
+    print('signature of the activation record: not checked in this example')
     signed = MAPPING['json_object'](RECORD_SIGNED.read_text(encoding='utf-8'))
     raw_record = base64.b64decode(signed['record'])
     record = MAPPING['json_object'](raw_record.decode('utf-8'))

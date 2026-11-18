@@ -2,7 +2,12 @@
 
 The shared check_record applies record rules 1 to 8 before resolve checks the manifest.
 The consumer tables keep store objects and candidates by their declared byte references.
-This example checks no signature and fetches no external receipt content.
+This file does NOT check the signature, `record_ref`, `key_id` or the key set of a signed record.
+The caller gives the record and its record kind. In the example, they come from the envelope without a check.
+A real consumer must check the signed record (SIGNED.md) first, for example with `entelos-verify`,
+and give only the record bytes and the record kind of a successful check.
+The test `tests/test_activation_seam.py` does this check against the pinned entelos.
+This file fetches no external receipt content.
 """
 from __future__ import annotations
 

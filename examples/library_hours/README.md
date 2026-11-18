@@ -19,8 +19,12 @@ The test [tests/test_library_example.py](../../tests/test_library_example.py) co
 ## Activation record
 
 The activation record comes from entelos v0.5.0. It is signed by the producer key.
-A consumer checks the signed record (SIGNED.md) before the consumer mapping.
-The seam test `tests/test_activation_seam.py` does this signature check with `entelos-verify`.
+This example does NOT check the signature, `record_ref`, `key_id` or the key set.
+It decodes the record bytes and takes `record_kind` from the envelope of `first_signed.json` without a check.
+The example prints one line before step 4 to show this.
+A real consumer must check the signed record (SIGNED.md) before the consumer mapping, for example with
+`entelos-verify --keys keyset.json first_signed.json`. It must take the record bytes and the record kind
+only from a successful check. The seam test `tests/test_activation_seam.py` does this check against the pinned entelos.
 The store does not evaluate the effective interval or verify an actor (PUB-ACT-5).
 The application validator decides (PUB-RCP-2).
 
@@ -31,7 +35,7 @@ It is not the store candidate identity.
 
 The shared file `activation_mapping.py` supplies `resolve(record, record_kind, manifests, consumer)` to the example and test.
 It first calls the shared `check_record` for record rules 1 to 8: record kind, JSON object, format,
-field names, schema, candidate fields, subject and interval. The caller supplies the record kind from the signed record.
+field names, schema, candidate fields, subject and interval. The caller supplies the record kind. In this example, it comes from the envelope without a check.
 The manifest has format `entelos.content/1`, the collection, the partition, the base manifest reference and
 items in ascending `item_id` order. Each content member has its stored descriptor digest and byte size.
 The item `inputs.lock` has the digest and byte size of the stored build lock. Stored descriptor text is canonical
@@ -101,6 +105,7 @@ producer north_winter admitted
 producer south_summer admitted
 adapter wrote 2 facts to sample-library-hours
 publish with no activation: incompatible ['activation_required'] head None
+signature of the activation record: not checked in this example
 publish with the activation: ok published head is the candidate snapshot True
 filter branch north date 2026-02-10 gives 1 of 2 facts
 fact north_winter '09:00 to 17:00'

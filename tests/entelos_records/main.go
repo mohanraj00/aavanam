@@ -28,7 +28,7 @@ func (m *mockRuntime) Execute(files map[string][]byte, command string, inputs []
 
 type testRunner struct{}
 
-func (r *testRunner) Identity() (string, error) { return "sha256:" + strings.Repeat("0", 64), nil }
+func (r *testRunner) Identity() (string, error)           { return "sha256:" + strings.Repeat("0", 64), nil }
 func (r *testRunner) Expected(lifecycle.Candidate) string { return "sha256:" + strings.Repeat("0", 64) }
 func (r *testRunner) Qualify(in lifecycle.QualificationInput) (lifecycle.Verdict, error) {
 	return lifecycle.Verdict{Outcome: lifecycle.Object{
@@ -57,24 +57,37 @@ func (p *collectPublisher) Publish(record, signed []byte) error {
 	return nil
 }
 
+// loadSeed reads the one Ed25519 test seed from path. The file must have
+// exactly one line of 64 hex digits, other than empty lines and comment lines.
+// If the file is missing, unreadable or malformed, the program stops with
+// exit status 1 before it writes a file. There is no built-in seed.
 func loadSeed(path string) []byte {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// Public test seed: 32 bytes of 0x42. Never use outside tests.
-		return bytes.Repeat([]byte{0x42}, 32)
+		fail("cannot read the seed file %s: %v", path, err)
 	}
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	var values []string
+	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		decoded, err := hex.DecodeString(line)
-		if err == nil && len(decoded) == 32 {
-			return decoded
-		}
+		values = append(values, line)
 	}
-	return bytes.Repeat([]byte{0x42}, 32)
+	if len(values) != 1 {
+		fail("the seed file %s must have exactly one seed line, found %d", path, len(values))
+	}
+	seed, err := hex.DecodeString(values[0])
+	if err != nil || len(seed) != 32 {
+		fail("the seed line in %s must be 64 hex digits (32 bytes)", path)
+	}
+	return seed
+}
+
+// fail writes the message to standard error and stops with exit status 1.
+func fail(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "entelos_records: "+format+"\n", args...)
+	os.Exit(1)
 }
 
 func writeFile(path string, content []byte) {
