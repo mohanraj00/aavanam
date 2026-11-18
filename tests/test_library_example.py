@@ -7,6 +7,7 @@ package fails there. AAVANAM_INSTALLED=1 makes the example import aavanam from t
 """
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import os
@@ -30,21 +31,23 @@ def expected_output() -> str:
     return re.search(r'Output of `library_hours\.py`:\n\n```text\n(.*?)```', text, re.S).group(1)
 
 
-def stand_in(path) -> dict:
-    return json.loads(path.read_text(encoding='utf-8'))
+def read_record(path) -> dict:
+    signed = json.loads(path.read_text(encoding='utf-8'))
+    raw = base64.b64decode(signed['record'])
+    return json.loads(raw.decode('utf-8'))
 
 
-class StandInTest(unittest.TestCase):
-    def test_the_record_has_the_layout_of_the_seam_stand_in(self):
-        example, seam = stand_in(FOLDER / 'activation_record_stand_in.json'), stand_in(ROOT / 'tests/activation_record_stand_in.json')
-        self.assertIs(example['stand_in'], True)  # change this test when a pinned release replaces the stand-in
-        self.assertEqual(example['format'], seam['format'])
-        fields = {frozenset(record) for record in seam['records'].values()}
+class ActivationRecordTest(unittest.TestCase):
+    def test_the_record_has_the_layout_of_the_seam_records(self):
+        example = read_record(FOLDER / 'first_signed.json')
+        seam_first = read_record(ROOT / 'tests/entelos_records/first_signed.json')
+        seam_second = read_record(ROOT / 'tests/entelos_records/second_signed.json')
+        self.assertEqual(example['format'], 'entelos.record/1')
+        fields = {frozenset(seam_first), frozenset(seam_second)}
         self.assertEqual(len(fields), 1)
-        record = example['records']['first']
-        self.assertEqual(frozenset(record), fields.pop())
-        self.assertEqual(record['partition'], 'sample-library-hours')  # PUB-ACT-3 check 2
-        self.assertLess(record['from'], record['until'])  # a half-open interval
+        self.assertEqual(frozenset(example), fields.pop())
+        self.assertEqual(example['partition'], 'sample-library-hours')  # PUB-ACT-3 check 2
+        self.assertLess(example['from'], example['until'])  # a half-open interval
 
     def test_the_requirements_pin_no_unreleased_version(self):
         lines = [line for line in (FOLDER / 'requirements.txt').read_text(encoding='utf-8').splitlines()

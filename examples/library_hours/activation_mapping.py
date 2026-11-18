@@ -13,7 +13,7 @@ from datetime import date
 
 from aavanam.jsontext import canonical
 
-# The record table and schema at commit 4d9d66e. No schema package is needed.
+# The record table and schema of entelos v0.5.0. No schema package is needed.
 FIELDS = {'format', 'scope', 'function', 'event_ref', 'request_key', 'candidate', 'base', 'collection', 'partition',
           'from', 'until', 'source_ref', 'snapshot_ref', 'report_ref', 'decision_ref', 'producer', 'runner', 'approver',
           'activator', 'targets', 'supersedes', 'applicability'}
@@ -59,7 +59,7 @@ def json_object(text: str) -> dict:
 
 
 def check_record(record: dict, record_kind: str | None) -> None:
-    """Apply consumer rules 1 to 8 at commit 4d9d66e. Rule 1 requires the record kind 'activation'.
+    """Apply consumer rules 1 to 8 of entelos v0.5.0 (ACTIVATION.md). Rule 1 requires the record kind 'activation'.
 
     A missing kind (None) or another value gives unexpected_record_kind.
     json_object checks duplicate names before this function gets a record object.
@@ -109,7 +109,7 @@ def check_record(record: dict, record_kind: str | None) -> None:
 
 
 def check_manifest(text: str) -> dict:
-    """Apply the content manifest rules at commit 4d9d66e, without a schema package."""
+    """Apply the content manifest rules of entelos v0.5.0 (CONTENT.md), without a schema package."""
     require(len(text.encode('utf-8')) <= 262144, 'too_large')
     obj = json_object(text)
     require(matches(obj.get('format'), r'entelos.content/[1-9][0-9]*'), 'format')
@@ -122,12 +122,19 @@ def check_manifest(text: str) -> dict:
     require(isinstance(items, list) and len(items) >= 1, 'schema')
     for item in items:
         require(isinstance(item, dict), 'schema')
-        require(item.keys() <= {'item_id', 'digest', 'size', 'media_type'}, 'unknown_field')
+        require(item.keys() <= {'item_id', 'digest', 'size', 'media_type', 'applicability'}, 'unknown_field')
         require({'item_id', 'digest', 'size'} <= item.keys(), 'schema')
         require(matches(item['item_id'], NAME) and matches(item['digest'], REF), 'schema')
         require(type(item['size']) is int and item['size'] >= 0, 'schema')
         if 'media_type' in item:
             require(matches(item['media_type'], r'[a-z0-9][a-z0-9.+-]{0,63}/[a-z0-9][a-z0-9.+-]{0,63}'), 'schema')
+        if 'applicability' in item:
+            require(isinstance(item['applicability'], dict), 'schema')
+            require(1 <= len(item['applicability']) <= 16, 'applicability_count')
+            require(all(matches(k, NAME) for k in item['applicability']), 'applicability_name')
+            for levels in item['applicability'].values():
+                require(isinstance(levels, list) and 1 <= len(levels) <= 8, 'schema')
+                require(all(isinstance(level, str) and 1 <= len(level) <= 256 for level in levels), 'schema')
     if 'evidence' in obj:
         evidence = obj['evidence']
         require(isinstance(evidence, dict), 'schema')

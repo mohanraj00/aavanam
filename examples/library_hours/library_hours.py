@@ -13,8 +13,8 @@ The example does the steps of issue #83:
 4. The activation record approves the update. The publish with the activation moves the head (PUB-ACT-3).
 5. A filtered read of the head for one branch and one date (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2) gives one fact.
 
-The activation record is a STAND-IN (activation_record_stand_in.json). No release writes the proposed activation
-record at commit 4d9d66e yet. The shared `activation_mapping.py` checks record rules 1 to 8, checks the manifest and resolves the record.
+The activation record comes from entelos v0.5.0 (first_signed.json). The shared `activation_mapping.py`
+checks record rules 1 to 8, checks the manifest and resolves the record.
 The table in `activation_of` gives each descriptor value and its typed record field.
 
 An unexpected outcome stops the example with exit status 1.
@@ -38,7 +38,7 @@ MAPPING = runpy.run_path(str(HERE / 'activation_mapping.py'))
 resolve = MAPPING['resolve']
 manifest_text = MAPPING['manifest_text']
 SOURCE = HERE / 'hours.txt'
-STAND_IN = HERE / 'activation_record_stand_in.json'
+RECORD_SIGNED = HERE / 'first_signed.json'
 SERVING = 'sample-library-hours'
 EVIDENCE = 'sample-library-evidence'
 POLICY = 'example/library-hours-policy'
@@ -206,22 +206,23 @@ def main() -> None:
         raise SystemExit('the gate did not refuse the publish')
 
     # Step 4: the activation record approves the update. The lock covers each changed member (PUB-ACT-3 check 5).
-    stand_in = MAPPING['json_object'](STAND_IN.read_text(encoding='utf-8'))
-    record = stand_in['records']['first']
+    signed = MAPPING['json_object'](RECORD_SIGNED.read_text(encoding='utf-8'))
+    raw_record = base64.b64decode(signed['record'])
+    record = MAPPING['json_object'](raw_record.decode('utf-8'))
+    record_kind = signed['record_kind']
     lock = put(store, {'descriptor_profile': BASE, 'kind': 'build-lock', 'inputs': sorted(members),
                        'consumer': 'example/library-reader', 'completeness': 'example/declared/v1'})
     objects = {}
     text = manifest_text(store, snapshot, record['partition'], '', lock, objects)
     manifest_ref = 'sha256:' + hashlib.sha256(text.encode('utf-8')).hexdigest()
-    # Bind the stand-in name to the manifest bytes, not to the store candidate identity.
-    bound = {record['candidate']['ref']: manifest_ref}
-    record['candidate']['ref'] = bound[record['candidate']['ref']]
+    if manifest_ref != record['candidate']['ref']:
+        raise SystemExit(f'manifest reference {manifest_ref} does not match record candidate reference {record["candidate"]["ref"]}')
     # Receipt content stays in entelos. Each wrapper contains only its typed record reference.
     receipts = {record[key]: receipt(store, 'sample-reference-adapter', record[key])
                 for key in ('decision_ref', 'report_ref')}
     consumer = {'objects': objects, 'candidates': {manifest_ref: candidate}, 'published': {},
                 'head': None, 'receipts': receipts}
-    activation = activation_of(store, record, stand_in.get('record_kind'), {manifest_ref: text}, consumer)
+    activation = activation_of(store, record, record_kind, {manifest_ref: text}, consumer)
     published = call(store, 'publish', {'candidate': candidate, 'receipt': acceptance,
                                         'activation': activation})['items'][0]
     print('publish with the activation:', published['status'], published['disposition'],

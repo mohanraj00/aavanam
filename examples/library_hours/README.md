@@ -16,21 +16,22 @@ The consumer resolves its typed references. The store then checks the activation
 
 The test [tests/test_library_example.py](../../tests/test_library_example.py) compares the output with this file.
 
-## Stand-in activation record
+## Activation record
 
-The record is a stand-in. It uses the proposed record and content contracts at commit `4d9d66e`.
-No producer release writes this record yet. The record has no signature. These checks prove no signature check
-or production integration. The store does not evaluate the effective interval or verify an actor (PUB-ACT-5).
+The activation record comes from entelos v0.5.0. It is signed by the producer key.
+A consumer checks the signed record (SIGNED.md) before the consumer mapping.
+The seam test `tests/test_activation_seam.py` does this signature check with `entelos-verify`.
+The store does not evaluate the effective interval or verify an actor (PUB-ACT-5).
 The application validator decides (PUB-RCP-2).
 
-The file `activation_record_stand_in.json` uses the layout of `tests/activation_record_stand_in.json`.
-Each `$name` in `candidate.ref` and a nonempty `base` binds to a content manifest reference.
-This reference is `sha256:` and the SHA-256 of the exact UTF-8 manifest bytes. It is not the store candidate identity.
-The seam test checks both stand-in files.
+The file `first_signed.json` holds the signed activation record. The record bytes inside it
+declare `candidate.ref` as the SHA-256 of the content manifest bytes.
+This reference is `sha256:` and the SHA-256 of the exact UTF-8 manifest bytes in `manifest.json`.
+It is not the store candidate identity.
 
 The shared file `activation_mapping.py` supplies `resolve(record, record_kind, manifests, consumer)` to the example and test.
 It first calls the shared `check_record` for record rules 1 to 8: record kind, JSON object, format,
-field names, schema, candidate fields, subject and interval. The caller supplies the record kind from the stand-in file.
+field names, schema, candidate fields, subject and interval. The caller supplies the record kind from the signed record.
 The manifest has format `entelos.content/1`, the collection, the partition, the base manifest reference and
 items in ascending `item_id` order. Each content member has its stored descriptor digest and byte size.
 The item `inputs.lock` has the digest and byte size of the stored build lock. Stored descriptor text is canonical
@@ -58,18 +59,15 @@ The collection and partition names agree by fixture design. This is no general m
 The fact applicability comes from application overlays, not from the empty record `applicability`.
 The guard test requires each descriptor value to come from `resolve`.
 
-When a release writes the activation record, a later change must do these steps:
-
-1. Pin that release in `requirements.txt`.
-2. Replace the stand-in with a record from that release.
-3. Update `resolve` and the rule checks if the released layout needs a change.
-
 ## Files
 
 - `library_hours.py`: the example.
 - `activation_mapping.py`: the shared consumer mapping. It uses only the standard library.
 - `hours.txt`: the synthetic source document. It names no real library, place or person.
-- `activation_record_stand_in.json`: the stand-in activation record.
+- `first_signed.json`: the signed activation record from entelos v0.5.0.
+- `first_record.json`: the activation record bytes from entelos v0.5.0.
+- `manifest.json`: the content manifest of the update.
+- `keyset.json`: the public key set (`entelos.keyset/1`) of the signer.
 - `requirements.txt`: the fact producer at version 0.15.0, pinned with its hash. A text source needs no extra dependency.
 
 ## Applicability is declared metadata
