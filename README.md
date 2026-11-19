@@ -115,7 +115,7 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.3.0 is the current version. All 22 contract documents are drafts. Version 0.3.0 adds range and interval matches, filters on declared metadata, support for optional groundgate export members, and imports with absent withheld bytes. It also adds an activation gate seam test and a library example. Both use stand-in activation records until entelos publishes the record format in a tagged release. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.4.0 is the current version. All 22 contract documents are drafts. Version 0.4.0 adds a production backend in Go over PostgreSQL with reads over HTTP, and a device store in Go over SQLite with a text index. It also adds the bundle update, the device layout (document 21) and the read binding (document 22). The activation seam now uses signed activation records. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
@@ -173,7 +173,7 @@ Within the 0.1 series, the reference store preserves the documented `aavanam/bas
 
 The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. The producer seam test is pending, and reserved operations return their specified unsupported status. The source version identifies the draft specification, conformance vectors and reference store together.
 
-See [the changelog](CHANGELOG.md) for the contents of 0.1.0, 0.2.0 and 0.3.0.
+See [the changelog](CHANGELOG.md) for the contents of 0.1.0, 0.2.0, 0.3.0 and 0.4.0.
 
 ## Run the checks
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0
+
+- Add the production backend, a Go module in `backend/` (#47, #98 to #104). It has the Go core, the PostgreSQL storage and schema, the publication and the activation gate, the read operations and the text search, export, import and the input locks. The conformance driver is `aavanam-conform`. The release tag is `backend/v0.4.0`.
+- Add the network read binding `aavanam-read/v1` (document 22, #104). The backend serves the read operations over HTTP. Access control is outside the scope of the binding. The listener uses the loopback address by default.
+- Add the device store, a Go module in `reference/` (document 21, #65, #106, #107). It keeps a device store in SQLite, layout `aavanam/device-sqlite/v1`, with an FTS5 text index. The conformance driver is `aavanam-device`. The release tag is `reference/v0.4.0`.
+- Add the bundle update, topic UPD (BUN-UPD-1 to BUN-UPD-6, #97). A device store accepts a second import and adds only the new content. A context that was open before the update keeps its members. The base profile is at minor version 12.
+- Use the signed activation records of entelos v0.5.0 in the activation seam test and the library example (#91, #93, #94, #95). The stand-in records are removed. The seam test checks each signed record with `entelos-verify`, and maps the typed record fields to the dependencies of the activation.
+- Add the design of the production backend and the device bundle, `docs/design/backend.md` (#96), and the guidance on which implementation to use for what (#108).
+- Each of the three implementations passes all 642 conformance vectors: the Python reference store, the backend (in memory and on PostgreSQL 17) and the device store. The specification has 409 clauses in 22 draft contract documents. The null adapter passes 1 vector, fails 641 and exits with 1.
+- Move to the next release: the budget bench (#105) and the Unix socket listener (#125). This release has no measured size or time numbers.
+- The release has three tags: `v0.4.0`, `backend/v0.4.0` and `reference/v0.4.0`. It has no package upload and no container image.
+
+Known limits:
+
+- An outside Go module can use `reference` only after the tag `backend/v0.4.0` exists. `reference/go.mod` requires `backend v0.4.0`, and its `replace` to `../backend` applies only in this repository.
+- The read binding has no access control. Run the listener on the loopback address, or put your own access control in front of it.
+- The backend and the device store pass the conformance vectors. They have no measured budget numbers.
+- The pins of the PDF example have dependency hashes for Linux x86_64 and macOS arm64 only. On a different platform, the install stops with a hash error.
+
 ## 0.3.0
 
 - Add the half-open range match and the interval overlap match to `query_data` (DAT-DEC-1 to DAT-RNG-6, QRY-DAT-5, #67). A request declares the bound columns and their type, `decimal` or `date`, in the field `ranges`. A missing value gives `missing_value`, and a value of a different type gives `value_type`. The store does not convert a number or a unit. The base profile is at minor version 9.
