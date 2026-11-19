@@ -3,7 +3,7 @@ module github.com/mohanraj00/aavanam/reference
 go 1.27
 
 require (
-	github.com/mohanraj00/aavanam/backend v0.0.0
+	github.com/mohanraj00/aavanam/backend v0.4.0
 	modernc.org/sqlite v1.61.1
 )
 
