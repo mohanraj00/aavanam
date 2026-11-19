@@ -1,6 +1,6 @@
 """Run the conformance vectors against an implementation through an adapter.
 
-Usage: python3 -B conformance/runner.py --adapter null_adapter:NullAdapter [vector-id ...]
+Usage: python3 -B conformance/runner.py --adapter null_adapter:NullAdapter [--expect FILE] [vector-id ...]
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import importlib
 import json
 import math
 import sys
+from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 
@@ -825,10 +826,35 @@ def load_adapter(spec: str):
     return getattr(importlib.import_module(module), attr or 'Adapter')()
 
 
+def expected(paths: list[Path], vectors: dict) -> set[str]:
+    """Read the lists of --expect: one vector ID for each line. An empty line and a line that starts with # are not IDs.
+
+    An ID can be in only one list, one time. Thus two authors can keep two lists with no shared line.
+    """
+    ids: list[str] = []
+    for path in paths:
+        try:
+            lines = [line.strip() for line in path.read_text().splitlines()]
+        except (OSError, UnicodeDecodeError) as e:
+            raise VectorError(f'cannot read the expect list {path}: {e}') from None
+        ids += [line for line in lines if line and not line.startswith('#')]
+    counts = Counter(ids)
+    duplicate = sorted(i for i, n in counts.items() if n > 1)
+    if duplicate:
+        raise VectorError(f'the expect lists have an ID two times: {duplicate}')
+    unknown = sorted(set(ids) - set(vectors))
+    if unknown:
+        raise VectorError(f'the expect lists have unknown vector IDs: {unknown}')
+    return set(ids)
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--adapter', required=True, help='module:class of the adapter')
     parser.add_argument('--vectors', type=Path, default=VECTORS)
+    parser.add_argument('--expect', type=Path, metavar='FILE', action='append',
+                        help='a list of the vector IDs that must pass; the run prints each other vector that passes. '
+                             'The option can occur more than one time')
     parser.add_argument('ids', nargs='*', help='run only these vector IDs')
     args = parser.parse_args(argv)
     try:
@@ -840,12 +866,22 @@ def main(argv: list[str]) -> int:
         unknown = set(args.ids) - set(vectors)
         if unknown:
             raise VectorError(f'unknown vector IDs: {sorted(unknown)}')
-        adapter = load_adapter(args.adapter)
-        failed = 0
+        listed = expected(args.expect, vectors) if args.expect else None
+        try:
+            adapter = load_adapter(args.adapter)
+        except Exception as e:  # noqa: BLE001  an adapter that does not start is not a failed vector
+            raise VectorError(f'cannot load the adapter {args.adapter}: {e}') from None
+        failed = unlisted = open_ = 0
         for vid, vector in vectors.items():
             if args.ids and vid not in args.ids:
                 continue
             problems = run_vector(adapter, vid, vector)
+            if listed is not None and vid not in listed:  # the list does not require this vector
+                unlisted += not problems
+                open_ += bool(problems)
+                if not problems:
+                    print(f'UNLISTED {vid}')
+                continue
             print(f'{"FAIL" if problems else "PASS"} {vid}')
             for p in problems:
                 print(f'  {p}')
@@ -854,7 +890,11 @@ def main(argv: list[str]) -> int:
         print(f'ERROR {e}')
         return 2
     total = len(args.ids) or len(vectors)
-    print(f'{total - failed} passed, {failed} failed')
+    if listed is None:
+        print(f'{total - failed} passed, {failed} failed')
+    else:
+        print(f'{total - failed - unlisted - open_} listed passed, {failed} listed failed, '
+              f'{unlisted} not listed passed, {open_} not listed failed')
     return 1 if failed else 0
 
 

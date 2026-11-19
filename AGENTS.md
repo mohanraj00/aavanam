@@ -14,6 +14,8 @@ For spec, vector or reference implementation work, read [.agents/skills/spec-wor
 - `conformance/`: JSON vectors, the runner and the adapters.
 - `fixtures/`: neutral synthetic collections.
 - `src/`: the reference implementation.
+- `backend/`: the Go module of the production backend: the core, the PostgreSQL storage, the network read binding and the conformance driver `aavanam-conform`.
+- `reference/`: the Go module of the device reader: the device store in SQLite and the conformance driver `aavanam-device`.
 - `tests/`: the tests of the reference implementation that the runner cannot express, for example two opens of one store.
 - `tools/`: the spec check, the project check, change classification, the PR gates and the local cross review.
 - `docs/`: the status and the review rules.
@@ -35,6 +37,8 @@ make check
 ```
 
 The `check` target in the [Makefile](Makefile) runs the spec check, the conformance tests, the tests in `tests/`, both runners and the project check. The store must pass all vectors. The null implementation must still fail with exit 1.
+
+If the `go` command is available, `make check` also runs `make check-go` and `make check-backend-mem`: the format check, the vet and the tests of the two Go modules, and the listed vectors on the backend with the storage in memory. `make check-backend-pg` runs the vectors of `backend/conformance/passing.txt` on PostgreSQL and needs `AAVANAM_PG_DSN`. `make check-device` runs the vectors of `reference/conformance/passing.txt` on the device store. CI runs these targets. A change of `go.mod` or `go.sum` is a level 1 change.
 
 After an intended source edit, regenerate the inventory with `python3 -B tools/check_project.py --write-checksums`. Examine the diff of `checksums.json`, then run the project check again. The inventory records bytes. It does not validate behavior or approve a publication.
 

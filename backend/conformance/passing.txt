@@ -1,0 +1,2 @@
+# The conformance vectors that pass on the backend with PostgreSQL (the driver aavanam-conform, storage pg), one ID for each line.
+# The run `make check-backend-pg` fails if a listed vector fails. It prints each vector that passes and is not in a list.

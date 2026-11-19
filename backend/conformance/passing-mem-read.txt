@@ -1,0 +1,2 @@
+# The conformance vectors that pass on the backend with the storage in memory, for the read operations, the text search and the transfer, one ID for each line.
+# The run `make check-backend-mem` fails if a listed vector fails. It prints each vector that passes and is not in a list.

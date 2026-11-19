@@ -1,0 +1,2 @@
+# The conformance vectors that pass on the device store (the driver aavanam-device), one ID for each line.
+# The run `make check-device` fails if a listed vector fails. It prints each vector that passes and is not in a list.

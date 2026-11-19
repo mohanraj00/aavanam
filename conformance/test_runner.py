@@ -655,6 +655,65 @@ class MainTest(unittest.TestCase):
                 self.assertIn('ERROR', out.getvalue())
                 self.assertNotIn('PASS', out.getvalue())
 
+    def expect_run(self, text, *ids):
+        """Run the null adapter with an expect list. Return the exit code and the output."""
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'passing.txt'
+            path.write_text(text)
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = runner.main(['--adapter', 'null_adapter:NullAdapter', '--expect', str(path), *ids])
+            return code, out.getvalue()
+
+    PASSES, FAILS = 'statuses/unsupported-operation', 'kinds/put-source-ok'  # on the null implementation
+
+    def test_expect_empty_list_passes_and_prints_the_unlisted_pass(self):
+        code, out = self.expect_run('# no vector yet\n\n', self.PASSES, self.FAILS)
+        self.assertEqual(code, 0)
+        self.assertIn(f'UNLISTED {self.PASSES}', out)
+        self.assertNotIn(self.FAILS, out)  # a vector outside the list can fail
+        self.assertIn('0 listed passed, 0 listed failed, 1 not listed passed, 1 not listed failed', out)
+
+    def test_expect_listed_vector_must_pass(self):
+        code, out = self.expect_run(f'{self.PASSES}\n', self.PASSES, self.FAILS)
+        self.assertEqual(code, 0)
+        self.assertIn(f'PASS {self.PASSES}', out)
+        self.assertIn('1 listed passed, 0 listed failed, 0 not listed passed, 1 not listed failed', out)
+        code, out = self.expect_run(f'{self.PASSES}\n{self.FAILS}\n', self.PASSES, self.FAILS)
+        self.assertEqual(code, 1)
+        self.assertIn(f'FAIL {self.FAILS}', out)
+        self.assertIn('1 listed passed, 1 listed failed, 0 not listed passed, 0 not listed failed', out)
+
+    def test_expect_bad_list_exits_2(self):
+        for text in ('no/such-vector\n', f'{self.PASSES}\n{self.PASSES}\n'):
+            code, out = self.expect_run(text, self.PASSES)
+            self.assertEqual(code, 2, text)
+            self.assertIn('ERROR', out)
+
+    def test_expect_reads_more_than_one_list(self):
+        with tempfile.TemporaryDirectory() as d:
+            first, second = Path(d) / 'core.txt', Path(d) / 'read.txt'
+            first.write_text(f'{self.PASSES}\n')
+            second.write_text(f'# the second list\n{self.FAILS}\n')
+            lists = ['--expect', str(first), '--expect', str(second)]
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = runner.main(['--adapter', 'null_adapter:NullAdapter', *lists, self.PASSES, self.FAILS])
+            self.assertEqual(code, 1)
+            self.assertIn('1 listed passed, 1 listed failed', out.getvalue())
+            second.write_text(f'{self.PASSES}\n')  # an ID in two lists
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.main(['--adapter', 'null_adapter:NullAdapter', *lists, self.PASSES]), 2)
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(runner.main(['--adapter', 'null_adapter:NullAdapter', '--expect', '/no/such/file']), 2)
+
+    def test_adapter_that_does_not_start_exits_2(self):
+        out = io.StringIO()
+        with redirect_stdout(out):  # exit 1 is for a failed vector only
+            code = runner.main(['--adapter', 'null_adapter:NoSuchAdapter'])
+        self.assertEqual(code, 2)
+        self.assertIn('ERROR cannot load the adapter', out.getvalue())
+
     def test_missing_vector_folder_exits_2(self):
         with tempfile.TemporaryDirectory() as d, redirect_stdout(io.StringIO()):
             self.assertEqual(runner.main(['--adapter', 'null_adapter:NullAdapter', '--vectors', str(Path(d) / 'none')]), 2)

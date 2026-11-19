@@ -147,6 +147,111 @@ jobs:
           status=$?
           tail -n 5 null.txt
           if [ "$status" -ne 1 ]; then echo "::error::The null implementation must fail with exit 1, not $status."; exit 1; fi
+  # The Go module of the backend, and the listed vectors on PostgreSQL 17 (docs/design/backend.md, sections 1 and 6).
+  # The device role is the Python reference, so this job does not need the device driver.
+  backend:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17@sha256:b60e90042aa6b8dbecd58e224b3e36114dbf8ad754465264c2476ad58a86e45c
+        env:
+          POSTGRES_USER: aavanam
+          # The password is for the container of this job only. It protects nothing.
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: aavanam
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aavanam -d aavanam"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AAVANAM_PG_DSN: postgres://aavanam:ci-only@127.0.0.1:5432/aavanam?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: 3.14.6
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: 1.27.2
+          cache-dependency-path: backend/go.sum
+      - name: Check the module files
+        working-directory: backend
+        run: |
+          go mod verify
+          go mod tidy -diff
+      - name: Check the format, vet and test the module
+        working-directory: backend
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then gofmt -l .; echo "::error::Run gofmt on these files."; exit 1; fi
+          go vet ./...
+          go test ./...
+      - name: Build the driver
+        working-directory: backend
+        run: |
+          go build -o "$RUNNER_TEMP/aavanam-conform" ./cmd/aavanam-conform
+          echo "AAVANAM_CONFORM_BIN=$RUNNER_TEMP/aavanam-conform" >> "$GITHUB_ENV"
+      # The Makefile has the commands of these steps, so a local run and this job use the same commands.
+      - name: Run the listed vectors on the storage in memory
+        run: make check-backend-mem
+      - name: Run the listed vectors on PostgreSQL
+        run: make check-backend-pg
+      # The null storage refuses each call. If it passes all vectors, the adapter or the runner has a defect.
+      - name: Require the null driver to fail
+        run: make check-null-driver
+      - name: Run the budget bench
+        run: make check-bench
+  # The Go module of the device reader, and the listed vectors on the device store in SQLite with FTS5.
+  # The writer role is the Python reference, so this job does not need PostgreSQL.
+  device:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: 3.14.6
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: 1.27.2
+          cache-dependency-path: |
+            backend/go.sum
+            reference/go.sum
+      - name: Check the module files
+        working-directory: reference
+        run: |
+          go mod verify
+          go mod tidy -diff
+      - name: Check the format, vet and test the module
+        working-directory: reference
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then gofmt -l .; echo "::error::Run gofmt on these files."; exit 1; fi
+          go vet ./...
+          go test ./...
+      - name: Build the driver
+        working-directory: reference
+        run: |
+          go build -o "$RUNNER_TEMP/aavanam-device" ./cmd/aavanam-device
+          echo "AAVANAM_DEVICE_BIN=$RUNNER_TEMP/aavanam-device" >> "$GITHUB_ENV"
+      - name: Run the listed vectors on the device store
+        run: make check-device
   # Build the wheel and the source archive from a clean copy of the commit, then run the examples from the wheel.
   # The job always runs, because examples/ and README.md are not in the code paths of the gates.
   package:
@@ -218,7 +323,7 @@ jobs:
           if grep -q skipped library.txt; then echo "::error::A test of the library example skipped."; exit 1; fi
   # The required check. Add each project job to needs. A skipped job passes. A failed or cancelled job fails.
   ci-ok:
-    needs: [changes, shared-project, shared-gates, suite, package]
+    needs: [changes, shared-project, shared-gates, suite, backend, device, package]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
