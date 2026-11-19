@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
@@ -132,6 +133,8 @@ type Store struct {
 	Output *Store
 	// Debug lets a panic that is not a failure or a storage fault continue, for tests.
 	Debug bool
+	// Clock is the store clock, for the time of a removal record (PRD-RMV-1). Nil is the system clock.
+	Clock func() time.Time
 
 	registry *Registry
 	called   atomic.Bool // a gate or a section is declared before the first call (PUB-GAT-1, PUB-SEC-1)
@@ -159,6 +162,15 @@ func (s *Store) Policy(policy string) (Validator, bool) {
 	defer s.mu.RUnlock()
 	v, ok := s.policies[policy]
 	return v, ok
+}
+
+// Now returns the UTC time of the store clock in the form `YYYY-MM-DDTHH:MM:SSZ` (PRD-RMV-1).
+func (s *Store) Now() string {
+	now := time.Now
+	if s.Clock != nil {
+		now = s.Clock
+	}
+	return now().UTC().Format("2006-01-02T15:04:05Z")
 }
 
 // Indexers returns the indexers of the registry of the store.

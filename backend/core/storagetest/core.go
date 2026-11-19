@@ -16,7 +16,7 @@ import (
 )
 
 // Core runs the operations of the core on a storage: `put`, `create_snapshot`, the deferred checks of a
-// batch with withheld bytes, `open_context` and `get`.
+// batch with withheld bytes, `open_context`, `get`, the publication and the producer section.
 func Core(t *testing.T, open Open) {
 	t.Run("PutWritesAllOrNone", func(t *testing.T) { putWritesAllOrNone(t, newFixture(t, open(t))) })
 	t.Run("CreateSnapshot", func(t *testing.T) { createSnapshot(t, newFixture(t, open(t))) })
@@ -24,6 +24,11 @@ func Core(t *testing.T, open Open) {
 	t.Run("DeferredBytesArrive", func(t *testing.T) { deferredBytesArrive(t, newFixture(t, open(t))) })
 	t.Run("OpenContextAndGet", func(t *testing.T) { openContextAndGet(t, newFixture(t, open(t))) })
 	t.Run("SkewAfterConflict", func(t *testing.T) { skewAfterConflict(t, newFixture(t, open(t))) })
+	t.Run("Publication", func(t *testing.T) { publication(t, newFixture(t, open(t))) })
+	t.Run("GateDuringValidation", func(t *testing.T) { gateDuringValidation(t, newFixture(t, open(t))) })
+	t.Run("ConcurrentPublish", func(t *testing.T) { concurrentPublish(t, newFixture(t, open(t))) })
+	t.Run("Producer", func(t *testing.T) { producer(t, newFixture(t, open(t))) })
+	t.Run("ConcurrentProducer", func(t *testing.T) { concurrentProducer(t, newFixture(t, open(t))) })
 }
 
 const profile = `"descriptor_profile":"aavanam/base/v1"`
