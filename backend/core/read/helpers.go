@@ -1,6 +1,8 @@
 package read
 
 import (
+	"math"
+
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/check"
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
@@ -144,10 +146,15 @@ func result(c *ops.Call, rc *ops.ReadContext, items []envelope.Item, bounded boo
 	return out
 }
 
-// isCount tells if a value is an integer that is `least` or more.
-func isCount(v jsontext.Value, least int64) bool {
-	n, ok := v.Int()
-	return ok && n >= least
+// isCount tells if a value is an exact integer that is `least` or more. The integer can be beyond int64.
+func isCount(v jsontext.Value, least float64) bool { return v.IsInt() && !v.Lossy && v.Num >= least }
+
+// count returns a value that isCount accepts as an int64. A value beyond int64 gives the largest int64.
+func count(v jsontext.Value) int64 {
+	if n, ok := v.Int(); ok {
+		return n
+	}
+	return math.MaxInt64
 }
 
 // isNonEmpty tells if a value is a string with one or more characters.

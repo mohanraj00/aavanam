@@ -164,7 +164,7 @@ func readItem(c *ops.Call, rc *ops.ReadContext, ref string, selector jsontext.Va
 		if !ok {
 			return envelope.Refused([]string{"payload_form"}, ref) // DAT-TBL-3
 		}
-		index, _ := field(selector, "index").Int()
+		index := count(field(selector, "index")) // an index beyond int64 is beyond each table
 		if index >= int64(len(table.Rows)) {
 			return envelope.Refused([]string{"selector_range"}, ref)
 		}
@@ -203,8 +203,8 @@ func Select(c *ops.Call, ref string, selector jsontext.Value) ([]byte, *envelope
 	if !ok {
 		return fail("payload_missing")
 	}
-	start, _ := field(selector, "start").Int()
-	end, _ := field(selector, "end").Int()
+	// A bound beyond int64 is beyond each payload. The payload form comes first (CRD-SEL-4).
+	start, end := count(field(selector, "start")), count(field(selector, "end"))
 	if profile == check.NFCText {
 		if !utf8.Valid(data) || !check.IsNFC(data) {
 			return fail("payload_form")
