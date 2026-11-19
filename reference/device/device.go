@@ -1,0 +1,559 @@
+// Package device is the device store of document 21: a device store and its local output store in two
+// SQLite files, with the FTS5 index of `search_text` (layout `aavanam/device-sqlite/v1`). Each store is an
+// ops.Storage of the Go core.
+package device
+
+import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"modernc.org/sqlite"
+
+	"github.com/mohanraj00/aavanam/backend/core/canon"
+	"github.com/mohanraj00/aavanam/backend/core/check"
+	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/ops"
+)
+
+// Layout is the identity of the layout profile (DEV-PRF-1).
+const Layout = "aavanam/device-sqlite/v1"
+
+// The files of a device store and their roles (DEV-LAY-1).
+const (
+	DeviceFile = "device.sqlite"
+	OutputFile = "output.sqlite"
+)
+
+// tables has the tables of both files (DEV-LAY-3, DEV-OUT-1). The indexes are not tables.
+var tables = []string{
+	`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+	`CREATE TABLE objects (ref BLOB PRIMARY KEY, kind TEXT NOT NULL, logical_id BLOB, collection BLOB,
+		canonical BLOB NOT NULL) WITHOUT ROWID`,
+	`CREATE INDEX objects_snapshot ON objects (collection) WHERE kind = 'snapshot'`,
+	`CREATE TABLE edges (src BLOB NOT NULL, dst BLOB NOT NULL, field TEXT NOT NULL, PRIMARY KEY (src, dst, field))
+		WITHOUT ROWID`,
+	`CREATE INDEX edges_dst ON edges (dst, src)`,
+	`CREATE TABLE payloads (digest BLOB PRIMARY KEY, size INTEGER NOT NULL, data BLOB NOT NULL) WITHOUT ROWID`,
+	`CREATE TABLE deferred (digest BLOB NOT NULL, ref BLOB NOT NULL, PRIMARY KEY (digest, ref)) WITHOUT ROWID`,
+	`CREATE INDEX deferred_ref ON deferred (ref)`,
+	`CREATE TABLE contexts (id TEXT PRIMARY KEY, roots BLOB NOT NULL, capabilities BLOB NOT NULL)`,
+	`CREATE TABLE closures (root BLOB NOT NULL, member BLOB NOT NULL, PRIMARY KEY (root, member)) WITHOUT ROWID`,
+	`CREATE TABLE table_rows (digest BLOB NOT NULL, idx INTEGER NOT NULL, row BLOB NOT NULL, PRIMARY KEY (digest, idx))
+		WITHOUT ROWID`,
+}
+
+// deviceTables has the tables of the device file only (DEV-LAY-3, DEV-FTS-1).
+var deviceTables = []string{
+	`CREATE TABLE imports (seq INTEGER PRIMARY KEY, roots BLOB NOT NULL)`,
+	`CREATE TABLE text_docs (id INTEGER PRIMARY KEY, digest BLOB NOT NULL UNIQUE)`,
+	`CREATE VIRTUAL TABLE text_index USING fts5(tokens, tokenize='ascii', detail='full', content='')`,
+}
+
+// Create makes the two files of a device store in a directory, with their tables and their `meta` rows
+// (DEV-LAY-1, DEV-PRF-2). A file that is there already is an error.
+func Create(dir string) error {
+	for name, role := range map[string]string{DeviceFile: "device", OutputFile: "output"} {
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("%s is there already", path)
+		}
+		db, err := sql.Open("sqlite", path)
+		if err != nil {
+			return err
+		}
+		statements := append([]string{`PRAGMA journal_mode = WAL`}, tables...)
+		if role == "device" {
+			statements = append(statements, deviceTables...)
+		}
+		for _, s := range statements {
+			if _, err = db.Exec(s); err != nil {
+				break
+			}
+		}
+		if err == nil {
+			_, err = db.Exec(`INSERT INTO meta (key, value) VALUES ('layout', ?), ('role', ?)`, Layout, role)
+		}
+		if closeErr := db.Close(); err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// Store is one store of the layout: the device store, or its local output store.
+type Store struct {
+	db      *sql.DB
+	role    string
+	schemas []string // the schemas that a read uses: "main", and "device" for the local output store
+}
+
+// Open opens the device store and the local output store of a directory. It checks the `meta` rows of
+// each file before it uses the file (DEV-PRF-2).
+func Open(dir string) (device, output *Store, err error) {
+	// The attachment is a file URI. A relative path in it would give a URI authority, so the path is absolute.
+	if dir, err = filepath.Abs(dir); err != nil {
+		return nil, nil, err
+	}
+	devicePath, outputPath := filepath.Join(dir, DeviceFile), filepath.Join(dir, OutputFile)
+	options := "?_pragma=busy_timeout(10000)&_txlock=immediate" // DEV-UPD-1: BEGIN IMMEDIATE
+	device = &Store{db: sql.OpenDB(connector{dsn: devicePath + options}), role: "device", schemas: []string{"main"}}
+	// DEV-OUT-2: the output file reads the device file through a read-only attachment.
+	attach := (&url.URL{Scheme: "file", Path: devicePath, RawQuery: "mode=ro"}).String()
+	output = &Store{db: sql.OpenDB(connector{dsn: outputPath + options, attach: attach}), role: "output",
+		schemas: []string{"main", "device"}}
+	for _, s := range []*Store{device, output} {
+		if err = s.checkMeta(); err != nil {
+			device.Close()
+			output.Close()
+			return nil, nil, err
+		}
+	}
+	return device, output, nil
+}
+
+// Close closes the connections of the store.
+func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) checkMeta() error {
+	rows := map[string]string{}
+	found, err := s.db.Query(`SELECT key, value FROM main.meta`)
+	if err != nil {
+		return fmt.Errorf("the %s file is not a store of %s: %w", s.role, Layout, err)
+	}
+	defer found.Close()
+	for found.Next() {
+		var key, value string
+		if err := found.Scan(&key, &value); err != nil {
+			return err
+		}
+		rows[key] = value
+	}
+	if err := found.Err(); err != nil {
+		return err
+	}
+	if rows["layout"] != Layout || rows["role"] != s.role {
+		return fmt.Errorf("the %s file is not a store of %s (DEV-PRF-2)", s.role, Layout)
+	}
+	return nil
+}
+
+// connector opens connections to one file. A connection of the output file attaches the device file.
+type connector struct{ dsn, attach string }
+
+func (c connector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.Driver().Open(c.dsn)
+	if err != nil || c.attach == "" {
+		return conn, err
+	}
+	args := []driver.NamedValue{{Ordinal: 1, Value: c.attach}}
+	if _, err := conn.(driver.ExecerContext).ExecContext(ctx, `ATTACH DATABASE ? AS device`, args); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (connector) Driver() driver.Driver { return &sqlite.Driver{} }
+
+// key returns the 32 bytes of a reference or a digest (DEV-LAY-2 rule 1).
+func key(ref string) []byte {
+	out, err := hex.DecodeString(strings.TrimPrefix(ref, "sha256:"))
+	if err != nil || len(out) != 32 {
+		ops.Raise(fmt.Errorf("%q is not a reference", ref))
+	}
+	return out
+}
+
+// refOf returns the reference of 32 bytes.
+func refOf(b []byte) string { return "sha256:" + hex.EncodeToString(b) }
+
+// list returns the RFC 8785 bytes of a list of strings (DEV-LAY-2 rule 4).
+func list(values []string) []byte { return canon.Canonical(jsontext.Strings(values)) }
+
+// listOf returns the strings of a JSON list of the store.
+func listOf(data []byte) []string {
+	v, err := jsontext.Parse(data, jsontext.Strict)
+	if err != nil {
+		ops.Raise(errors.New("a JSON list of the store is not JSON"))
+	}
+	return ops.Strings(v)
+}
+
+// querier is a connection pool or a transaction.
+type querier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// view reads one store. The reads of a session use the pool, and the reads of an update use its transaction.
+type view struct {
+	s   *Store
+	ctx context.Context
+	q   querier
+}
+
+// in returns the query for one schema: `{s}` is the schema.
+func in(query, schema string) string { return strings.ReplaceAll(query, "{s}", schema) }
+
+// one reads one value from the first schema that has it. It tells if a schema has it.
+func (v view) one(query string, dst any, args ...any) bool {
+	for _, schema := range v.s.schemas {
+		err := v.q.QueryRowContext(v.ctx, in(query, schema), args...).Scan(dst)
+		if err == nil {
+			return true
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			ops.Raise(err)
+		}
+	}
+	return false
+}
+
+// keys returns the references of a query in each schema, in ascending order, with no duplicate.
+func (v view) keys(query string, args ...any) []string {
+	parts := make([]string, len(v.s.schemas))
+	for n, schema := range v.s.schemas {
+		parts[n] = in(query, schema)
+	}
+	rows, err := v.q.QueryContext(v.ctx, `SELECT k FROM (`+strings.Join(parts, " UNION ")+`) ORDER BY k`, args...)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var b []byte
+		if err := rows.Scan(&b); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, refOf(b))
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
+func (v view) Object(ref string) (string, []byte, bool) {
+	var row struct {
+		kind string
+		text []byte
+	}
+	for _, schema := range v.s.schemas {
+		err := v.q.QueryRowContext(v.ctx, in(`SELECT kind, canonical FROM {s}.objects WHERE ref = ?`, schema), key(ref)).
+			Scan(&row.kind, &row.text)
+		if err == nil {
+			return row.kind, row.text, true
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			ops.Raise(err)
+		}
+	}
+	return "", nil, false
+}
+
+func (v view) Targets(ref string) []string {
+	return v.keys(`SELECT dst AS k FROM {s}.edges WHERE src = ?1`, key(ref))
+}
+
+func (v view) Sources(ref string) []string {
+	return v.keys(`SELECT src AS k FROM {s}.edges WHERE dst = ?1`, key(ref))
+}
+
+func (v view) Blob(digest string) ([]byte, bool) {
+	var data []byte
+	if !v.one(`SELECT data FROM {s}.payloads WHERE digest = ?`, &data, key(digest)) {
+		return nil, false
+	}
+	if data == nil {
+		data = []byte{}
+	}
+	return data, true
+}
+
+func (v view) HasDeferred(ref string) bool {
+	var n int
+	return v.one(`SELECT 1 FROM {s}.deferred WHERE ref = ? LIMIT 1`, &n, key(ref))
+}
+
+func (v view) DeferredRefs(digest string) []string {
+	return v.keys(`SELECT ref AS k FROM {s}.deferred WHERE digest = ?1`, key(digest))
+}
+
+// HasSnapshot reads only the file of the store, as a store in memory does.
+func (v view) HasSnapshot(collection string) bool {
+	var n int
+	err := v.q.QueryRowContext(v.ctx, `SELECT 1 FROM main.objects WHERE kind = 'snapshot' AND collection = ? LIMIT 1`,
+		[]byte(collection)).Scan(&n)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		ops.Raise(err)
+	}
+	return err == nil
+}
+
+// A device store and its local output store have no catalog, no section, no gate and no producer
+// section (BUN-IMP-6, PRD-SEC-1).
+
+func (v view) Heads([]string) map[string]string             { return map[string]string{} }
+func (v view) Section(string) (string, bool)                { return "", false }
+func (v view) Gated(string) bool                            { return false }
+func (v view) Candidate(string) (ops.Candidate, bool)       { return ops.Candidate{}, false }
+func (v view) Published(string) bool                        { return false }
+func (v view) Publications(string) []ops.Publication        { return nil }
+func (v view) ProducerObject(string, string) ([]byte, bool) { return nil, false }
+func (v view) ProducerRemoved(string, string) bool          { return false }
+func (v view) ProducerRemovals(string) []ops.Removal        { return nil }
+func (v view) ProducerEntries(string, string) []ops.Entry   { return nil }
+
+func (v view) Context(id string) (ops.ContextRecord, bool) {
+	var roots, capabilities []byte
+	err := v.q.QueryRowContext(v.ctx, `SELECT roots, capabilities FROM main.contexts WHERE id = ?`, id).
+		Scan(&roots, &capabilities)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ops.ContextRecord{}, false
+	}
+	if err != nil {
+		ops.Raise(err)
+	}
+	return ops.ContextRecord{Roots: listOf(roots), Capabilities: listOf(capabilities)}, true
+}
+
+// members is the query of the content of a read context: the closures of its roots (CTX-OPN-2, KND-DEP-3).
+const members = `SELECT DISTINCT c.member FROM main.contexts x, json_each(x.roots) r
+	JOIN main.closures c ON c.root = unhex(substr(r.value, 8)) WHERE x.id = ?`
+
+func (v view) IsMember(context, ref string) bool {
+	var n int
+	err := v.q.QueryRowContext(v.ctx, `SELECT 1 FROM (`+members+`) WHERE member = ? LIMIT 1`, context, key(ref)).Scan(&n)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		ops.Raise(err)
+	}
+	return err == nil
+}
+
+func (v view) Members(context string) []string {
+	rows, err := v.q.QueryContext(v.ctx, members+` ORDER BY c.member`, context)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var b []byte
+		if err := rows.Scan(&b); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, refOf(b))
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
+// TextIndexed tells if the device file has the tokens of a digest (DEV-FTS-2, DEV-OUT-3).
+func (v view) TextIndexed(digest string) bool {
+	var n int
+	return v.textOne(`SELECT 1 FROM {d}.text_docs WHERE digest = ?`, &n, key(digest))
+}
+
+// TextCandidates returns each indexed digest whose document has the tokens as one phrase (DEV-FTS-4). The
+// FTS5 query has only the tokens, and no text of the request.
+func (v view) TextCandidates(tokens []string) []string {
+	if len(tokens) == 0 {
+		return nil
+	}
+	query := strings.ReplaceAll(`SELECT digest FROM {d}.text_docs WHERE id IN
+		(SELECT rowid FROM {d}.text_index WHERE text_index MATCH ?) ORDER BY digest`, "{d}", v.deviceSchema())
+	rows, err := v.q.QueryContext(v.ctx, query, `"`+strings.Join(tokens, " ")+`"`)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var b []byte
+		if err := rows.Scan(&b); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, refOf(b))
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
+// PutTextTokens adds the document of a digest to the text index of the device file (DEV-FTS-2, DEV-FTS-3).
+// The output file has no text index (DEV-OUT-1), so on the local output store it has no effect. A search
+// on the local output store then scans each digest that the device file does not index (DEV-OUT-3).
+func (v view) PutTextTokens(digest string, tokens []string) {
+	if v.s.role != "device" || v.TextIndexed(digest) {
+		return
+	}
+	result, err := v.q.ExecContext(v.ctx, `INSERT INTO main.text_docs (digest) VALUES (?)`, key(digest))
+	if err != nil {
+		ops.Raise(err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		ops.Raise(err)
+	}
+	if _, err := v.q.ExecContext(v.ctx, `INSERT INTO main.text_index (rowid, tokens) VALUES (?, ?)`, id,
+		strings.Join(tokens, " ")); err != nil {
+		ops.Raise(err)
+	}
+}
+
+// deviceSchema returns the schema of the device file in a connection of the store.
+func (v view) deviceSchema() string { return v.s.schemas[len(v.s.schemas)-1] }
+
+func (v view) textOne(query string, dst any, args ...any) bool {
+	err := v.q.QueryRowContext(v.ctx, strings.ReplaceAll(query, "{d}", v.deviceSchema()), args...).Scan(dst)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		ops.Raise(err)
+	}
+	return err == nil
+}
+
+// Session returns the store for one call. The context gives the deadline of each query.
+func (s *Store) Session(ctx context.Context) ops.Session { return session{view{s, ctx, s.db}} }
+
+type session struct{ view }
+
+// Update runs fn in one transaction. The transaction of the device file is BEGIN IMMEDIATE (DEV-UPD-1).
+// If fn panics, the transaction rolls back and the panic continues (BUN-UPD-6).
+func (v session) Update(fn func(tx ops.Tx)) {
+	t, err := v.s.db.BeginTx(v.ctx, nil)
+	if err != nil {
+		ops.Raise(err)
+	}
+	done := false
+	defer func() {
+		if !done {
+			t.Rollback()
+		}
+	}()
+	work := view{v.s, v.ctx, t}
+	if v.s.role == "device" {
+		fn(deviceTx{tx{work}})
+	} else {
+		fn(tx{work})
+	}
+	if err := t.Commit(); err != nil {
+		ops.Raise(err)
+	}
+	done = true
+}
+
+// tx is one update of a store.
+type tx struct{ view }
+
+// deviceTx is one update of the device store. It also keeps the import record.
+type deviceTx struct{ tx }
+
+func (t tx) exec(query string, args ...any) {
+	if _, err := t.q.ExecContext(t.ctx, query, args...); err != nil {
+		ops.Raise(err)
+	}
+}
+
+// LockCollections and LockDigests have no effect: the transaction has the write lock of the file.
+func (t tx) LockCollections([]string) {}
+func (t tx) LockDigests([]string)     {}
+
+// PutObject adds a descriptor and its references (DEV-UPD-1 rules 1, KND-DEP-2). A descriptor that the
+// store has, or that the device store of the local output store has, does not change (IDN-CAN-3, BUN-IMP-8).
+func (t tx) PutObject(o ops.Object) {
+	if _, _, ok := t.Object(o.Ref); ok {
+		return
+	}
+	desc, err := jsontext.Parse(o.Text, jsontext.Strict)
+	if err != nil {
+		ops.Raise(fmt.Errorf("the descriptor %s is not JSON", o.Ref))
+	}
+	var logicalID, collection any
+	if v, ok := desc.Get("logical_id"); ok {
+		logicalID = []byte(v.Str) // DEV-LAY-2 rule 2
+	}
+	if v, ok := desc.Get("collection"); ok && v.Kind == jsontext.String {
+		collection = []byte(v.Str)
+	}
+	ref := key(o.Ref)
+	t.exec(`INSERT INTO main.objects (ref, kind, logical_id, collection, canonical) VALUES (?, ?, ?, ?, ?)`,
+		ref, o.Kind, logicalID, collection, o.Text)
+	for _, r := range check.References(desc) {
+		t.exec(`INSERT OR IGNORE INTO main.edges (src, dst, field) VALUES (?, ?, ?)`, ref, key(r.Ref), r.Field)
+	}
+}
+
+// PutBlob adds the bytes of a digest one time (IDN-DIG-2).
+func (t tx) PutBlob(digest string, data []byte) {
+	if _, ok := t.Blob(digest); ok {
+		return
+	}
+	if data == nil {
+		data = []byte{}
+	}
+	t.exec(`INSERT INTO main.payloads (digest, size, data) VALUES (?, ?, ?)`, key(digest), len(data), data)
+}
+
+func (t tx) ClearDeferred(digest string) {
+	t.exec(`DELETE FROM main.deferred WHERE digest = ?`, key(digest))
+}
+
+func (t tx) PutDeferred(digest, ref string) {
+	t.exec(`INSERT OR IGNORE INTO main.deferred (digest, ref) VALUES (?, ?)`, key(digest), key(ref))
+}
+
+// DeclareGate has no effect. A device store has no catalog and refuses each publication (BUN-IMP-6), so a
+// gated collection changes no result of the store (PUB-GAT-1). The application can declare it on each store.
+func (t tx) DeclareGate(string) {}
+
+var errNoCatalog = errors.New("a device store has no catalog, no section, no gate and no producer section")
+
+func (t tx) DeclareSection(string, string)              { ops.Raise(errNoCatalog) }
+func (t tx) PutCandidate(ops.Candidate)                 { ops.Raise(errNoCatalog) }
+func (t tx) Publish(ops.Publication)                    { ops.Raise(errNoCatalog) }
+func (t tx) PutProducerObject(string, string, []byte)   { ops.Raise(errNoCatalog) }
+func (t tx) DeleteProducerObject(string, string)        { ops.Raise(errNoCatalog) }
+func (t tx) PutProducerRemoval(string, ops.Removal)     { ops.Raise(errNoCatalog) }
+func (t tx) PutProducerEntry(string, string, ops.Entry) { ops.Raise(errNoCatalog) }
+
+// PutContext adds a read context, and the closure of each root that the file does not have (DEV-UPD-3).
+// The closure of a stored root does not change, because each target of a stored descriptor is in the
+// store (BUN-IMP-2). Thus a root with closure rows has all of them.
+func (t tx) PutContext(id string, record ops.ContextRecord, _ []string) {
+	for _, root := range record.Roots {
+		var n int
+		err := t.q.QueryRowContext(t.ctx, `SELECT 1 FROM main.closures WHERE root = ? LIMIT 1`, key(root)).Scan(&n)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			ops.Raise(err)
+		}
+		for member := range ops.ClosureIn(t, []string{root}) {
+			t.exec(`INSERT OR IGNORE INTO main.closures (root, member) VALUES (?, ?)`, key(root), key(member))
+		}
+	}
+	t.exec(`INSERT INTO main.contexts (id, roots, capabilities) VALUES (?, ?, ?)`, id, list(record.Roots),
+		list(record.Capabilities))
+}
+
+// PutImport adds the `imports` row of an `ok` import (DEV-UPD-2).
+func (t deviceTx) PutImport(roots []string) {
+	t.exec(`INSERT INTO main.imports (seq, roots) VALUES ((SELECT count(*) + 1 FROM main.imports), ?)`, list(roots))
+}
