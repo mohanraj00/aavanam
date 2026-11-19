@@ -181,6 +181,12 @@ func producerRecords(t *testing.T, s Backing) {
 	if len(got) != 2 || string(got[0].Data) != "e1" || len(got[1].Data) != 0 || len(r.ProducerEntries(odd, "other")) != 0 {
 		t.Errorf("entries: %+v", got)
 	}
+	if counts, ok := r.(ops.ProducerCounts); ok {
+		if counts.ProducerEntryCount(odd, odd) != 2 || counts.ProducerEntryCount(odd, "other") != 0 ||
+			counts.ProducerRemovalCount(odd) != 1 || counts.ProducerRemovalCount("q") != 0 {
+			t.Error("the counts of the producer records")
+		}
+	}
 }
 
 // An update gives the store each of its writes or none (STS-MAL-2). The fingerprint is equal before and

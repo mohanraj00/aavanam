@@ -113,13 +113,14 @@ func TestDeadlineIsAFault(t *testing.T) {
 	}
 }
 
-// Two updates that lock one collection, or one digest, run one after the other. The second reads the
-// commit of the first (PUB-SEC-2, PUB-HED-3, BUN-IMP-10).
+// Two updates that lock one collection, one digest or one producer run one after the other. The second
+// reads the commit of the first (PUB-SEC-2, PUB-HED-3, BUN-IMP-10, PRD-LOG-2).
 func TestLocksMakeUpdatesWait(t *testing.T) {
 	s := open(t)
 	for name, lock := range map[string]func(tx ops.Tx){
 		"a collection lock": func(tx ops.Tx) { tx.LockCollections([]string{"c"}) },
 		"a digest lock":     func(tx ops.Tx) { tx.LockDigests([]string{refA}) },
+		"a producer lock":   func(tx ops.Tx) { tx.(ops.ProducerLock).LockProducer("p") },
 	} {
 		if err := s.Truncate(context.Background()); err != nil {
 			t.Fatal(err)

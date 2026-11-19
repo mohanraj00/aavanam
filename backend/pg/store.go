@@ -2,6 +2,8 @@ package pg
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"sort"
@@ -324,6 +326,22 @@ func (v view) ProducerRemovals(producer string) []ops.Removal {
 	return out
 }
 
+// ProducerEntryCount returns the last sequence number of a log. No statement removes an entry, and the
+// sequence numbers have no gap (PRD-LOG-1), so this is the number of entries.
+func (v view) ProducerEntryCount(producer, log string) int64 {
+	var count int64
+	v.row([]any{&count}, `SELECT coalesce(max(sequence), 0) FROM producer_entries WHERE producer = $1 AND log = $2`,
+		[]byte(producer), []byte(log))
+	return count
+}
+
+// ProducerRemovalCount returns the last sequence number of the removal records of a producer (PRD-RMV-1).
+func (v view) ProducerRemovalCount(producer string) int64 {
+	var count int64
+	v.row([]any{&count}, `SELECT coalesce(max(sequence), 0) FROM producer_removals WHERE producer = $1`, []byte(producer))
+	return count
+}
+
 func (v view) ProducerEntries(producer, log string) []ops.Entry {
 	var out []ops.Entry
 	v.each(func(rows pgx.Rows) error {
@@ -396,6 +414,13 @@ func (t tx) LockDigests(digests []string) {
 		}
 		t.exec(`SELECT pg_advisory_xact_lock($1)`, id)
 	}
+}
+
+// LockProducer takes the lock of one producer name: an advisory lock on the first 8 bytes of the SHA-256
+// digest of the name. Two names with one key only wait for each other.
+func (t tx) LockProducer(producer string) {
+	sum := sha256.Sum256([]byte(producer))
+	t.exec(`SELECT pg_advisory_xact_lock($1, $2)`, int32(binary.BigEndian.Uint32(sum[:4])), int32(binary.BigEndian.Uint32(sum[4:8])))
 }
 
 func (t tx) PutObject(o ops.Object) {
