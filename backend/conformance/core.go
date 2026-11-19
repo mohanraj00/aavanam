@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
@@ -40,6 +41,7 @@ type Core struct {
 	// Debug lets a defect of an operation stop the driver, in place of `storage_error`.
 	Debug bool
 
+	mu       sync.RWMutex // the read binding of a driver reads the stores from a different goroutine
 	stores   map[string]*ops.Store
 	backings map[string]Backing
 	validate Validate // the validator connection of the call in progress
@@ -53,24 +55,36 @@ func (c *Core) Reset() error {
 		return err
 	}
 	registry := Registry()
-	c.backings, c.stores = backings, map[string]*ops.Store{}
+	stores := map[string]*ops.Store{}
 	for name, backing := range backings {
 		store := ops.New(ops.Role(name), backing, registry)
 		store.Debug = c.Debug
-		c.stores[name] = store
+		stores[name] = store
 	}
-	if device, ok := c.stores["device"]; ok {
-		device.Output = c.stores["output"] // BUN-IMP-7
+	if device, ok := stores["device"]; ok {
+		device.Output = stores["output"] // BUN-IMP-7
 	}
+	c.mu.Lock()
+	c.backings, c.stores = backings, stores
+	c.mu.Unlock()
 	return nil
 }
 
 func (c *Core) store(name string) (*ops.Store, error) {
+	c.mu.RLock()
 	store, ok := c.stores[name]
+	c.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("this driver has no store %q", name)
 	}
 	return store, nil
+}
+
+// Writer returns the writer store of the driver, for its network read binding. Call Reset before it.
+func (c *Core) Writer() *ops.Store {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.stores["writer"]
 }
 
 // value reads one JSON value of the protocol with no repair.

@@ -10,20 +10,50 @@ import (
 	"strings"
 )
 
+// root returns the folder of the repository.
+func root() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "..")
+}
+
+// Spec returns the text of SPEC.md.
+func Spec() (string, error) {
+	data, err := os.ReadFile(filepath.Join(root(), "SPEC.md"))
+	return string(data), err
+}
+
+// Text returns the text of the contract document with the given number, for example "03".
+func Text(document string) (string, error) {
+	paths, err := filepath.Glob(filepath.Join(root(), "docs", "contracts", document+"-*.md"))
+	if err != nil || len(paths) != 1 {
+		return "", fmt.Errorf("document %s: found %d files: %v", document, len(paths), err)
+	}
+	data, err := os.ReadFile(paths[0])
+	return string(data), err
+}
+
+// Clause returns the text of one clause of a contract document, from its ID to the end of its paragraph.
+func Clause(document, id string) (string, error) {
+	text, err := Text(document)
+	if err != nil {
+		return "", err
+	}
+	_, after, found := strings.Cut(text, "**"+id+".**")
+	if !found {
+		return "", fmt.Errorf("document %s has no clause %s", document, id)
+	}
+	clause, _, _ := strings.Cut(after, "\n\n")
+	return clause, nil
+}
+
 // Rows returns the cells of each body row of the table that follows a marker in the contract document with
 // the given number, for example "03". If the marker is the header row of the table, the body starts after it.
 func Rows(document, marker string) ([][]string, error) {
-	_, file, _, _ := runtime.Caller(0)
-	root := filepath.Join(filepath.Dir(file), "..", "..", "..", "..")
-	paths, err := filepath.Glob(filepath.Join(root, "docs", "contracts", document+"-*.md"))
-	if err != nil || len(paths) != 1 {
-		return nil, fmt.Errorf("document %s: found %d files: %v", document, len(paths), err)
-	}
-	data, err := os.ReadFile(paths[0])
+	data, err := Text(document)
 	if err != nil {
 		return nil, err
 	}
-	_, after, found := strings.Cut(string(data), marker)
+	_, after, found := strings.Cut(data, marker)
 	if !found {
 		return nil, fmt.Errorf("document %s has no text %q", document, marker)
 	}

@@ -124,6 +124,8 @@ CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON gates FOR EACH STATEMENT 
 CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON sections FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
 CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON producer_entries FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
 CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON producer_removals FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
+`, `
+CREATE INDEX contexts_opened ON contexts (opened);
 `}
 
 // tables has each table of the schema, for the reset of the conformance driver.

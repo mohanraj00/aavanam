@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -18,7 +19,32 @@ import (
 )
 
 // Store is one writer store in PostgreSQL.
-type Store struct{ pool *pgxpool.Pool }
+type Store struct {
+	pool *pgxpool.Pool
+	life atomic.Int64 // the life of a read context in nanoseconds, or 0 for no end
+}
+
+// SetContextLife gives the life of a read context. After that time from its `open_context`, the store does
+// not keep the context for a new call, and the call gets `context_expired`. Zero is no end. The value is
+// store configuration: set it before the first call.
+func (s *Store) SetContextLife(life time.Duration) { s.life.Store(int64(life)) }
+
+// ExpireContexts removes each read context that is older than its life plus `grace`, with its content
+// list. It returns the number of contexts. A context is not content of the store, so the removal changes no
+// descriptor and no bytes (CTX-OPN-2). A call that started before the end of the life of its context still
+// reads the content list, so `grace` must be longer than the deadline of one call. With no life, the
+// method removes nothing.
+func (s *Store) ExpireContexts(ctx context.Context, grace time.Duration) (int64, error) {
+	life := time.Duration(s.life.Load())
+	if life <= 0 {
+		return 0, nil
+	}
+	var count int64
+	err := s.pool.QueryRow(ctx, `WITH gone AS (DELETE FROM contexts WHERE opened < now() - make_interval(secs => $1) RETURNING id),
+		members AS (DELETE FROM context_members m USING gone WHERE m.context = gone.id)
+		SELECT count(*) FROM gone`, (life + grace).Seconds()).Scan(&count)
+	return count, err
+}
 
 // Open connects to the database of a DSN, checks that it answers and applies the schema changes. An error
 // does not have the DSN, because a DSN can have a password.
@@ -46,7 +72,7 @@ func (s *Store) Close() { s.pool.Close() }
 
 // Session returns the store for one call. The context gives the deadline of each statement.
 func (s *Store) Session(ctx context.Context) ops.Session {
-	return session{view{ctx, s.pool}, s.pool}
+	return session{view{ctx, s.pool, time.Duration(s.life.Load())}, s.pool}
 }
 
 // raw returns the 32 bytes of a reference or a digest. A string of a different form names no row.
@@ -99,8 +125,9 @@ type querier interface {
 
 // view reads the store through a pool or a transaction. Each failure is a storage fault (ops.Raise).
 type view struct {
-	ctx context.Context
-	q   querier
+	ctx  context.Context
+	q    querier
+	life time.Duration // the life of a read context, or 0 for no end
 }
 
 // row scans one row. It returns false if the query gives no row.
@@ -281,7 +308,9 @@ func (v view) Publications(collection string) []ops.Publication {
 func (v view) Context(id string) (ops.ContextRecord, bool) {
 	var roots [][]byte
 	var capabilities []string
-	if !v.row([]any{&roots, &capabilities}, `SELECT roots, capabilities FROM contexts WHERE id = $1`, []byte(id)) {
+	// A context after the end of its life is a context that the store does not keep.
+	if !v.row([]any{&roots, &capabilities}, `SELECT roots, capabilities FROM contexts
+		WHERE id = $1 AND ($2::float8 = 0 OR opened > now() - make_interval(secs => $2::float8))`, []byte(id), v.life.Seconds()) {
 		return ops.ContextRecord{}, false
 	}
 	record := ops.ContextRecord{Roots: make([]string, len(roots)), Capabilities: capabilities}
@@ -384,7 +413,7 @@ func (s session) Update(fn func(tx ops.Tx)) {
 			_ = t.Rollback(ctx)
 		}
 	}()
-	fn(tx{view{s.ctx, t}})
+	fn(tx{view{s.ctx, t, s.life}})
 	if err := t.Commit(s.ctx); err != nil {
 		ops.Raise(err)
 	}

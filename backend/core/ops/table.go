@@ -41,6 +41,13 @@ var table = map[string]row{
 	"producer_read":     {"19", false},
 }
 
+// readBinding has the operations of the network read binding, which do not write content (NET-SCP-1).
+var readBinding = map[string]bool{
+	"open_context": true, "get": true, "query_data": true, "search": true, "context_bundle": true, "evidence": true,
+	"coverage": true, "observations": true, "render": true, "compare": true, "impact": true, "list_items": true,
+	"read": true, "search_text": true, "snapshot_changes": true, "item_history": true, "publications": true, "export": true,
+}
+
 // Reserved has the profile of each reserved operation (RSV-LST-1). A store of the base profile does not
 // support these operations (STS-MAL-4, RSV-RSP-1).
 var Reserved = map[string]string{
