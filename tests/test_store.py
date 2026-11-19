@@ -148,19 +148,22 @@ class StoreTest(unittest.TestCase):
                 Store(path, role='output', device=device)  # only the device store creates its output store
             device.close()
 
-    def test_second_connection_cannot_import_into_a_device_store(self):
+    def test_second_connection_updates_a_device_store(self):
         writer, context, _ = coverage_store()
         snapshot = next(r for (r,) in writer.db.execute("SELECT ref FROM objects WHERE kind = 'snapshot'"))
         bundle = writer.call('export', {'context': context, 'roots': [snapshot]})['bundle']
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / 'device.sqlite')
             first, second = Store(path, role='device'), Store(path, role='device')
-            second.has_objects = lambda: False  # the second connection checked before the first import
             self.assertEqual(first.call('import', {'bundle': bundle})['status'], 'ok')
+            old = first.call('open_context', {'roots': [snapshot]})['context']
             before = first.fingerprint()
-            result = second.call('import', {'bundle': bundle})
-            self.assertEqual((result['status'], [r['code'] for r in result['reasons']]), ('unsupported', ['read_only_store']))
-            self.assertEqual(first.fingerprint(), before)  # BUN-IMP-6
+            result = second.call('import', {'bundle': bundle})  # BUN-IMP-6 permits it
+            self.assertEqual((result['status'], len(result['items'])), ('ok', len(bundle['descriptors'])))
+            self.assertEqual(first.fingerprint(), before)  # BUN-UPD-2: the store has each object and the bytes
+            self.assertEqual(first.call('get', {'context': old, 'refs': [snapshot]})['status'], 'ok')  # BUN-UPD-3
+            refused = second.call('put', {'descriptors': [], 'payloads': {}})
+            self.assertEqual([r['code'] for r in refused['reasons']], ['read_only_store'])  # BUN-IMP-6
             first.close()
             second.close()
 

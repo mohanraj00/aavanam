@@ -373,7 +373,8 @@ class Store:
     def accept(self, policy: str, validate) -> None:
         """Register the validator of an acceptance policy: validate(candidate, receipt, activation) -> bool (PUB-RCP-1).
 
-        `activation` is the activation reference of the request, or None (PUB-RCP-2).
+        `activation` is the activation reference of the request, or None (PUB-RCP-2). A validator raises
+        TimeoutError if it does not answer before its deadline. Then `publish` gives `deadline_exceeded` (PUB-RCP-4).
         """
         self.policies[policy] = validate
 
@@ -497,9 +498,6 @@ class Store:
         """Write the objects and bytes in one transaction: all or none (STS-MAL-2)."""
         self.db.execute('BEGIN IMMEDIATE')
         try:
-            # A second connection can import after the check of call(), so check again in the transaction (BUN-IMP-6)
-            if self.role == 'device' and self.db.execute('SELECT 1 FROM objects LIMIT 1').fetchone():
-                raise fail('read_only_store')
             batch = objects  # BUN-IMP-10: keep each descriptor for failure attribution
             deferred = set()
             if withheld:  # BUN-IMP-11: bytes can arrive after the first absence check
@@ -598,7 +596,7 @@ class Store:
             try:
                 if self.broken:
                     raise sqlite3.DatabaseError('the connection is not usable')
-                if self.role == 'device' and (operation in WRITES or operation == 'import' and self.has_objects()):
+                if self.role == 'device' and operation in WRITES:  # an import is permitted, also a second one (BUN-UPD-1)
                     raise fail('read_only_store')  # BUN-IMP-6: after STS-MAL-4, before the request
                 if operation.startswith('producer_') and self.role != 'writer':
                     raise fail('producer_section_absent')  # PRD-SEC-1: after STS-MAL-4, before the request
@@ -612,9 +610,6 @@ class Store:
                     raise
                 self.rollback()
                 return self.envelope(operation, 'failed', [reason('storage_error')], context=context, **self.empty(operation))
-
-    def has_objects(self) -> bool:
-        return self.db.execute('SELECT 1 FROM objects LIMIT 1').fetchone() is not None
 
     @staticmethod
     def empty(operation: str) -> dict:
@@ -1619,6 +1614,8 @@ class Store:
             mutex.release()
         try:
             accepted = validate is not None and validate(identity, receipt, activation) is True  # PUB-RCP-2
+        except TimeoutError:  # PUB-RCP-4: no decision, so no receipt_rejected and no change of the store
+            raise fail('deadline_exceeded') from None
         finally:
             for mutex in held:  # the order of call()
                 mutex.acquire()

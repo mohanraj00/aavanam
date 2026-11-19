@@ -383,11 +383,12 @@ def check_sections(where: str, sections) -> list[str]:
 
 def check_acceptance(where: str, acceptance, bound: set[str]) -> list[str]:
     """The test policy of a vector has a name and the accepted pairs of candidate and receipt (PUB-RCP-1)."""
-    if not (isinstance(acceptance, dict) and set(acceptance) == {'policy', 'accept'} and isinstance(acceptance['policy'], str)
-            and isinstance(acceptance['accept'], list)
-            and all(isinstance(p, list) and len(p) == 2 for p in acceptance['accept'])):
-        return [f'{where}: acceptance needs a policy and a list of accepted [candidate, receipt] pairs']
-    members = [m for p in acceptance['accept'] for m in p]
+    if not (isinstance(acceptance, dict) and {'policy', 'accept'} <= set(acceptance) <= {'policy', 'accept', 'no_answer'}
+            and isinstance(acceptance['policy'], str)
+            and all(isinstance(acceptance.get(f, []), list) and all(isinstance(p, list) and len(p) == 2 for p in acceptance.get(f, []))
+                    for f in ('accept', 'no_answer'))):
+        return [f'{where}: acceptance needs a policy, a list of accepted [candidate, receipt] pairs and, optionally, a list no_answer of such pairs']
+    members = [m for f in ('accept', 'no_answer') for p in acceptance.get(f, []) for m in p]
     if not all(isinstance(m, str) or (isinstance(m, dict) and set(m) == {'$ref'} and isinstance(m['$ref'], str)) for m in members):
         return [f'{where}: each acceptance pair member is a string or a {{"$ref": name}} handle']
     refs = {m['$ref'] for m in members if isinstance(m, dict)}

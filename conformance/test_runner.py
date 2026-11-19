@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import copy
 import hashlib
 import io
@@ -65,7 +66,11 @@ class Scripted:
         if operation == 'put' and isinstance(result, dict) and result.get('status') == 'ok':
             self.kept[store].update(i['ref'] for i in result.get('items') or [] if isinstance(i, dict) and isinstance(i.get('ref'), str))
         item = (result.get('items') or [{}])[0] if isinstance(result, dict) else {}
-        if self.validate and operation == 'publish' and isinstance(item, dict) and (
+        late = isinstance(result, dict) and 'deadline_exceeded' in [r.get('code') for r in result.get('reasons') or []]
+        if self.validate and operation == 'publish' and late:
+            with contextlib.suppress(TimeoutError):  # PUB-RCP-4: the validator does not answer
+                self.validate(request['candidate'], request['receipt'], request.get('activation'))
+        elif self.validate and operation == 'publish' and isinstance(item, dict) and (
                 item.get('status') == 'incompatible' or item.get('disposition') == 'published') and (
                 not runner.ACTIVATION_REASONS & {r.get('code') for r in item.get('reasons') or [] if isinstance(r, dict)}):
             self.validate(request['candidate'], request['receipt'], request.get('activation'))  # step 4 of PUB-HED-3, after PUB-ACT-3
@@ -1098,6 +1103,21 @@ class PublicationTest(unittest.TestCase):
         self.assertTrue(seen['validate'](n, 'r'))
         self.assertFalse(seen['validate']('sha256:' + '0' * 64, 'r'))
 
+    def test_acceptance_no_answer(self):
+        seen = {}
+
+        class Accepting(Scripted):
+            def accept(self, policy, validate):
+                seen['validate'] = validate
+
+        n = rev({'descriptor_profile': runner.BASE_PROFILE, 'kind': 'snapshot', 'collection': 'c'})
+        vector = {'acceptance': {'policy': 'p', 'accept': [[{'$ref': 'n'}, 'r']], 'no_answer': [[{'$ref': 'n'}, 'late']]}, 'steps': [self.SNAP]}
+        self.assertEqual(runner.run_vector(Accepting(envelope('create_snapshot', 'ok', [], [{**OK_ITEM, 'ref': n}])), 't', vector), [])
+        self.assertTrue(seen['validate'](n, 'r'))
+        with self.assertRaises(TimeoutError):  # PUB-RCP-4
+            seen['validate'](n, 'late')
+        self.assertFalse(seen['validate'](n, 'other'))
+
     def test_create_must_write(self):
         n = rev({'descriptor_profile': runner.BASE_PROFILE, 'kind': 'snapshot', 'collection': 'c'})
         lazy = Scripted(envelope('create_snapshot', 'ok', [], [{**OK_ITEM, 'ref': n}]), write_created=False)
@@ -1129,6 +1149,15 @@ class PublicationTest(unittest.TestCase):
         self.assertEqual(runner.validator_problems('publish', with_act, published, [('k', 'r', True, 'a')]), [])
         self.assertIn('activation', runner.validator_problems('publish', with_act, published, [('k', 'r', True, None)])[0])
         self.assertIn('activation', runner.validator_problems('publish', request, published, [('k', 'r', True, 'a')])[0])
+        late = {'status': 'failed', 'reasons': ['deadline_exceeded'], 'items': []}
+        self.assertEqual(runner.validator_problems('publish', request, late, [('k', 'r', None, None)]), [])
+        self.assertIn('PUB-RCP-2', runner.validator_problems('publish', request, late, [])[0])
+        self.assertIn('PUB-RCP-4', runner.validator_problems('publish', request, late, [('k', 'r', True, None)])[0])
+        self.assertIn('PUB-RCP-4', runner.validator_problems('publish', request, published, [('k', 'r', None, None)])[0])
+        rejected = {'status': 'incompatible', 'reasons': ['receipt_rejected'],
+                    'items': [{'status': 'incompatible', 'reasons': ['receipt_rejected'], 'fields': {}}]}
+        self.assertIn('PUB-RCP-4', runner.validator_problems('publish', request, rejected, [('k', 'r', None, None)])[0])
+        self.assertEqual(runner.validator_problems('get', request, late, []), [])  # a deadline of a different operation
 
     def test_complete_refusal_has_no_lock(self):
         complete = runner.complete_operations()
@@ -1143,6 +1172,11 @@ class PublicationTest(unittest.TestCase):
         errors = runner.check_spec.check_acceptance('v', {'policy': 'p', 'accept': [[{'$ref': 'k'}, {'$ref': 'r'}]]}, {'k'})
         self.assertEqual(errors, ['v: acceptance handle r is not bound by a step'])
         self.assertEqual(len(runner.check_spec.check_acceptance('v', {'policy': 'p'}, set())), 1)
+        late = {'policy': 'p', 'accept': [], 'no_answer': [[{'$ref': 'k'}, {'$ref': 'r'}]]}
+        self.assertEqual(runner.check_spec.check_acceptance('v', late, {'k', 'r'}), [])
+        self.assertEqual(runner.check_spec.check_acceptance('v', late, {'k'}), ['v: acceptance handle r is not bound by a step'])
+        self.assertEqual(len(runner.check_spec.check_acceptance('v', {**late, 'no_answer': [['k']]}, set())), 1)
+        self.assertEqual(len(runner.check_spec.check_acceptance('v', {**late, 'other': []}, set())), 1)
         bad = runner.check_spec.check_acceptance('v', {'policy': 'p', 'accept': [[{'$ref': 7}, 'r']]}, set())
         self.assertIn('string or a', bad[0])
 

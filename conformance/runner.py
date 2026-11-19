@@ -642,9 +642,11 @@ def register(adapter, expander: Expander, acceptance: dict, calls: list) -> None
 
     Each call adds its pair, its decision and its activation to `calls`. A pair with a handle that a later step binds is not accepted yet.
     The decision does not depend on the activation. The activation is null if the request has none (PUB-RCP-2).
+    For a pair in `no_answer`, the validator does not answer before its deadline: the decision is None, and the
+    validator raises TimeoutError (PUB-RCP-4).
     """
-    def decide(candidate, receipt) -> bool:
-        for pair in acceptance['accept']:
+    def listed(field: str, candidate, receipt) -> bool:
+        for pair in acceptance.get(field, []):
             try:
                 if expander.value(pair, {}) == [candidate, receipt]:
                     return True
@@ -653,7 +655,10 @@ def register(adapter, expander: Expander, acceptance: dict, calls: list) -> None
         return False
 
     def validate(candidate: str, receipt: str, activation: str | None = None) -> bool:
-        decision = decide(candidate, receipt)
+        if listed('no_answer', candidate, receipt):
+            calls.append((candidate, receipt, None, activation))
+            raise TimeoutError('the validator did not answer before its deadline (PUB-RCP-4)')
+        decision = listed('accept', candidate, receipt)
         calls.append((candidate, receipt, decision, activation))
         return decision
     adapter.accept(acceptance['policy'], validate)
@@ -677,11 +682,13 @@ def validator_problems(operation: str, request: dict, expect: dict, calls: list)
     The activation checks come before step 4, so a publish with one of their reasons does not call it (PUB-ACT-3).
     A vector declares each gate before its first step, so no gate starts while a validator runs.
     Each call has the activation of the request, or None if the request has none (PUB-RCP-2).
+    A publish that expects `deadline_exceeded` passes step 4 with a validator that does not answer (PUB-RCP-4).
     """
     item = expected_item(operation, expect)
     published = item.get('fields', {}).get('disposition') == 'published'
     gated = bool(ACTIVATION_REASONS & set(item.get('reasons', [])))
-    if gated or not (item.get('status') == 'incompatible' or published):
+    late = operation == 'publish' and 'deadline_exceeded' in expect.get('reasons', [])
+    if gated or not (item.get('status') == 'incompatible' or published or late):
         if calls:
             clause = 'PUB-ACT-3' if gated else 'PUB-HED-3, PUB-HED-5'
             return [f'the store called the validator {len(calls)} time(s), but this step does not call it ({clause})']
@@ -694,6 +701,10 @@ def validator_problems(operation: str, request: dict, expect: dict, calls: list)
     if any(call[3] != request.get('activation') for call in calls):
         return [f'the store called the validator with the activation {[c[3] for c in calls]}, not with {request.get("activation")} (PUB-RCP-2)']
     accepted = calls[-1][2]
+    if late and accepted is not None:
+        return ['the validator answered, but the result has deadline_exceeded (PUB-RCP-4)']
+    if accepted is None and not late:
+        return ['the validator did not answer before its deadline, but the result is not deadline_exceeded (PUB-RCP-4)']
     if published and not accepted:
         return ['the validator did not accept the receipt, but the store published the candidate (PUB-RCP-2)']
     if 'receipt_rejected' in item.get('reasons', []) and accepted:

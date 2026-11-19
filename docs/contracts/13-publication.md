@@ -69,6 +69,8 @@ If the request has a different field, a field with a count that the table does n
 
 **PUB-RCP-3.** The store does not keep the head update open while the validator runs. After the validator accepts, the store applies step 5 of PUB-HED-3 as one atomic step. That step applies step 3 and the activation checks (PUB-ACT-3) again before it compares the head. Thus a competing `publish` that changes the head during the validation gives `head_moved`. A competing `publish` of the same candidate gives the outcome of step 3 (PUB-HED-5).
 
+**PUB-RCP-4.** A store can give a validator a deadline. The deadline is store configuration. If the validator does not give its output before the deadline, the store has no decision. Then the result of `publish` has status `failed` and reason `deadline_exceeded`, with no items (STS-ENV-3 rule 1), and the store MUST NOT change (STS-ENV-4). The store MUST NOT publish the candidate, and it MUST NOT give `receipt_rejected`, because the validator did not decide. An output that comes after the deadline has no effect. A later `publish` with the same request calls the validator again.
+
 ### Head updates, idempotency and dispositions
 
 **PUB-HED-1.** The base profile has one catalog for each store. The catalog has zero or one head for each collection. A head is the reference of one snapshot of that collection. An empty store has no head. Only `publish` changes a head.
@@ -80,7 +82,7 @@ If the request has a different field, a field with a count that the table does n
 1. If the catalog has no candidate with the identity, the status is `not_found` with reason `unknown_candidate`. If `receipt` or `activation` is not in the store, the status is `not_found` with reason `unknown_ref`, one reason for each reference that is not in the store. If more than one applies, the item has each reason.
 2. If `receipt` does not have kind `receipt`, or `activation` does not have kind `activation`, the status is `unsupported` with reason `unsupported_target_kind`, one reason for each such reference.
 3. If the store published the candidate before, the status is `ok` (PUB-HED-5). The store does not call the validator. If the store did not publish the candidate before, the store applies the activation checks (PUB-ACT-3) before step 4.
-4. If the validator of the policy of the candidate does not accept the receipt and the activation for the candidate (PUB-RCP-2), the status is `incompatible` with reason `receipt_rejected`.
+4. If the validator of the policy of the candidate does not accept the receipt and the activation for the candidate (PUB-RCP-2), the status is `incompatible` with reason `receipt_rejected`. If the validator does not answer before its deadline, PUB-RCP-4 gives the result.
 5. The store applies these actions in order, as one atomic step (PUB-RCP-3). It stops at the first action that gives an outcome.
    1. If the store published the candidate after step 3, the outcome of step 3 applies. If not, the store applies the activation checks again (PUB-ACT-3).
    2. If the current head of the collection is not the expected head of the candidate, the status is `incompatible` with reason `head_moved`.

@@ -115,13 +115,13 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.3.0 is the current version. All 20 contract documents are drafts. Version 0.3.0 adds range and interval matches, filters on declared metadata, support for optional groundgate export members, and imports with absent withheld bytes. It also adds an activation gate seam test and a library example. Both use stand-in activation records until entelos publishes the record format in a tagged release. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.3.0 is the current version. All 22 contract documents are drafts. Version 0.3.0 adds range and interval matches, filters on declared metadata, support for optional groundgate export members, and imports with absent withheld bytes. It also adds an activation gate seam test and a library example. Both use stand-in activation records until entelos publishes the record format in a tagged release. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 368, in 20 documents under `docs/contracts/` |
-| Conformance vectors | 631. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 630. The runner exits with 1 |
+| Contract clauses | 409, in 22 documents under `docs/contracts/` |
+| Conformance vectors | 642. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 641. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
 | Reference implementation | Python over SQLite. The standard library only |
 
