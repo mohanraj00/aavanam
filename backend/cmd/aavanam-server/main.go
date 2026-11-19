@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -224,6 +225,11 @@ func (s *service) stop() {
 // socketListener opens the socket of a path. It removes a socket that an earlier run left at the path. It
 // does not remove a file of a different type, and it does not remove the socket of a service that runs.
 func socketListener(path string, listen func(path string) (net.Listener, error)) (net.Listener, error) {
+	// The file mode protects only a socket that is a file. On Linux a name that starts with `@` or with a
+	// zero byte is an abstract socket: it has no file and no mode, and each local user can connect to it.
+	if !filepath.IsAbs(path) || strings.ContainsRune(path, 0) {
+		return nil, errors.New("the path of the socket is an absolute file path")
+	}
 	if info, err := os.Lstat(path); err == nil {
 		if info.Mode()&os.ModeSocket == 0 {
 			return nil, errors.New("the path has a file that is not a socket")
@@ -239,7 +245,16 @@ func socketListener(path string, listen func(path string) (net.Listener, error))
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	return listen(path)
+	listener, err := listen(path)
+	if err != nil {
+		return nil, err
+	}
+	// A check of the result: the listener is a socket file that only its user can open.
+	if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSocket == 0 || info.Mode().Perm() != 0o600 {
+		_ = listener.Close()
+		return nil, errors.New("the socket is not a file that only its user can open")
+	}
+	return listener, nil
 }
 
 func run(args []string) error {

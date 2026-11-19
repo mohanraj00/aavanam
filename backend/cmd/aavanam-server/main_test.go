@@ -191,6 +191,19 @@ func TestSocketPath(t *testing.T) {
 	if _, err := os.Lstat(socket); err == nil {
 		t.Error("the socket stays after the stop of its service")
 	}
+	// A name that is not an absolute file path is refused: on Linux `@name` is an abstract socket, which
+	// has no file mode. A listener that is not a socket file of one user is also refused.
+	for _, name := range []string{"@aavanam-test", "relative.sock", "\x00aavanam-test", filepath.Join(dir, "a\x00b")} {
+		if second, err := start(context.Background(), options1(t, "--write-socket", name), memstore.New()); err == nil {
+			second.stop()
+			t.Errorf("a start with the socket name %q", name)
+		}
+	}
+	open := func(path string) (net.Listener, error) { return net.Listen("tcp", "127.0.0.1:0") }
+	if listener, err := socketListener(filepath.Join(dir, "none.sock"), open); err == nil {
+		listener.Close()
+		t.Error("a listener with no socket file at the path")
+	}
 	file := filepath.Join(dir, "data")
 	if err := os.WriteFile(file, []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
