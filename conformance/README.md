@@ -19,7 +19,42 @@ python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter
 
 The null implementation returns `unsupported` for each call. It must fail. It passes only the vectors that expect `unsupported` at each step.
 
+With `--expect FILE`, the runner reads a list of vector IDs from the file, one ID for each line. The option can occur more than one time, and an ID can be in only one list. An empty line and a line that starts with `#` are not IDs. Each listed vector must pass: the runner prints `PASS` or `FAIL` for it, and it exits with 1 if a listed vector fails. A vector that is not in the list can fail, and the runner prints nothing for it. If such a vector passes, the runner prints `UNLISTED` and its ID, so that the author adds it to the list. The exit status does not change. An ID that is not a vector, or an ID that is in the lists two times, gives exit 2. An adapter that does not start also gives exit 2.
+
 The reference implementation (`src/aavanam/`) must pass all vectors. `store_adapter.py` gives each vector a new store in memory. If you set `AAVANAM_DEBUG=1`, the store raises an internal error in place of `storage_error`.
+
+## Go drivers
+
+`backend_adapter.py` connects the runner to the two Go drivers. The writer store is `aavanam-conform` in `backend/`. The device store and its local output store are `aavanam-device` in `reference/`. The lists of the vectors that pass are in `backend/conformance/` and `reference/conformance/`. The [Makefile](../Makefile) has the commands:
+
+```sh
+make check-backend-mem   # the storage in memory: passing-mem-core.txt and passing-mem-read.txt
+make check-backend-pg    # PostgreSQL: passing.txt. It needs AAVANAM_PG_DSN
+make check-null-driver   # the null storage must fail
+make check-device        # the device store: reference/conformance/passing.txt
+```
+
+| Variable | Value |
+|---|---|
+| `AAVANAM_WRITER` | `backend` (the default) or `reference`, the Python store in `src/` |
+| `AAVANAM_DEVICE` | `go` (the default) or `reference` |
+| `AAVANAM_READ_HTTP` | `0` sends each call of the writer store to the input of the driver. If not, a call that does not write content goes to the network read binding of the driver (document 22), if the driver has one |
+| `AAVANAM_CONFORM_BIN`, `AAVANAM_DEVICE_BIN` | The command of each driver. If one is not set, the adapter builds the driver with `go build` |
+| `AAVANAM_STORAGE` | The driver `aavanam-conform` reads it: `pg` (the default), `mem` or `null`. The storage `null` refuses each call, and it must fail |
+| `AAVANAM_PG_DSN` | The driver `aavanam-conform` reads it for the storage `pg` |
+
+A driver reads one JSON object for each line on its input, and writes one JSON object for each line on its output. Its first line is `{"ready": true}`, with `read_url` if it has a read binding. The package `backend/conformance` has the Go side of this protocol.
+
+| Line to the driver | Reply |
+|---|---|
+| `{"cmd": "reset"}` | `{"ok": true}`. Each store is empty, and it has no policy, gate or section |
+| `{"cmd": "call", "store", "op", "request"}` | `{"result": <envelope>}` |
+| `{"cmd": "fingerprint", "store"}` | `{"fingerprint": <text>}` |
+| `{"cmd": "accept", "policy"}` | `{"ok": true}` |
+| `{"cmd": "gate", "collection"}` | `{"ok": true}` |
+| `{"cmd": "section", "collection", "section"}` | `{"ok": true}`. Only the writer driver gets this line |
+
+Before the reply to a `call`, a driver can write `{"validate": {"policy", "candidate", "receipt", "activation"}}` to ask for the decision of a policy (PUB-RCP-2). The adapter answers with `{"accepted": true}`, `{"accepted": false}` or, for a validator that does not answer before its deadline, `{"no_answer": true}` (PUB-RCP-4). A command that the driver cannot do gives `{"error": <text>}`, and the adapter raises an error.
 
 ## Vector file
 

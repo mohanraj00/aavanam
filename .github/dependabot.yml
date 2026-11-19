@@ -4,3 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /reference
+    schedule:
+      interval: weekly
