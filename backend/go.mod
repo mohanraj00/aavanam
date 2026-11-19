@@ -3,7 +3,7 @@ module github.com/mohanraj00/aavanam/backend
 go 1.27
 
 require (
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	golang.org/x/text v0.41.0
 )
 
