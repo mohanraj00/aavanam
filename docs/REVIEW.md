@@ -82,10 +82,10 @@ The check reads the text in NFKC form with no format characters. It does not fin
 
 ### Local fallback: agy
 
-If the GitHub reviewer is not available (no quota, an outage or no integration), run agy on your machine:
+If the GitHub reviewer is not available (no quota, an outage or no integration), run agy on your machine. The tool is `gates/cross_review.py` of `mohanraj00/.github` at the gate pin of this project. This project has no copy. Run it from a checkout of that commit, in this project directory:
 
 ```sh
-python3 -B tools/cross_review.py --work "$REVIEW_WORK"
+python3 -B <path to gates>/cross_review.py --work "$REVIEW_WORK"
 ```
 
 Post the report on the PR. It starts with `Review (agy <version>):` and names the base and head commits. If agy is not available, ask the maintainer for a manual review. If the PR needs a security review, the maintainer also does a manual security review, as the [Security review](#security-review) section says.
@@ -122,7 +122,7 @@ The [Gates rerun](../.github/workflows/gates-rerun.yml) workflow starts the fail
 The `security-reviewed` label is only for the cases that a clean Codex result cannot show:
 
 - The review came from the Claude review workflow. Its result is advisory.
-- Codex is not available, and the review came from the agy fallback: `python3 -B tools/cross_review.py --security yes --work "$REVIEW_WORK"`. Post the report.
+- Codex is not available, and the review came from the agy fallback: `python3 -B <path to gates>/cross_review.py --security yes --work "$REVIEW_WORK"`. Post the report.
 - A finding is not a defect, and the PR has an answer for it.
 - Codex and agy are both not available, and the maintainer did a manual security review. The maintainer posts the review on the PR. The review names the head commit and the base commit, and gives each finding with its fix or its answer.
 
