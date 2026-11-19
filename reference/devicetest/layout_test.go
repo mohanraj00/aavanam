@@ -4,10 +4,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"unicode"
+
+	"github.com/mohanraj00/aavanam/reference/device"
 )
 
 type column struct {
@@ -49,6 +52,49 @@ func TestSQLiteDeviceLayout(t *testing.T) {
 	t.Run("KindEncoding", func(t *testing.T) {
 		checkKindEncoding(t, dev, out)
 	})
+}
+
+// DEV-LAY-2 rule 2 requires a BLOB for objects.kind in each file.
+func TestOpenRefusesTextKind(t *testing.T) {
+	for _, file := range []struct{ name, role string }{
+		{device.DeviceFile, "device"},
+		{device.OutputFile, "output"},
+	} {
+		t.Run(file.role, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := device.Create(dir); err != nil {
+				t.Fatal(err)
+			}
+			db, err := sql.Open("sqlite", filepath.Join(dir, file.name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = db.Exec(`DROP TABLE objects;
+				CREATE TABLE objects (ref BLOB PRIMARY KEY, kind TEXT NOT NULL, logical_id BLOB,
+					collection BLOB, canonical BLOB NOT NULL) WITHOUT ROWID;
+				CREATE INDEX objects_snapshot ON objects (collection) WHERE kind = 'snapshot'`)
+			closeErr := db.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if closeErr != nil {
+				t.Fatal(closeErr)
+			}
+
+			dev, out, err := device.Open(dir)
+			if dev != nil {
+				dev.Close()
+			}
+			if out != nil {
+				out.Close()
+			}
+			want := `the ` + file.role + ` file is not a store of ` + device.Layout + `: objects.kind has type "TEXT", want BLOB`
+			if dev != nil || out != nil || err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("Open returned device = %t, output = %t, error = %v; want no stores and error containing %q",
+					dev != nil, out != nil, err, want)
+			}
+		})
+	}
 }
 
 func checkLayout(t *testing.T, db *sql.DB, role string, want map[string]map[string]column) {

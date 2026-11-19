@@ -98,8 +98,8 @@ type Store struct {
 	schemas []string // the schemas that a read uses: "main", and "device" for the local output store
 }
 
-// Open opens the device store and the local output store of a directory. It checks the `meta` rows of
-// each file before it uses the file (DEV-PRF-2).
+// Open opens the device store and the local output store of a directory. It checks the `meta` rows
+// and the declared type of `objects.kind` in each file (DEV-PRF-2, DEV-LAY-2 rule 2).
 func Open(dir string) (device, output *Store, err error) {
 	// The attachment is a file URI. A relative path in it would give a URI authority, so the path is absolute.
 	if dir, err = filepath.Abs(dir); err != nil {
@@ -113,7 +113,7 @@ func Open(dir string) (device, output *Store, err error) {
 	output = &Store{db: sql.OpenDB(connector{dsn: outputPath + options, attach: attach}), role: "output",
 		schemas: []string{"main", "device"}}
 	for _, s := range []*Store{device, output} {
-		if err = s.checkMeta(); err != nil {
+		if err = s.checkLayout(); err != nil {
 			device.Close()
 			output.Close()
 			return nil, nil, err
@@ -125,7 +125,7 @@ func Open(dir string) (device, output *Store, err error) {
 // Close closes the connections of the store.
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) checkMeta() error {
+func (s *Store) checkLayout() error {
 	rows := map[string]string{}
 	found, err := s.db.Query(`SELECT key, value FROM main.meta`)
 	if err != nil {
@@ -144,6 +144,15 @@ func (s *Store) checkMeta() error {
 	}
 	if rows["layout"] != Layout || rows["role"] != s.role {
 		return fmt.Errorf("the %s file is not a store of %s (DEV-PRF-2)", s.role, Layout)
+	}
+	var kindType string
+	if err := s.db.QueryRow(`SELECT type FROM pragma_table_info('objects', 'main') WHERE name = 'kind'`).Scan(&kindType); err != nil {
+		return fmt.Errorf("the %s file is not a store of %s: cannot read the declared type of objects.kind (DEV-LAY-2 rule 2): %w",
+			s.role, Layout, err)
+	}
+	if !strings.EqualFold(kindType, "BLOB") {
+		return fmt.Errorf("the %s file is not a store of %s: objects.kind has type %q, want BLOB (DEV-LAY-2 rule 2)",
+			s.role, Layout, kindType)
 	}
 	return nil
 }
