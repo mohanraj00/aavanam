@@ -42,7 +42,14 @@ if '@CONSTITUTION.md' not in gemini or '@AGENTS.md' not in gemini:errors.append(
 # A path runs the project jobs if it is a code, security or level 1 path. The gates action owns the shared categories.
 sys.path.insert(0,str(ROOT/'tools'))
 from fnmatch import fnmatch
-from cross_review import security
+# A short copy of the shared security categories of the gates action (gates/gate.py of mohanraj00/.github at the gate pin).
+AGENT=['AGENTS.md','CLAUDE.md','GEMINI.md','SKILL.md','.agents/*','.claude/*','.codex/*','.gemini/*']
+MANIFESTS=['pyproject.toml','uv.lock','poetry.lock','Pipfile','Pipfile.lock','requirements*.txt','setup.py','setup.cfg']
+SHARED=['.github/*','CONSTITUTION.md','docs/STANDARD.md','docs/REVIEW.md','SECURITY.md']+[y for x in AGENT+MANIFESTS for y in (x,'*/'+x)]
+def security(rules,paths):
+    hit=lambda x,keys:any(fnmatch(x,y) for y in keys)
+    return [x for x in paths if hit(x,SHARED+rules.get('boundaries',[]))
+        or (hit(x,rules.get('security_sources',[])) and not hit(x,rules.get('not_security',[])))]
 rules=json.loads((ROOT/'.github/gates.json').read_text())
 for path,code,sec in [('README.md',False,False),('docs/STATUS.md',False,False),('SPEC.md',True,False),('docs/contracts/13-publication.md',True,False),
         ('src/aavanam/store.py',True,True),('conformance/runner.py',True,True),('conformance/store_adapter.py',True,True),
@@ -63,11 +70,7 @@ if 'test_gate.py' not in (ROOT/'.github/workflows/ci.yml').read_text():errors.ap
 # The gate checks the permission of the requester. Only the review job has the secret.
 from claude_workflow import workflow_errors
 errors+=['claude-review.yml '+x for x in workflow_errors((ROOT/'.github/workflows/claude-review.yml').read_text())]
-# The agy fallback must not load the maintainer's global allow rules or MCP servers.
-review=(ROOT/'tools/cross_review.py').read_text()
-for need in ["env['HOME']=home","'--sandbox'","'allow':[]"]:
-    if need not in review:errors.append('cross_review.py must keep '+need)
-if "'HOME'," in review:errors.append('cross_review.py must not pass the real HOME to agy')
+# The shared gates/cross_review.py owns the agy fallback and its tests.
 sys.path.insert(0,str(ROOT/'tools'));import counts
 errors+=counts.problems(ROOT)  # the stated counts (issue #70)
 checksum=ROOT/'checksums.json'
