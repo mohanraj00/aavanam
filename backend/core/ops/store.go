@@ -57,6 +57,9 @@ func Known(operation string) bool {
 	return ok
 }
 
+// InReadBinding tells if the operation is an operation of the network read binding (NET-SCP-1).
+func InReadBinding(operation string) bool { return readBinding[operation] }
+
 // Permits tells if the row of the operation has the status `partial` (STS-ENV-3).
 func Permits(operation string) bool { return table[operation].partial }
 
@@ -173,6 +176,38 @@ func (s *Store) Now() string {
 	return now().UTC().Format("2006-01-02T15:04:05Z")
 }
 
+// Handles tells if the store has the operation.
+func (s *Store) Handles(operation string) bool {
+	_, ok := s.registry.handlers[operation]
+	return ok
+}
+
+// Stopped returns the envelope of a call that did not complete, with one reason: the status of the code, no
+// items, and the context of the request if the request names one (STS-ENV-3 rule 1). A binding uses it for
+// a call that its deadline stopped (NET-LIM-2).
+func (s *Store) Stopped(operation string, request []byte, code string) envelope.Envelope {
+	failure := envelope.Fail(code)
+	return envelope.Envelope{Status: failure.Status, Reasons: failure.Reasons, Operation: jsontext.S(operation),
+		Context: echoOf(operation, request), HasItems: true, Fields: empty(operation)}
+}
+
+// echoOf returns the context of a request, if the request names one, for the envelope of a failure
+// (LIF-ITM-4). A store read has no read context.
+func echoOf(operation string, request []byte) jsontext.Value {
+	value, formError := jsontext.Parse(request, jsontext.Lenient)
+	if formError != nil {
+		return jsontext.Value{}
+	}
+	return echo(operation, value)
+}
+
+func echo(operation string, request jsontext.Value) jsontext.Value {
+	if id, ok := request.Get("context"); ok && id.Kind == jsontext.String && !storeReads[operation] {
+		return id
+	}
+	return jsontext.Value{}
+}
+
 // Indexers returns the indexers of the registry of the store.
 func (s *Store) Indexers() []Indexer { return s.registry.indexers }
 
@@ -269,9 +304,9 @@ func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []by
 	s.called.Store(true)
 	// The envelope of a failure has the context of the request, if the request names one (LIF-ITM-4).
 	value, formError := jsontext.Parse(request, jsontext.Lenient)
-	echo := jsontext.Value{}
-	if id, ok := value.Get("context"); formError == nil && ok && id.Kind == jsontext.String && !storeReads[name] {
-		echo = id
+	context := jsontext.Value{}
+	if formError == nil {
+		context = echo(name, value)
 	}
 	defer func() {
 		p := recover()
@@ -290,7 +325,7 @@ func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []by
 			}
 			failure = envelope.Fail("storage_error") // STS-MAL-1: no raw failure crosses the API
 		}
-		out = envelope.Envelope{Status: failure.Status, Reasons: failure.Reasons, Operation: operation, Context: echo,
+		out = envelope.Envelope{Status: failure.Status, Reasons: failure.Reasons, Operation: operation, Context: context,
 			HasItems: true, Fields: empty(name)}
 	}()
 	switch {

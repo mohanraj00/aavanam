@@ -2,7 +2,9 @@ package kinds
 
 import (
 	"reflect"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -89,5 +91,16 @@ func TestFieldRules(t *testing.T) {
 	}
 	if Schema("source")[0].Name != "descriptor_profile" || Schema("source")[4].Name != "payload" {
 		t.Errorf("the schema of source: %v", Schema("source"))
+	}
+}
+
+func TestProfileMinorAgreesWithTheSpec(t *testing.T) {
+	spec, err := doctable.Spec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := regexp.MustCompile(`The base profile is at minor version (\d+)\.`).FindStringSubmatch(spec)
+	if found == nil || found[1] != strconv.Itoa(ProfileMinor) {
+		t.Errorf("ProfileMinor is %d, and SPEC.md has %v", ProfileMinor, found)
 	}
 }
