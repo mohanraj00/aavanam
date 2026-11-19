@@ -3,7 +3,11 @@ package main
 import (
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/mohanraj00/aavanam/backend/conformance"
+	"github.com/mohanraj00/aavanam/reference/device"
 )
 
 func TestRequirements(t *testing.T) {
@@ -13,39 +17,29 @@ func TestRequirements(t *testing.T) {
 }
 
 func TestResetMakesTheTwoFiles(t *testing.T) {
-	s := store{dir: t.TempDir()}
-	for range 2 { // a second reset deletes the files and makes them again
+	f := &files{dir: t.TempDir()}
+	s := &conformance.Core{Open: f.open}
+	for range 2 { // a second reset closes the stores, deletes the files and makes them again
 		if err := s.Reset(); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for name, role := range files {
-		db, err := sql.Open("sqlite", filepath.Join(s.dir, name))
+	for name, role := range map[string]string{device.DeviceFile: "device", device.OutputFile: "output"} {
+		db, err := sql.Open("sqlite", filepath.Join(f.dir, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		rows := map[string]string{}
-		found, err := db.Query(`SELECT key, value FROM meta`)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for found.Next() {
-			var key, value string
-			if err := found.Scan(&key, &value); err != nil {
-				t.Fatal(err)
-			}
-			rows[key] = value
-		}
-		found.Close()
+		var layout, got string
+		err = db.QueryRow(`SELECT (SELECT value FROM meta WHERE key = 'layout'), (SELECT value FROM meta WHERE key = 'role')`).
+			Scan(&layout, &got)
 		db.Close()
-		if len(rows) != 2 || rows["layout"] != Layout || rows["role"] != role {
-			t.Fatalf("%s: meta rows %v (DEV-PRF-2)", name, rows)
+		if err != nil || layout != device.Layout || got != role {
+			t.Fatalf("%s: meta rows %q %q, error %v (DEV-PRF-2)", name, layout, got, err)
 		}
 	}
-	result, err := s.Call("device", []byte(`"get"`), []byte(`{}`), nil)
-	if err != nil || string(result) != string(conformanceUnsupported) {
+	// BUN-IMP-6: the device store refuses `put`.
+	result, err := s.Call("device", []byte(`"put"`), []byte(`{"descriptors":[]}`), nil)
+	if err != nil || !strings.Contains(string(result), `"read_only_store"`) {
 		t.Fatalf("result %s, error %v", result, err)
 	}
 }
-
-const conformanceUnsupported = `{"status":"unsupported","reasons":[{"code":"unsupported_operation","refs":[],"capabilities":[]}],"operation":"get","operation_profile":"aavanam/base/v1","context":null}`
