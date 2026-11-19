@@ -1,68 +1,49 @@
 // Command aavanam-device is the conformance driver of the device store. It connects the Python vector
 // runner to a device store and its local output store over the line protocol of package conformance.
-//
-// In this version each call gives `unsupported_operation`. A reset makes the two SQLite files of
-// document 21 with their `meta` rows (DEV-PRF-2, DEV-LAY-1). A later change adds the device store.
+// The two stores are the SQLite files of document 21 (package device). A reset deletes the files and
+// makes new ones.
 package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/mohanraj00/aavanam/backend/conformance"
-	// The device store applies the checks of the core. This import keeps the requirements of the module
-	// the same when the store comes.
-	_ "github.com/mohanraj00/aavanam/backend/core/check"
+	"github.com/mohanraj00/aavanam/reference/device"
 )
 
-// Layout is the identity of the layout profile (DEV-PRF-1).
-const Layout = "aavanam/device-sqlite/v1"
-
-// The files of a device store and their roles (DEV-LAY-1).
-var files = map[string]string{"device.sqlite": "device", "output.sqlite": "output"}
-
-type store struct {
-	conformance.Null
-	dir string
+// files keeps the stores that are open, so that a reset can close them.
+type files struct {
+	dir    string
+	stores []*device.Store
 }
 
-// Reset deletes the two files and makes new ones.
-func (s store) Reset() error {
-	for name, role := range files {
-		path := filepath.Join(s.dir, name)
+// open closes the stores that are open, deletes the two files and makes new ones (DEV-LAY-1).
+func (f *files) open() (map[string]conformance.Backing, error) {
+	for _, s := range f.stores {
+		s.Close()
+	}
+	f.stores = nil
+	for _, name := range []string{device.DeviceFile, device.OutputFile} {
+		path := filepath.Join(f.dir, name)
 		for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
 			if err := os.Remove(path + suffix); err != nil && !os.IsNotExist(err) {
-				return err
+				return nil, err
 			}
 		}
-		if err := create(path, role); err != nil {
-			return fmt.Errorf("%s: %w", name, err)
-		}
 	}
-	return nil
-}
-
-func (s store) Call(_ string, operation, _ json.RawMessage, _ conformance.Validate) (json.RawMessage, error) {
-	return conformance.Unsupported(operation), nil
-}
-
-func create(path, role string) error {
-	db, err := sql.Open("sqlite", path)
+	if err := device.Create(f.dir); err != nil {
+		return nil, err
+	}
+	dev, out, err := device.Open(f.dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer db.Close()
-	if _, err := db.Exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`); err != nil {
-		return err
-	}
-	_, err = db.Exec(`INSERT INTO meta (key, value) VALUES ('layout', ?), ('role', ?)`, Layout, role)
-	return err
+	f.stores = []*device.Store{dev, out}
+	return map[string]conformance.Backing{"device": dev, "output": out}, nil
 }
 
 // requirements checks that the SQLite of the driver agrees with DEV-PRF-1: version 3.45 or later, with FTS5.
@@ -107,7 +88,8 @@ func main() {
 		defer os.RemoveAll(temp)
 		*dir = temp
 	}
-	s := store{dir: *dir}
+	f := &files{dir: *dir}
+	s := &conformance.Core{Open: f.open}
 	if err := s.Reset(); err != nil {
 		fmt.Fprintln(os.Stderr, "aavanam-device:", err)
 		os.Exit(2)
