@@ -73,6 +73,22 @@ errors+=['claude-review.yml '+x for x in workflow_errors((ROOT/'.github/workflow
 # The shared gates/cross_review.py owns the agy fallback and its tests.
 sys.path.insert(0,str(ROOT/'tools'));import counts
 errors+=counts.problems(ROOT)  # the stated counts (issue #70)
+# Each implementation lists the vectors that pass on it. A list holds each vector ID once, and the lists of one implementation hold all IDs.
+# The IDs come from the vector files. The backend on memory has two lists, so the check adds them together (issue #108).
+vector_ids={x.relative_to(ROOT/'conformance/vectors').with_suffix('').as_posix() for x in (ROOT/'conformance/vectors').rglob('*.json')}
+for target,lists in [('backend on PostgreSQL',['backend/conformance/passing.txt']),
+        ('backend on memory',['backend/conformance/passing-mem-core.txt','backend/conformance/passing-mem-read.txt']),
+        ('device store',['reference/conformance/passing.txt'])]:
+    listed=[]
+    for name in lists:
+        try:lines=[x.strip() for x in (ROOT/name).read_text(encoding='utf-8').splitlines()]
+        except (OSError,UnicodeDecodeError) as e:
+            errors.append('cannot read the vector list %s: %s'%(name,e));continue
+        listed+=[x for x in lines if x and not x.startswith('#')]
+    twice=sorted({x for x in listed if listed.count(x)>1})
+    if twice:errors.append('%s: a vector ID is in the lists more than once: %s'%(target,twice))
+    if set(listed)-vector_ids:errors.append('%s: the lists have IDs that are not vectors: %s'%(target,sorted(set(listed)-vector_ids)))
+    if vector_ids-set(listed):errors.append('%s: the lists do not have these vectors: %s'%(target,sorted(vector_ids-set(listed))))
 checksum=ROOT/'checksums.json'
 if a.write_checksums:
     if errors:raise SystemExit(json.dumps({'passed':False,'errors':errors}))

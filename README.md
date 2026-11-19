@@ -127,6 +127,25 @@ Version 0.3.0 is the current version. All 22 contract documents are drafts. Vers
 
 Each refusal vector has a positive pair, so an implementation that refuses all calls fails. No expected value comes from an implementation run. Each vector states its provenance: the spec, a defect reproduced in a pre-build prototype, or a planted fault.
 
+## Which implementation to use
+
+The repository has three implementations of the spec. Each one passes all the conformance vectors. The vectors, not the code, say what each one does.
+
+| Implementation | Use it to | Storage | Code |
+|---|---|---|---|
+| Reference | Learn the spec, write a producer, run the examples and test an adapter. | SQLite, the Python standard library only | `src/` |
+| Backend service | Run a shared store that many consumers read over a network. | PostgreSQL 17, with a storage in memory for tests only | `backend/` |
+| Device store | Read an exported bundle on a device, with no server and with the text search. | Two SQLite files, with an FTS5 index | `reference/` |
+
+- The reference is the first choice to start. It has no dependency outside Python, and the examples in this file use it.
+- The backend service is a Go service. A client reads with `POST /v1/op/<operation>` on the read binding `aavanam-read/v1` (document 22). A write does not go through the read listener.
+- The device store has the layout `aavanam/device-sqlite/v1` (document 21). A device imports a bundle with `import`, and a second `import` adds only the new content.
+- The backend and the device store share one Go core. The Python reference is separate code, so the vectors compare two independent implementations.
+- Access control is out of scope. The read listener binds to the loopback address by default. A deployment puts access control in front of it.
+- This repository has no measured size or time numbers for the backend or the device store. Do not use it as evidence of speed.
+
+[docs/STATUS.md](docs/STATUS.md) gives the vector result of each implementation and the command that runs it.
+
 ## Install and run an example
 
 The CI builds a wheel and a source archive from a clean copy of each commit. Then it installs the wheel in a clean environment and runs each example in [examples/](examples/README.md) from that environment. [examples/README.md](examples/README.md) gives the steps to do the same from a clean checkout.
