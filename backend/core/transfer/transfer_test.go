@@ -2,6 +2,7 @@ package transfer_test
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"sync"
@@ -22,9 +23,13 @@ import (
 type imports struct {
 	mu    sync.Mutex
 	roots [][]string
+	fail  bool // the record gives a storage fault
 }
 
 func (x *imports) PutImport(roots []string) {
+	if x.fail {
+		ops.Raise(errors.New("the record failed"))
+	}
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	x.roots = append(x.roots, roots)
@@ -81,7 +86,8 @@ func call(t *testing.T, store *ops.Store, operation, request string) envelope.En
 }
 
 // Each `ok` import of a device store adds one record with the roots of the bundle, also an import of
-// objects that the store has. An import that is not `ok` adds no record (DEV-UPD-2, BUN-UPD-6).
+// objects that the store has. An import that is not `ok` adds no record (DEV-UPD-2, BUN-UPD-6). The record
+// is in the update of the import, so a failure of the record leaves the store unchanged (DEV-UPD-1, BUN-IMP-4).
 func TestDeviceImportRecord(t *testing.T) {
 	writer := ops.New(ops.Writer, memstore.New(), registry())
 	bindings := `{` + profile + `,"kind":"binding-set"}`
@@ -126,5 +132,13 @@ func TestDeviceImportRecord(t *testing.T) {
 	}
 	if len(storage.roots) != 2 {
 		t.Fatalf("an import that is not ok added a record: %v", storage.roots)
+	}
+	broken := &logged{mem: memstore.New(), imports: &imports{fail: true}}
+	empty := broken.mem.Fingerprint()
+	if e := call(t, ops.New(ops.Device, broken, registry()), "import", request); e.Status != "failed" {
+		t.Fatalf("an import whose record failed: %s", e.JSON())
+	}
+	if broken.mem.Fingerprint() != empty {
+		t.Fatal("an import whose record failed changed the store")
 	}
 }

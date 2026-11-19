@@ -319,16 +319,32 @@ func Import(c *ops.Call) envelope.Envelope {
 			absent = append(absent, envelope.Refused([]string{"bundle_incomplete"}, r))
 		}
 	}
+	if c.Store.Role == ops.Device { // DEV-UPD-1, DEV-UPD-2: the record is in the update of the import
+		session := c.S
+		c.S = recorded{session, roots}
+		defer func() { c.S = session }()
+	}
 	out := batch.Commit(c, checked, absent)
 	if out.Status != "ok" { // BUN-IMP-4
 		return c.Envelope(out.Status, out.Reasons, nil)
 	}
-	if c.Store.Role == ops.Device { // DEV-UPD-2: the record of the import, not content of the store
-		c.S.Update(func(tx ops.Tx) {
-			if log, ok := tx.(ops.ImportLog); ok {
-				log.PutImport(roots)
-			}
-		})
-	}
 	return c.Envelope("ok", nil, out.Items)
+}
+
+// recorded is the session of an import on a device store. Its update adds the record of the import after
+// the content, in the same transaction (DEV-UPD-1, DEV-UPD-2). The record is not content of the store. An
+// update that fails stops with a panic before the record, so the store adds no record and does not change
+// (BUN-IMP-4, BUN-UPD-6).
+type recorded struct {
+	ops.Session
+	roots []string
+}
+
+func (s recorded) Update(fn func(tx ops.Tx)) {
+	s.Session.Update(func(tx ops.Tx) {
+		fn(tx)
+		if log, ok := tx.(ops.ImportLog); ok {
+			log.PutImport(s.roots)
+		}
+	})
 }
