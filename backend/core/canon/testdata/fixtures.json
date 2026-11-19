@@ -1,0 +1,552 @@
+[
+{
+"text": "{\"artifact_type\":\"sample/checklist/v1\",\"declared_roles\":{\"intervals\":\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\",\"torque\":\"sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:6528439c045fec8f0b7c3ed2d9717f772a9b7a768c29d49908a7f81d07d58a4e\",\"media_type\":\"text/plain\",\"size\":170},\"runtime_profile\":\"sha256:68d022c6d94155d2f48c5ad24298f815f762e981e7115f9255cbd2c34cad6031\"}",
+"canonical": "{\"artifact_type\":\"sample/checklist/v1\",\"declared_roles\":{\"intervals\":\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\",\"torque\":\"sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:6528439c045fec8f0b7c3ed2d9717f772a9b7a768c29d49908a7f81d07d58a4e\",\"media_type\":\"text/plain\",\"size\":170},\"runtime_profile\":\"sha256:68d022c6d94155d2f48c5ad24298f815f762e981e7115f9255cbd2c34cad6031\"}",
+"ref": "sha256:00007c92e05aeba1023a15f45a971d6f9161ea198ca0d4231b2c61e437628d67"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:6ed694a49499bc14601c81b43571b863894704098d787df212ef9e1205991849\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:6ed694a49499bc14601c81b43571b863894704098d787df212ef9e1205991849\"]}",
+"ref": "sha256:01bc402cd9746e7a30975ff7d44d8357c56ad400c2bc08c8eec05a2c0a7e932b"
+},
+{
+"text": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\"],\"kind\":\"build-lock\"}",
+"canonical": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\"],\"kind\":\"build-lock\"}",
+"ref": "sha256:02b7b8949a0bbec4406f85ec9f3973efdf7fb6aa2f02ded3ed74818f442d7865"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:841facee9a2b97dab5212ea4e54e1b122d4396838e9c601bb66a22bfcf4cdb98\",\"media_type\":\"text/plain\",\"size\":12},\"ranges\":[{\"end\":95,\"start\":83}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:841facee9a2b97dab5212ea4e54e1b122d4396838e9c601bb66a22bfcf4cdb98\",\"media_type\":\"text/plain\",\"size\":12},\"ranges\":[{\"end\":95,\"start\":83}]}",
+"ref": "sha256:040e5054cd0850e8fb659b7f7d4af299f964b93cec32b60b13201ea944543c87"
+},
+{
+"text": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:ee7ec153f019bdb907e04b4424a6ced3b01d3d61fc04b0777246f422bee795fe\",\"media_type\":\"text/csv\",\"size\":109},\"schema\":\"sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97\"}",
+"canonical": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:ee7ec153f019bdb907e04b4424a6ced3b01d3d61fc04b0777246f422bee795fe\",\"media_type\":\"text/csv\",\"size\":109},\"schema\":\"sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97\"}",
+"ref": "sha256:048d821cd40537b60d523dbf5d8b44ea5bed4abf2abe399560724249abad681b"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:982fc861b852cce53a04ffe800ae8f78f654b4609042a4e93a204e10ae3af59c\",\"media_type\":\"application/json\",\"size\":29},\"schema_profile\":\"aavanam/admitted-facts/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:982fc861b852cce53a04ffe800ae8f78f654b4609042a4e93a204e10ae3af59c\",\"media_type\":\"application/json\",\"size\":29},\"schema_profile\":\"aavanam/admitted-facts/v1\"}",
+"ref": "sha256:0a58845b2da0c9da4fb585b15ce8f7a632c6695dbc7a8e06abd34933224f1cdd"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:7f8335b723c6fb7437ca4b0e5178b615a3c4895b5a83942d3a938ecc821ff576\",\"sha256:f9846a40715d6a643177ccaa00e001c3fe00e03b2f5ede5a73bf0ebf73883751\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:7f8335b723c6fb7437ca4b0e5178b615a3c4895b5a83942d3a938ecc821ff576\",\"sha256:f9846a40715d6a643177ccaa00e001c3fe00e03b2f5ede5a73bf0ebf73883751\"]}",
+"ref": "sha256:0d2945809964942261b5d78fc20bb2b3ee8f4a6ce880659d6ff97d0f4e395694"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":111,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":102},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"locator\":{\"box\":[72,144,200,160],\"page\":1,\"selector_profile\":\"example/page-box/v1\"},\"receipt_digest\":\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea\",\"supports\":\"sha256:6350d3d249ddcd175a76e5e3823315cd8e4d935e0bdded276dbababebd172901\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":111,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":102},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"locator\":{\"box\":[72,144,200,160],\"page\":1,\"selector_profile\":\"example/page-box/v1\"},\"receipt_digest\":\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea\",\"supports\":\"sha256:6350d3d249ddcd175a76e5e3823315cd8e4d935e0bdded276dbababebd172901\"}",
+"ref": "sha256:0e9b857e1ad2606b378b4b761fdd2617029c4c7e3b3f6f8a6856790023a5f02f"
+},
+{
+"text": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+"canonical": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+"ref": "sha256:0efb3ad29a89d8758562005549c7ce4ad6eee0a1638d1dfc5bf0861c7e670b66"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:9d869a22ba2d2c3038264c88864e10ef7706f6e2d2f14769b81e0effbd86e7e5\",\"sha256:a55725c0e45e8d9f1fe1f4fb92048ff0687cc2c5b56b3806ee01e22587cda36c\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:9d869a22ba2d2c3038264c88864e10ef7706f6e2d2f14769b81e0effbd86e7e5\",\"sha256:a55725c0e45e8d9f1fe1f4fb92048ff0687cc2c5b56b3806ee01e22587cda36c\"]}",
+"ref": "sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"ref": "sha256:127ca562c052e39b55a84c53e11cc0d8d437f6831f783dddc9510b2a35365bb5"
+},
+{
+"text": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\",\"relation_sets\":[\"sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54\"]}",
+"canonical": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\",\"relation_sets\":[\"sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54\"]}",
+"ref": "sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d"
+},
+{
+"text": "{\"check_profile\":\"sample/check/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"check\",\"origin\":\"example/checker\",\"outcome\":\"pass\",\"scope\":{},\"subject\":\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\"}",
+"canonical": "{\"check_profile\":\"sample/check/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"check\",\"origin\":\"example/checker\",\"outcome\":\"pass\",\"scope\":{},\"subject\":\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\"}",
+"ref": "sha256:146e9858c8a4313fe97cb94aa1954cadfb0df3e82dc5c734ffdb7d286923ff1f"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151\",\"values\":{\"source_url\":\"https://example.org/handbook\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151\",\"values\":{\"source_url\":\"https://example.org/handbook\"}}",
+"ref": "sha256:18dcda8918b406dfcd5c5a140c0cc5d24f34e4da34c18d7f7b940fd333ba7fd1"
+},
+{
+"text": "{\"collection\":\"sample-invoice-evidence\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"native_mappings\":[\"sha256:ef3df3b6876c55561fa2a47a1ae9621d16988c4de3a80a9d106228848c2804fd\",\"sha256:df3ea88dcfa0fe0c76624f2a3010dd66fc3dbba30a44c5d4d726e2617ba5f501\"],\"relation_sets\":[\"sha256:75c104e78c658197e6de8b598d65e2fd96cb616612cf8950d60e5f122c417f15\"]}",
+"canonical": "{\"collection\":\"sample-invoice-evidence\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"native_mappings\":[\"sha256:df3ea88dcfa0fe0c76624f2a3010dd66fc3dbba30a44c5d4d726e2617ba5f501\",\"sha256:ef3df3b6876c55561fa2a47a1ae9621d16988c4de3a80a9d106228848c2804fd\"],\"relation_sets\":[\"sha256:75c104e78c658197e6de8b598d65e2fd96cb616612cf8950d60e5f122c417f15\"]}",
+"ref": "sha256:1a3b69e8bb6e50bf57b54e08d4079c038a83251f4a3798b371cfb62744edf38a"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":74,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":64},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"receipt_digest\":\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b\",\"supports\":\"sha256:e725b20e3777020110b8b5dae26444a90561d39f1bf1a0bf98862c97d409ffa5\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":74,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":64},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"receipt_digest\":\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b\",\"supports\":\"sha256:e725b20e3777020110b8b5dae26444a90561d39f1bf1a0bf98862c97d409ffa5\"}",
+"ref": "sha256:1cf86bd965e4c55de06051bac3166cf48cc43c113607310964f5baaafbd35b24"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:0ba706a0a22cec3f51cd205a6ad98c5a9fbdd7fdcbb44ee2f199cef0fa4277e8\",\"media_type\":\"text/markdown\",\"size\":483}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:0ba706a0a22cec3f51cd205a6ad98c5a9fbdd7fdcbb44ee2f199cef0fa4277e8\",\"media_type\":\"text/markdown\",\"size\":483}}",
+"ref": "sha256:20b538882f0b60104c11ade8c4d467a3d53c81d2297f7ee077d43ec4ad8a9ca3"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:b71b0e5dfd25a51ee8a9bb39d265f5f86c70804e5d37ac385ec31f1d47d54ff2\",\"media_type\":\"application/json\",\"size\":58},\"schema_profile\":\"aavanam/admitted-facts-export/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:b71b0e5dfd25a51ee8a9bb39d265f5f86c70804e5d37ac385ec31f1d47d54ff2\",\"media_type\":\"application/json\",\"size\":58},\"schema_profile\":\"aavanam/admitted-facts-export/v1\"}",
+"ref": "sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b"
+},
+{
+"text": "{\"bindings\":{\"line\":\"sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef\",\"note\":\"sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea\",\"shipped\":\"sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b\",\"weight\":\"sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\"}",
+"canonical": "{\"bindings\":{\"line\":\"sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef\",\"note\":\"sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea\",\"shipped\":\"sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b\",\"weight\":\"sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\"}",
+"ref": "sha256:22c08951dced93736c0fea849f4f55d8ad9fc83bfe9ef22632547a0b472a93e3"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":54,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":47},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"receipt_digest\":\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361\",\"supports\":\"sha256:a82283967f671106b43423d39bb1e9208ef46f1a0c84f059e2e3d60a8a365d55\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":54,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":47},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"receipt_digest\":\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361\",\"supports\":\"sha256:a82283967f671106b43423d39bb1e9208ef46f1a0c84f059e2e3d60a8a365d55\"}",
+"ref": "sha256:24746b9ef7c80e14626f230c695e95121b9d49be1b96850964203e905af2242e"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:24746b9ef7c80e14626f230c695e95121b9d49be1b96850964203e905af2242e\",\"sha256:1cf86bd965e4c55de06051bac3166cf48cc43c113607310964f5baaafbd35b24\",\"sha256:7aa3dce582b9a09102bc3d5703f01c0692298768a22c7ee55ce9ab58e53ebb71\",\"sha256:0e9b857e1ad2606b378b4b761fdd2617029c4c7e3b3f6f8a6856790023a5f02f\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:0e9b857e1ad2606b378b4b761fdd2617029c4c7e3b3f6f8a6856790023a5f02f\",\"sha256:1cf86bd965e4c55de06051bac3166cf48cc43c113607310964f5baaafbd35b24\",\"sha256:24746b9ef7c80e14626f230c695e95121b9d49be1b96850964203e905af2242e\",\"sha256:7aa3dce582b9a09102bc3d5703f01c0692298768a22c7ee55ce9ab58e53ebb71\"]}",
+"ref": "sha256:24f6b016daaee91302187a125c038adc1cac5a881a3a3186e7232e0e102f176c"
+},
+{
+"text": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:430f65edb048675a6def4a8e79b307f651aee8445dffe9468c398f373c909138\",\"media_type\":\"application/json\",\"size\":140},\"schema\":\"sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b\"}",
+"canonical": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:430f65edb048675a6def4a8e79b307f651aee8445dffe9468c398f373c909138\",\"media_type\":\"application/json\",\"size\":140},\"schema\":\"sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b\"}",
+"ref": "sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361"
+},
+{
+"text": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/execution/v1\",\"context_inputs\":[\"sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54\"],\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"execution-lock\"}",
+"canonical": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/execution/v1\",\"context_inputs\":[\"sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54\"],\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"execution-lock\"}",
+"ref": "sha256:343443e66be2a6220a0705d7058237347787598c834286f70a6759b794280d02"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057\",\"payload\":{\"digest\":\"sha256:775c353befc71ea1a567771da4e086a120c07d156416b3bf91037c9f563e960f\",\"media_type\":\"text/plain\",\"size\":49},\"ranges\":[{\"end\":203,\"start\":154}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057\",\"payload\":{\"digest\":\"sha256:775c353befc71ea1a567771da4e086a120c07d156416b3bf91037c9f563e960f\",\"media_type\":\"text/plain\",\"size\":49},\"ranges\":[{\"end\":203,\"start\":154}]}",
+"ref": "sha256:35a8e27deb7ebfcafc258854812c010d859a5d0b50dcc978a01d32af4d82141b"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:47a7de1a7e3b2ee39a7a632688c1b387cf8e28a2c4c42ccdcc86fcae461842c0\",\"payload\":{\"digest\":\"sha256:fa3a0e81261c0b6741dec9023f17abbe14efbf6efa018462d9946202ab18d2ec\",\"media_type\":\"text/plain\",\"size\":8},\"ranges\":[{\"end\":19,\"start\":11}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:47a7de1a7e3b2ee39a7a632688c1b387cf8e28a2c4c42ccdcc86fcae461842c0\",\"payload\":{\"digest\":\"sha256:fa3a0e81261c0b6741dec9023f17abbe14efbf6efa018462d9946202ab18d2ec\",\"media_type\":\"text/plain\",\"size\":8},\"ranges\":[{\"end\":19,\"start\":11}]}",
+"ref": "sha256:35ed34237f6a71225f377da2578f8935f53db8a7d18c3ec3adf2078a386dd155"
+},
+{
+"text": "{\"binding_set\":\"sha256:e0f0d87e2b86dd78999829daefb7d356a96beb3f2143ff0e08bfde49b403791e\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+"canonical": "{\"binding_set\":\"sha256:e0f0d87e2b86dd78999829daefb7d356a96beb3f2143ff0e08bfde49b403791e\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+"ref": "sha256:3660f73ba89aa39f9d5a62316d656ae3bf5381a6464777356929a6c872b7bd31"
+},
+{
+"text": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:8937d55e0a73a6c151117f8b2b49732397e45e14dab16fda077e3dafb59ec60e\",\"media_type\":\"text/csv\",\"size\":122},\"schema\":\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\"}",
+"canonical": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:8937d55e0a73a6c151117f8b2b49732397e45e14dab16fda077e3dafb59ec60e\",\"media_type\":\"text/csv\",\"size\":122},\"schema\":\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\"}",
+"ref": "sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057\",\"payload\":{\"digest\":\"sha256:f60c9c4d97db81a3bba29b58cbdade36c2c571bc927618898afd4a086a58a346\",\"media_type\":\"text/plain\",\"size\":63},\"ranges\":[{\"end\":434,\"start\":371}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057\",\"payload\":{\"digest\":\"sha256:f60c9c4d97db81a3bba29b58cbdade36c2c571bc927618898afd4a086a58a346\",\"media_type\":\"text/plain\",\"size\":63},\"ranges\":[{\"end\":434,\"start\":371}]}",
+"ref": "sha256:388431badd1227391cc3d9106d5c0fac3b37dec0861eb3d4f78a2f700add88bb"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:af8258c8c9ba9542886ef6207d25797d6e88e6fd88b42a0bb116472116a5d474\",\"sha256:595a839132ff842a7daea370786785ac45aef97d0104ee541162753d57f3b6df\",\"sha256:127ca562c052e39b55a84c53e11cc0d8d437f6831f783dddc9510b2a35365bb5\",\"sha256:5eda48ffb486148e01f50b6ee324b4c03ab91ab72b83e299f76c00573c156e6b\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:127ca562c052e39b55a84c53e11cc0d8d437f6831f783dddc9510b2a35365bb5\",\"sha256:595a839132ff842a7daea370786785ac45aef97d0104ee541162753d57f3b6df\",\"sha256:5eda48ffb486148e01f50b6ee324b4c03ab91ab72b83e299f76c00573c156e6b\",\"sha256:af8258c8c9ba9542886ef6207d25797d6e88e6fd88b42a0bb116472116a5d474\"]}",
+"ref": "sha256:3a0156abf79d1ecec91d9c357d37e719bb2d76927532ad654e42503dc1b26130"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:9f942368ccfd5070c1d0af66108a720f23f5e2ba7e95d5319d3a4c9be20a3833\",\"media_type\":\"text/plain\",\"size\":38}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:9f942368ccfd5070c1d0af66108a720f23f5e2ba7e95d5319d3a4c9be20a3833\",\"media_type\":\"text/plain\",\"size\":38}}",
+"ref": "sha256:3ca2be5e66a4a74e3d9ca4425e1f20110da27365b803cb4923c4efb9f7566c48"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9\",\"values\":{\"source_locator\":\"https://example.org/invoices/sample\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9\",\"values\":{\"source_locator\":\"https://example.org/invoices/sample\"}}",
+"ref": "sha256:3e1468b39c25ccee3dc61a333ae69289018b06725250c43e0b5eb6383857503b"
+},
+{
+"text": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\\\",47,54,\\\"weight\\\",null,\\\"scalar\\\",\\\"1250\\\",\\\"kg\\\",\\\"https://example.org/delivery/0007\\\",null]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:24746b9ef7c80e14626f230c695e95121b9d49be1b96850964203e905af2242e\"}",
+"canonical": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:541be4cd6e75f4bef445070bea13fcee82b140178c9745edcae3e9a8b0d73008\\\",47,54,\\\"weight\\\",null,\\\"scalar\\\",\\\"1250\\\",\\\"kg\\\",\\\"https://example.org/delivery/0007\\\",null]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:24746b9ef7c80e14626f230c695e95121b9d49be1b96850964203e905af2242e\"}",
+"ref": "sha256:40243e60acc4d63c0462074f6de5e6bbf418c37e211fab5fff6a2001a4419786"
+},
+{
+"text": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\\\",64,74,\\\"shipped\\\",null,\\\"date\\\",\\\"2026-01-05\\\",null,\\\"https://example.org/delivery/0007\\\",null]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:1cf86bd965e4c55de06051bac3166cf48cc43c113607310964f5baaafbd35b24\"}",
+"canonical": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:b37c234259943fe3d2fef67911fc898592c754f102b9d57145f00947325ef58f\\\",64,74,\\\"shipped\\\",null,\\\"date\\\",\\\"2026-01-05\\\",null,\\\"https://example.org/delivery/0007\\\",null]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:1cf86bd965e4c55de06051bac3166cf48cc43c113607310964f5baaafbd35b24\"}",
+"ref": "sha256:4274568e4c33fc6ad040c1561755d2c3b0ba224af29c95028c561f09628dcbdd"
+},
+{
+"text": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\",\"media_type\":\"text/plain\",\"size\":40},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:533b1caf6e49bda05b38921744cef2c66fb1319aad791a86b9d614f71ff84f18\"}",
+"canonical": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\",\"media_type\":\"text/plain\",\"size\":40},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:533b1caf6e49bda05b38921744cef2c66fb1319aad791a86b9d614f71ff84f18\"}",
+"ref": "sha256:47a7de1a7e3b2ee39a7a632688c1b387cf8e28a2c4c42ccdcc86fcae461842c0"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:bd0b3aff72f73b687f26a447db51fe29a3bab5447e5fe8814b8b917d759ea95d\",\"media_type\":\"application/json\",\"size\":229},\"schema_profile\":\"sample/schema/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:bd0b3aff72f73b687f26a447db51fe29a3bab5447e5fe8814b8b917d759ea95d\",\"media_type\":\"application/json\",\"size\":229},\"schema_profile\":\"sample/schema/v1\"}",
+"ref": "sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6\",\"values\":{\"source_locator\":\"https://example.org/invoices/sample\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6\",\"values\":{\"source_locator\":\"https://example.org/invoices/sample\"}}",
+"ref": "sha256:4e8f1766fcbc5a68f56a656ce692c5fb40c9b5f369d050a8cccd21b66adbdb3e"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\",\"media_type\":\"text/plain\",\"size\":41}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\",\"media_type\":\"text/plain\",\"size\":41}}",
+"ref": "sha256:533b1caf6e49bda05b38921744cef2c66fb1319aad791a86b9d614f71ff84f18"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:f60e908982edce74815b5bcc8a84623e6ba12912afefe3087b08bbae67735512\",\"media_type\":\"text/markdown\",\"size\":643}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:f60e908982edce74815b5bcc8a84623e6ba12912afefe3087b08bbae67735512\",\"media_type\":\"text/markdown\",\"size\":643}}",
+"ref": "sha256:565d27060c403a9b3ecbfc5df8453822f829a8eef5793903e0145713ea452d73"
+},
+{
+"text": "{\"collection\":\"sample-product-specification\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"schemas\":[\"sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97\",\"sha256:f805f4a8c455202ccd4dea723272c78bb99588cea0bb1730a7cc62f13eac908e\"],\"units\":[\"sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4\"]}",
+"canonical": "{\"collection\":\"sample-product-specification\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"schemas\":[\"sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97\",\"sha256:f805f4a8c455202ccd4dea723272c78bb99588cea0bb1730a7cc62f13eac908e\"],\"units\":[\"sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4\"]}",
+"ref": "sha256:58d13991a0c39934cdcc0b75df34a5f044ff172c20d13c0c8bfbf22b78e61d30"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"ref": "sha256:595a839132ff842a7daea370786785ac45aef97d0104ee541162753d57f3b6df"
+},
+{
+"text": "{\"collection\":\"sample-delivery-evidence\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"native_mappings\":[\"sha256:d3893b66a7d93d37459a0ab4220d45b2398d1d96fcf1190c3f85e9c67b57a613\",\"sha256:d128307a395a3bbf06be6c66a3c8b86038afba7605f3b573b52dcd290f0dadfc\",\"sha256:40243e60acc4d63c0462074f6de5e6bbf418c37e211fab5fff6a2001a4419786\",\"sha256:4274568e4c33fc6ad040c1561755d2c3b0ba224af29c95028c561f09628dcbdd\",\"sha256:8b10b69fb4bae1d5fbde06eb701a0eac57040137e6cece0d0f4f3766e26a3b61\",\"sha256:b22d46274323fca8a64ba2786ea52eb9e2f1bb63d7b9157a19770e8d12e06742\"],\"relation_sets\":[\"sha256:24f6b016daaee91302187a125c038adc1cac5a881a3a3186e7232e0e102f176c\"]}",
+"canonical": "{\"collection\":\"sample-delivery-evidence\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"native_mappings\":[\"sha256:40243e60acc4d63c0462074f6de5e6bbf418c37e211fab5fff6a2001a4419786\",\"sha256:4274568e4c33fc6ad040c1561755d2c3b0ba224af29c95028c561f09628dcbdd\",\"sha256:8b10b69fb4bae1d5fbde06eb701a0eac57040137e6cece0d0f4f3766e26a3b61\",\"sha256:b22d46274323fca8a64ba2786ea52eb9e2f1bb63d7b9157a19770e8d12e06742\",\"sha256:d128307a395a3bbf06be6c66a3c8b86038afba7605f3b573b52dcd290f0dadfc\",\"sha256:d3893b66a7d93d37459a0ab4220d45b2398d1d96fcf1190c3f85e9c67b57a613\"],\"relation_sets\":[\"sha256:24f6b016daaee91302187a125c038adc1cac5a881a3a3186e7232e0e102f176c\"]}",
+"ref": "sha256:5e6550caa41aaaa04b949296801756487cec93bd226ec28b8db951706b690844"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"ref": "sha256:5eda48ffb486148e01f50b6ee324b4c03ab91ab72b83e299f76c00573c156e6b"
+},
+{
+"text": "{\"collection\":\"sample-comparison\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"relation_sets\":[\"sha256:b1e814eaceda78a48432ccd4388822ab262564dbedd12ab61e139ddc34ad2feb\"]}",
+"canonical": "{\"collection\":\"sample-comparison\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"relation_sets\":[\"sha256:b1e814eaceda78a48432ccd4388822ab262564dbedd12ab61e139ddc34ad2feb\"]}",
+"ref": "sha256:610a49ebd1d9331726671b8937c5c77d8668572de187c94eafe145653940f6d6"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:18f53e0b00bbc9103335053fa02938ac12119712b9c3c2261c5ad77684a97a87\",\"media_type\":\"text/plain\",\"size\":113}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"source\",\"payload\":{\"digest\":\"sha256:18f53e0b00bbc9103335053fa02938ac12119712b9c3c2261c5ad77684a97a87\",\"media_type\":\"text/plain\",\"size\":113}}",
+"ref": "sha256:617f1c58ff9dd9d58e6af97a4753c7ee67e1fa2999b6e2121509fb1412695ecb"
+},
+{
+"text": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\",\"media_type\":\"text/plain\",\"size\":41},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:3ca2be5e66a4a74e3d9ca4425e1f20110da27365b803cb4923c4efb9f7566c48\"}",
+"canonical": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\",\"media_type\":\"text/plain\",\"size\":41},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:3ca2be5e66a4a74e3d9ca4425e1f20110da27365b803cb4923c4efb9f7566c48\"}",
+"ref": "sha256:617f971a1f97219c48e1fd3d49889d8369b4736125a6ecdf6fa5384cfad97484"
+},
+{
+"text": "{\"collection\":\"sample-equipment-handbook\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"schemas\":[\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\",\"sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c\"],\"units\":[\"sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d\"]}",
+"canonical": "{\"collection\":\"sample-equipment-handbook\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"schemas\":[\"sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c\",\"sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60\"],\"units\":[\"sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d\"]}",
+"ref": "sha256:6268dcbfabfe6917d7363c4c5c08922f48a2d4fa33ba3448e8d155fd071e3a46"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:550ccbf6ee341fd9b731ee0437fd8bba91df94af3f6352476dada51f0a69c103\",\"media_type\":\"text/plain\",\"size\":9},\"ranges\":[{\"end\":111,\"start\":102}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:550ccbf6ee341fd9b731ee0437fd8bba91df94af3f6352476dada51f0a69c103\",\"media_type\":\"text/plain\",\"size\":9},\"ranges\":[{\"end\":111,\"start\":102}]}",
+"ref": "sha256:6350d3d249ddcd175a76e5e3823315cd8e4d935e0bdded276dbababebd172901"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"observation\",\"observation_type\":\"sample/coverage/v1\",\"scope\":{\"reading\":\"whole\"},\"subjects\":[\"sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057\"],\"values\":{\"denominator\":\"unknown\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"observation\",\"observation_type\":\"sample/coverage/v1\",\"scope\":{\"reading\":\"whole\"},\"subjects\":[\"sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057\"],\"values\":{\"denominator\":\"unknown\"}}",
+"ref": "sha256:648934cb0e700e7bcb606504958de203c5de0c462c2993ac0bd4fd3ff187e9b4"
+},
+{
+"text": "{\"binding_set\":\"sha256:22c08951dced93736c0fea849f4f55d8ad9fc83bfe9ef22632547a0b472a93e3\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+"canonical": "{\"binding_set\":\"sha256:22c08951dced93736c0fea849f4f55d8ad9fc83bfe9ef22632547a0b472a93e3\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+"ref": "sha256:67619e1ac7aa448f568b724a6a03df5072cbb8f3dfcf0e436e85f8c263cc72ea"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"runtime-profile\",\"payload\":{\"digest\":\"sha256:3366354ba1c4260f62b5a30310018ba71b217181c577ad1463241e5786edefc4\",\"media_type\":\"application/json\",\"size\":88},\"profile_id\":\"sample/runtime/script-a/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"runtime-profile\",\"payload\":{\"digest\":\"sha256:3366354ba1c4260f62b5a30310018ba71b217181c577ad1463241e5786edefc4\",\"media_type\":\"application/json\",\"size\":88},\"profile_id\":\"sample/runtime/script-a/v1\"}",
+"ref": "sha256:68d022c6d94155d2f48c5ad24298f815f762e981e7115f9255cbd2c34cad6031"
+},
+{
+"text": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:656bdededd96ef67f8c16bf6edeb927b0dbe77a60f3e38e4c7bbbd507ef47bd4\",\"media_type\":\"application/json\",\"size\":69},\"schema\":\"sha256:0a58845b2da0c9da4fb585b15ce8f7a632c6695dbc7a8e06abd34933224f1cdd\"}",
+"canonical": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:656bdededd96ef67f8c16bf6edeb927b0dbe77a60f3e38e4c7bbbd507ef47bd4\",\"media_type\":\"application/json\",\"size\":69},\"schema\":\"sha256:0a58845b2da0c9da4fb585b15ce8f7a632c6695dbc7a8e06abd34933224f1cdd\"}",
+"ref": "sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9"
+},
+{
+"text": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:33ccb946a6a1892df3a4c0377a40d5df331ceb15e6776266f08eba2ee48347b4\",\"media_type\":\"text/csv\",\"size\":74},\"schema\":\"sha256:f805f4a8c455202ccd4dea723272c78bb99588cea0bb1730a7cc62f13eac908e\"}",
+"canonical": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:33ccb946a6a1892df3a4c0377a40d5df331ceb15e6776266f08eba2ee48347b4\",\"media_type\":\"text/csv\",\"size\":74},\"schema\":\"sha256:f805f4a8c455202ccd4dea723272c78bb99588cea0bb1730a7cc62f13eac908e\"}",
+"ref": "sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:18dcda8918b406dfcd5c5a140c0cc5d24f34e4da34c18d7f7b940fd333ba7fd1\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:18dcda8918b406dfcd5c5a140c0cc5d24f34e4da34c18d7f7b940fd333ba7fd1\"]}",
+"ref": "sha256:6ed4ec0d7a44c9c12e9098d6ba759cf54462001b8796f962d64a778b325bef58"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405\",\"values\":{\"note\":\"Sample revision note for the dimension table.\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405\",\"values\":{\"note\":\"Sample revision note for the dimension table.\"}}",
+"ref": "sha256:6ed694a49499bc14601c81b43571b863894704098d787df212ef9e1205991849"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:cdd255592c4442dcf719f7b235219037480bf03cb4506165cfbee1398c0edcdd\",\"sha256:c75fed74277e54de7f45198fd3fc3b4759826ad8afab6f5e9876daaae634688c\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:c75fed74277e54de7f45198fd3fc3b4759826ad8afab6f5e9876daaae634688c\",\"sha256:cdd255592c4442dcf719f7b235219037480bf03cb4506165cfbee1398c0edcdd\"]}",
+"ref": "sha256:75c104e78c658197e6de8b598d65e2fd96cb616612cf8950d60e5f122c417f15"
+},
+{
+"text": "{\"binding_set\":\"sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668\",\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/execution/v1\",\"context_inputs\":[\"sha256:0d2945809964942261b5d78fc20bb2b3ee8f4a6ce880659d6ff97d0f4e395694\"],\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"execution-lock\"}",
+"canonical": "{\"binding_set\":\"sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668\",\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/execution/v1\",\"context_inputs\":[\"sha256:0d2945809964942261b5d78fc20bb2b3ee8f4a6ce880659d6ff97d0f4e395694\"],\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"execution-lock\"}",
+"ref": "sha256:7742a3e47fce9dfda12d465a7c03617cc515107e2b3472fbee2a7de9603398bc"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":95,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":83},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"receipt_digest\":\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef\",\"supports\":\"sha256:040e5054cd0850e8fb659b7f7d4af299f964b93cec32b60b13201ea944543c87\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":95,\"selector_profile\":\"aavanam/bytes/v1\",\"start\":83},\"export_identity\":\"sha256:4bb36aba82696d92f7e36a84ce266e0c7ec5dfa4011d0fe5124c5f20fe258149\",\"receipt_digest\":\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\",\"url\":\"https://example.org/delivery/0007\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef\",\"supports\":\"sha256:040e5054cd0850e8fb659b7f7d4af299f964b93cec32b60b13201ea944543c87\"}",
+"ref": "sha256:7aa3dce582b9a09102bc3d5703f01c0692298768a22c7ee55ce9ab58e53ebb71"
+},
+{
+"text": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:5ecc1f0d2599f37d04450e63ed9019b939783cd05e3c2c95a9d06e0452b75ce6\",\"media_type\":\"text/plain\",\"size\":112},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:617f1c58ff9dd9d58e6af97a4753c7ee67e1fa2999b6e2121509fb1412695ecb\"}",
+"canonical": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:5ecc1f0d2599f37d04450e63ed9019b939783cd05e3c2c95a9d06e0452b75ce6\",\"media_type\":\"text/plain\",\"size\":112},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:617f1c58ff9dd9d58e6af97a4753c7ee67e1fa2999b6e2121509fb1412695ecb\"}",
+"ref": "sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0"
+},
+{
+"text": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:9f942368ccfd5070c1d0af66108a720f23f5e2ba7e95d5319d3a4c9be20a3833\",\"media_type\":\"text/plain\",\"size\":38},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:3ca2be5e66a4a74e3d9ca4425e1f20110da27365b803cb4923c4efb9f7566c48\"}",
+"canonical": "{\"coverage_profile\":\"aavanam/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:9f942368ccfd5070c1d0af66108a720f23f5e2ba7e95d5319d3a4c9be20a3833\",\"media_type\":\"text/plain\",\"size\":38},\"producer\":\"example/document-reader/v1\",\"source\":\"sha256:3ca2be5e66a4a74e3d9ca4425e1f20110da27365b803cb4923c4efb9f7566c48\"}",
+"ref": "sha256:7bfcd8604b0d7769800cf4e89d7565630fd9fd28641cdee8d9bfe7e0aff9e26b"
+},
+{
+"text": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:5949798459cc8bed2ecaf7b82a7f9ff99e655b142171dee28041726698373347\",\"media_type\":\"application/json\",\"size\":218},\"schema\":\"sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b\"}",
+"canonical": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:5949798459cc8bed2ecaf7b82a7f9ff99e655b142171dee28041726698373347\",\"media_type\":\"application/json\",\"size\":218},\"schema\":\"sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b\"}",
+"ref": "sha256:7f0aba262a4e3dcff0909f4bbd04308f1c6acc75c5180a9a5705ce8cf4019eef"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:048d821cd40537b60d523dbf5d8b44ea5bed4abf2abe399560724249abad681b\",\"supports\":\"sha256:a6b0af2f9533451cacf0a6e9731f6a6141958c869e605d7787f9db0379cf3a3a\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:048d821cd40537b60d523dbf5d8b44ea5bed4abf2abe399560724249abad681b\",\"supports\":\"sha256:a6b0af2f9533451cacf0a6e9731f6a6141958c869e605d7787f9db0379cf3a3a\"}",
+"ref": "sha256:7f8335b723c6fb7437ca4b0e5178b615a3c4895b5a83942d3a938ecc821ff576"
+},
+{
+"text": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:95b720957bf662a18313a78b64de9c6c8af16475673f9c75ae9cd0ecf372ea0d\",\"media_type\":\"application/json\",\"size\":145},\"schema\":\"sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b\"}",
+"canonical": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:95b720957bf662a18313a78b64de9c6c8af16475673f9c75ae9cd0ecf372ea0d\",\"media_type\":\"application/json\",\"size\":145},\"schema\":\"sha256:20f3bedecda98cd70881bf2736c57de38c8758f30c1644beb13392d8efe4642b\"}",
+"ref": "sha256:8a28b027375bfa35d66b6e0c95d68f9c30effb094041337add0204c829d2505b"
+},
+{
+"text": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:1204a6362a6474bc9c8d485351d09067ccd16b9708d687cb1e08f93f66f97612\",\"media_type\":\"text/csv\",\"size\":70},\"schema\":\"sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c\"}",
+"canonical": "{\"data_profile\":\"sample/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:1204a6362a6474bc9c8d485351d09067ccd16b9708d687cb1e08f93f66f97612\",\"media_type\":\"text/csv\",\"size\":70},\"schema\":\"sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c\"}",
+"ref": "sha256:8ae25308eb3f6198bdda3d5c3e3a0fe1c7b9fae85a11ef80236c89e5046ba1d9"
+},
+{
+"text": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\\\",83,95,\\\"line\\\",\\\"2\\\",\\\"record\\\",{\\\"count\\\":\\\"40\\\",\\\"part\\\":\\\"bolt\\\",\\\"size\\\":\\\"M8\\\"},null,\\\"https://example.org/delivery/0007\\\",null]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:7aa3dce582b9a09102bc3d5703f01c0692298768a22c7ee55ce9ab58e53ebb71\"}",
+"canonical": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:befcef2f3b9346cf33fc12f3323187fc6b2a4116d5c499fe3292924e24db3616\\\",83,95,\\\"line\\\",\\\"2\\\",\\\"record\\\",{\\\"count\\\":\\\"40\\\",\\\"part\\\":\\\"bolt\\\",\\\"size\\\":\\\"M8\\\"},null,\\\"https://example.org/delivery/0007\\\",null]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:7aa3dce582b9a09102bc3d5703f01c0692298768a22c7ee55ce9ab58e53ebb71\"}",
+"ref": "sha256:8b10b69fb4bae1d5fbde06eb701a0eac57040137e6cece0d0f4f3766e26a3b61"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:e3c0c1e441b58ff9da111949946e6bc075349ce28b8f32e6a11502b3558753c8\",\"media_type\":\"application/json\",\"size\":147},\"schema_profile\":\"sample/schema/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:e3c0c1e441b58ff9da111949946e6bc075349ce28b8f32e6a11502b3558753c8\",\"media_type\":\"application/json\",\"size\":147},\"schema_profile\":\"sample/schema/v1\"}",
+"ref": "sha256:8c5b2f33765ce824cb656c93185168f4aab65d6f453c3d982b6ef48e4cdad03c"
+},
+{
+"text": "{\"bindings\":{\"checklist\":\"sha256:00007c92e05aeba1023a15f45a971d6f9161ea198ca0d4231b2c61e437628d67\",\"intervals\":\"sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151\",\"torque\":\"sha256:8ae25308eb3f6198bdda3d5c3e3a0fe1c7b9fae85a11ef80236c89e5046ba1d9\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\",\"parameters\":{\"unit_system\":\"SI\"},\"runtime_profiles\":[\"sha256:68d022c6d94155d2f48c5ad24298f815f762e981e7115f9255cbd2c34cad6031\"]}",
+"canonical": "{\"bindings\":{\"checklist\":\"sha256:00007c92e05aeba1023a15f45a971d6f9161ea198ca0d4231b2c61e437628d67\",\"intervals\":\"sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151\",\"torque\":\"sha256:8ae25308eb3f6198bdda3d5c3e3a0fe1c7b9fae85a11ef80236c89e5046ba1d9\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\",\"parameters\":{\"unit_system\":\"SI\"},\"runtime_profiles\":[\"sha256:68d022c6d94155d2f48c5ad24298f815f762e981e7115f9255cbd2c34cad6031\"]}",
+"ref": "sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"runtime-profile\",\"payload\":{\"digest\":\"sha256:6ff6837da9e66f201431f1b086e8b5645da25a0278c2e4d002bd6c64524a61ee\",\"media_type\":\"application/json\",\"size\":93},\"profile_id\":\"sample/runtime/template-b/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"runtime-profile\",\"payload\":{\"digest\":\"sha256:6ff6837da9e66f201431f1b086e8b5645da25a0278c2e4d002bd6c64524a61ee\",\"media_type\":\"application/json\",\"size\":93},\"profile_id\":\"sample/runtime/template-b/v1\"}",
+"ref": "sha256:937caaf29a79b2b341c89d526e8a40675277c2cf123a65725d476690baceb85b"
+},
+{
+"text": "{\"coverage_profile\":\"sample/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:61a663db1fb81cff130eae0cfcfb00d2ab6afca28b1b4433420611f1cacace26\",\"media_type\":\"text/plain\",\"size\":465},\"producer\":\"sample/reader/v1\",\"source\":\"sha256:20b538882f0b60104c11ade8c4d467a3d53c81d2297f7ee077d43ec4ad8a9ca3\"}",
+"canonical": "{\"coverage_profile\":\"sample/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:61a663db1fb81cff130eae0cfcfb00d2ab6afca28b1b4433420611f1cacace26\",\"media_type\":\"text/plain\",\"size\":465},\"producer\":\"sample/reader/v1\",\"source\":\"sha256:20b538882f0b60104c11ade8c4d467a3d53c81d2297f7ee077d43ec4ad8a9ca3\"}",
+"ref": "sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151\",\"supports\":\"sha256:35a8e27deb7ebfcafc258854812c010d859a5d0b50dcc978a01d32af4d82141b\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:37ab14986861fd7eafe3e484f21c987ad66de7ec22d69f0f48a673cac3c93151\",\"supports\":\"sha256:35a8e27deb7ebfcafc258854812c010d859a5d0b50dcc978a01d32af4d82141b\"}",
+"ref": "sha256:9d869a22ba2d2c3038264c88864e10ef7706f6e2d2f14769b81e0effbd86e7e5"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"observation\",\"observation_type\":\"sample/coverage/v1\",\"scope\":{\"reading\":\"whole\"},\"subjects\":[\"sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60\"],\"values\":{\"denominator\":\"unknown\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"observation\",\"observation_type\":\"sample/coverage/v1\",\"scope\":{\"reading\":\"whole\"},\"subjects\":[\"sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60\"],\"values\":{\"denominator\":\"unknown\"}}",
+"ref": "sha256:9e22ae1bda0ce398140b3eeae6618e8e2d5aa5633246cd6cdf4fdba6a5aee51d"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:8ae25308eb3f6198bdda3d5c3e3a0fe1c7b9fae85a11ef80236c89e5046ba1d9\",\"supports\":\"sha256:388431badd1227391cc3d9106d5c0fac3b37dec0861eb3d4f78a2f700add88bb\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:8ae25308eb3f6198bdda3d5c3e3a0fe1c7b9fae85a11ef80236c89e5046ba1d9\",\"supports\":\"sha256:388431badd1227391cc3d9106d5c0fac3b37dec0861eb3d4f78a2f700add88bb\"}",
+"ref": "sha256:a55725c0e45e8d9f1fe1f4fb92048ff0687cc2c5b56b3806ee01e22587cda36c"
+},
+{
+"text": "{\"bindings\":{\"checklist\":\"sha256:00007c92e05aeba1023a15f45a971d6f9161ea198ca0d4231b2c61e437628d67\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\",\"parameters\":{\"note\":\"writer only\"}}",
+"canonical": "{\"bindings\":{\"checklist\":\"sha256:00007c92e05aeba1023a15f45a971d6f9161ea198ca0d4231b2c61e437628d67\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\",\"parameters\":{\"note\":\"writer only\"}}",
+"ref": "sha256:a5b537f6f1c527ef51d88474071811397e9a95a8f700674861ca8a7def2d1444"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60\",\"payload\":{\"digest\":\"sha256:40423f86bae0864bf01e4d9985c97db5d9dddab2708c0878e0084cbedee48754\",\"media_type\":\"text/plain\",\"size\":105},\"ranges\":[{\"end\":415,\"start\":310}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60\",\"payload\":{\"digest\":\"sha256:40423f86bae0864bf01e4d9985c97db5d9dddab2708c0878e0084cbedee48754\",\"media_type\":\"text/plain\",\"size\":105},\"ranges\":[{\"end\":415,\"start\":310}]}",
+"ref": "sha256:a6b0af2f9533451cacf0a6e9731f6a6141958c869e605d7787f9db0379cf3a3a"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:d6a91832d65216ef9bc66f23875f1e81b39aadfd4091bbd80c39f9a02301b5a8\",\"media_type\":\"text/plain\",\"size\":7},\"ranges\":[{\"end\":54,\"start\":47}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:d6a91832d65216ef9bc66f23875f1e81b39aadfd4091bbd80c39f9a02301b5a8\",\"media_type\":\"text/plain\",\"size\":7},\"ranges\":[{\"end\":54,\"start\":47}]}",
+"ref": "sha256:a82283967f671106b43423d39bb1e9208ef46f1a0c84f059e2e3d60a8a365d55"
+},
+{
+"text": "{\"binding_set\":\"sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\",\"overlay_sets\":[\"sha256:01bc402cd9746e7a30975ff7d44d8357c56ad400c2bc08c8eec05a2c0a7e932b\"],\"relation_sets\":[\"sha256:0d2945809964942261b5d78fc20bb2b3ee8f4a6ce880659d6ff97d0f4e395694\"]}",
+"canonical": "{\"binding_set\":\"sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\",\"overlay_sets\":[\"sha256:01bc402cd9746e7a30975ff7d44d8357c56ad400c2bc08c8eec05a2c0a7e932b\"],\"relation_sets\":[\"sha256:0d2945809964942261b5d78fc20bb2b3ee8f4a6ce880659d6ff97d0f4e395694\"]}",
+"ref": "sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:2d865dcb14af9580ea09849956ffbf60cf25dbef4c891f1e11ee89f4b84e7361\",\"values\":{\"source_locator\":\"https://example.org/delivery/0007/note\"}}",
+"ref": "sha256:af8258c8c9ba9542886ef6207d25797d6e88e6fd88b42a0bb116472116a5d474"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:ee9926c077d990a7051409e4ba6293dc2b17c49bd435a531ae19475a3e9e0890\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:ee9926c077d990a7051409e4ba6293dc2b17c49bd435a531ae19475a3e9e0890\"]}",
+"ref": "sha256:b1e814eaceda78a48432ccd4388822ab262564dbedd12ab61e139ddc34ad2feb"
+},
+{
+"text": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\\\",102,111,\\\"note\\\",null,\\\"passage\\\",\\\"Keep dry.\\\",null,\\\"https://example.org/delivery/0007\\\",{\\\"box\\\":[72,144,200,160],\\\"page\\\":1,\\\"selector_profile\\\":\\\"example/page-box/v1\\\"}]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:0e9b857e1ad2606b378b4b761fdd2617029c4c7e3b3f6f8a6856790023a5f02f\"}",
+"canonical": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\\\",\\\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\\\",\\\"sha256:1f6ea49a0fda611947f462c1e87e98f49f1643e59bade45abefcc5affa9b4412\\\",102,111,\\\"note\\\",null,\\\"passage\\\",\\\"Keep dry.\\\",null,\\\"https://example.org/delivery/0007\\\",{\\\"box\\\":[72,144,200,160],\\\"page\\\":1,\\\"selector_profile\\\":\\\"example/page-box/v1\\\"}]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:0e9b857e1ad2606b378b4b761fdd2617029c4c7e3b3f6f8a6856790023a5f02f\"}",
+"ref": "sha256:b22d46274323fca8a64ba2786ea52eb9e2f1bb63d7b9157a19770e8d12e06742"
+},
+{
+"text": "{\"coverage_profile\":\"sample/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:46bb5ffc08fcdfdbcf93e7d4a812bc1527274f997bad026337863f430a4d3715\",\"media_type\":\"text/plain\",\"size\":625},\"producer\":\"sample/reader/v1\",\"source\":\"sha256:565d27060c403a9b3ecbfc5df8453822f829a8eef5793903e0145713ea452d73\"}",
+"canonical": "{\"coverage_profile\":\"sample/coverage/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"reading\",\"payload\":{\"digest\":\"sha256:46bb5ffc08fcdfdbcf93e7d4a812bc1527274f997bad026337863f430a4d3715\",\"media_type\":\"text/plain\",\"size\":625},\"producer\":\"sample/reader/v1\",\"source\":\"sha256:565d27060c403a9b3ecbfc5df8453822f829a8eef5793903e0145713ea452d73\"}",
+"ref": "sha256:bafe3eda938083cd801a789245c52725b0cc7d486b5397aeb02da7603eb78057"
+},
+{
+"text": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d\",\"sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4\"],\"kind\":\"build-lock\"}",
+"canonical": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d\",\"sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4\"],\"kind\":\"build-lock\"}",
+"ref": "sha256:c35f9667e1a93b36eadae210ce8b4623382d05fae876da9f853f4d22656675a1"
+},
+{
+"text": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668\"],\"kind\":\"build-lock\"}",
+"canonical": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668\"],\"kind\":\"build-lock\"}",
+"ref": "sha256:c69c51881b8b0d40d319b5317c81ce3180c50fa789b5348c3ff1f106c9dfad9a"
+},
+{
+"text": "{\"bindings\":{\"acceptance\":\"sha256:ec82f23f52456331b37d49113c798950bd9b9e7809621db647102859d94d252a\",\"dimensions\":\"sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405\",\"requirements\":\"sha256:048d821cd40537b60d523dbf5d8b44ea5bed4abf2abe399560724249abad681b\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\",\"parameters\":{\"units\":\"mixed\"},\"runtime_profiles\":[\"sha256:937caaf29a79b2b341c89d526e8a40675277c2cf123a65725d476690baceb85b\"]}",
+"canonical": "{\"bindings\":{\"acceptance\":\"sha256:ec82f23f52456331b37d49113c798950bd9b9e7809621db647102859d94d252a\",\"dimensions\":\"sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405\",\"requirements\":\"sha256:048d821cd40537b60d523dbf5d8b44ea5bed4abf2abe399560724249abad681b\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\",\"parameters\":{\"units\":\"mixed\"},\"runtime_profiles\":[\"sha256:937caaf29a79b2b341c89d526e8a40675277c2cf123a65725d476690baceb85b\"]}",
+"ref": "sha256:c6fc185f91042753cd1fa09e7a809f0b1b27fdbe4adf9300709e732b36f9e668"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":25,\"selector_profile\":\"aavanam/nfc-text/v1\",\"start\":16},\"receipt_digest\":\"sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9\",\"supports\":\"sha256:da664b83dbb370a5a324f21d10c9ad5117e16377f3c71493c5e9fd563308c0cb\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":25,\"selector_profile\":\"aavanam/nfc-text/v1\",\"start\":16},\"receipt_digest\":\"sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9\",\"supports\":\"sha256:da664b83dbb370a5a324f21d10c9ad5117e16377f3c71493c5e9fd563308c0cb\"}",
+"ref": "sha256:c75fed74277e54de7f45198fd3fc3b4759826ad8afab6f5e9876daaae634688c"
+},
+{
+"text": "{\"artifact_type\":\"aavanam/admitted-facts-export/passage\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:550ccbf6ee341fd9b731ee0437fd8bba91df94af3f6352476dada51f0a69c103\",\"media_type\":\"text/plain\",\"size\":9}}",
+"canonical": "{\"artifact_type\":\"aavanam/admitted-facts-export/passage\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:550ccbf6ee341fd9b731ee0437fd8bba91df94af3f6352476dada51f0a69c103\",\"media_type\":\"text/plain\",\"size\":9}}",
+"ref": "sha256:c82c0840fc9f31f502edafdaac6bab5879c0caa14856f54c5f6526828c0b7bea"
+},
+{
+"text": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d\"],\"kind\":\"build-lock\"}",
+"canonical": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:1346af6a4c8b0ece368e70f6f307d269f95b81d7155a1a6d730b516fbc5c0c1d\"],\"kind\":\"build-lock\"}",
+"ref": "sha256:c9c3ab792767081abbd35c57e217159f75b7bce9fb427cd8da141f83e486828b"
+},
+{
+"text": "{\"collection\":\"sample-equipment-handbook-observations\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"observations\":[\"sha256:648934cb0e700e7bcb606504958de203c5de0c462c2993ac0bd4fd3ff187e9b4\"]}",
+"canonical": "{\"collection\":\"sample-equipment-handbook-observations\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"observations\":[\"sha256:648934cb0e700e7bcb606504958de203c5de0c462c2993ac0bd4fd3ff187e9b4\"]}",
+"ref": "sha256:cbac4d2439d2523cc969a5bac6e160aacf39f23537982c6086f5a7feaecb777f"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":15,\"selector_profile\":\"aavanam/nfc-text/v1\",\"start\":7},\"receipt_digest\":\"sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6\",\"supports\":\"sha256:35ed34237f6a71225f377da2578f8935f53db8a7d18c3ec3adf2078a386dd155\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"ext\":{\"citation\":{\"end\":15,\"selector_profile\":\"aavanam/nfc-text/v1\",\"start\":7},\"receipt_digest\":\"sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12\"},\"kind\":\"evidence\",\"origin\":\"example/document-reader/v1\",\"subject\":\"sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6\",\"supports\":\"sha256:35ed34237f6a71225f377da2578f8935f53db8a7d18c3ec3adf2078a386dd155\"}",
+"ref": "sha256:cdd255592c4442dcf719f7b235219037480bf03cb4506165cfbee1398c0edcdd"
+},
+{
+"text": "{\"checked\":{\"form\":\"aavanam/prefixed-jcs-sha256/v1\",\"member\":\"text\",\"prefix\":\"example/document\\u0000\",\"scheme\":\"example/text-digest/v1\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"native_scheme\":\"example/text-digest/v1\",\"subject\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\"}",
+"canonical": "{\"checked\":{\"form\":\"aavanam/prefixed-jcs-sha256/v1\",\"member\":\"text\",\"prefix\":\"example/document\\u0000\",\"scheme\":\"example/text-digest/v1\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"sha256:0595b97a84caa983625f75c701c8d0de1a2bac308bfd4dfcad8dad495c7780ab\",\"native_scheme\":\"example/text-digest/v1\",\"subject\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\"}",
+"ref": "sha256:d128307a395a3bbf06be6c66a3c8b86038afba7605f3b573b52dcd290f0dadfc"
+},
+{
+"text": "{\"checked\":{\"form\":\"aavanam/prefixed-sha256/v1\",\"prefix\":\"example-object/1:source\\u0000\",\"scheme\":\"example/source-digest/v1\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"native_scheme\":\"example/source-digest/v1\",\"subject\":\"sha256:617f1c58ff9dd9d58e6af97a4753c7ee67e1fa2999b6e2121509fb1412695ecb\"}",
+"canonical": "{\"checked\":{\"form\":\"aavanam/prefixed-sha256/v1\",\"prefix\":\"example-object/1:source\\u0000\",\"scheme\":\"example/source-digest/v1\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"sha256:b8df65af0490a5f33a67a471671f09be8fb03accbf97b1bb49a623c582757cbe\",\"native_scheme\":\"example/source-digest/v1\",\"subject\":\"sha256:617f1c58ff9dd9d58e6af97a4753c7ee67e1fa2999b6e2121509fb1412695ecb\"}",
+"ref": "sha256:d3893b66a7d93d37459a0ab4220d45b2398d1d96fcf1190c3f85e9c67b57a613"
+},
+{
+"text": "{\"collection\":\"sample-invoice-serving\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"overlay_sets\":[\"sha256:ee0e8ee2d92b9101bd2b28cbbef51514ff221945ff4e51247501e2c4b816008c\"],\"units\":[\"sha256:3660f73ba89aa39f9d5a62316d656ae3bf5381a6464777356929a6c872b7bd31\"]}",
+"canonical": "{\"collection\":\"sample-invoice-serving\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"overlay_sets\":[\"sha256:ee0e8ee2d92b9101bd2b28cbbef51514ff221945ff4e51247501e2c4b816008c\"],\"units\":[\"sha256:3660f73ba89aa39f9d5a62316d656ae3bf5381a6464777356929a6c872b7bd31\"]}",
+"ref": "sha256:d46869fd702ad4d61ab79efb26ac6d694c07bf30191970bd7b648c10078b45e8"
+},
+{
+"text": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4\"],\"kind\":\"build-lock\"}",
+"canonical": "{\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/emitter/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"inputs\":[\"sha256:aa56f5a6dfe010b28d64fe0ae43d9905e221b1e8f7a08b0bbe1154c1749bcce4\"],\"kind\":\"build-lock\"}",
+"ref": "sha256:d4cda7f0caef28f0021e657f706ad574f822203f20f40abc171de5d35e9c7c59"
+},
+{
+"text": "{\"collection\":\"sample-serving\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"units\":[\"sha256:0efb3ad29a89d8758562005549c7ce4ad6eee0a1638d1dfc5bf0861c7e670b66\"]}",
+"canonical": "{\"collection\":\"sample-serving\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"units\":[\"sha256:0efb3ad29a89d8758562005549c7ce4ad6eee0a1638d1dfc5bf0861c7e670b66\"]}",
+"ref": "sha256:d5b60f42d897d951d6e70d743cb14462e5b0bdc2c9e513459467390e551735bc"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:47a7de1a7e3b2ee39a7a632688c1b387cf8e28a2c4c42ccdcc86fcae461842c0\",\"payload\":{\"digest\":\"sha256:e15fe44150f8942eb4ade9e795cc49d0be6652c7b72ec50022b99e2c328a5506\",\"media_type\":\"text/plain\",\"size\":9},\"ranges\":[{\"end\":29,\"start\":20}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:47a7de1a7e3b2ee39a7a632688c1b387cf8e28a2c4c42ccdcc86fcae461842c0\",\"payload\":{\"digest\":\"sha256:e15fe44150f8942eb4ade9e795cc49d0be6652c7b72ec50022b99e2c328a5506\",\"media_type\":\"text/plain\",\"size\":9},\"ranges\":[{\"end\":29,\"start\":20}]}",
+"ref": "sha256:da664b83dbb370a5a324f21d10c9ad5117e16377f3c71493c5e9fd563308c0cb"
+},
+{
+"text": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\\\",\\\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\\\",\\\"sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28\\\",16,25,\\\"code\\\",\\\"A17\\\"]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:c75fed74277e54de7f45198fd3fc3b4759826ad8afab6f5e9876daaae634688c\"}",
+"canonical": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\\\",\\\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\\\",\\\"sha256:d39cb97e1d7562200df95924af680787231012ca5da122992218eb36d52fee28\\\",16,25,\\\"code\\\",\\\"A17\\\"]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:c75fed74277e54de7f45198fd3fc3b4759826ad8afab6f5e9876daaae634688c\"}",
+"ref": "sha256:df3ea88dcfa0fe0c76624f2a3010dd66fc3dbba30a44c5d4d726e2617ba5f501"
+},
+{
+"text": "{\"collection\":\"sample-delivery-serving\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"overlay_sets\":[\"sha256:3a0156abf79d1ecec91d9c357d37e719bb2d76927532ad654e42503dc1b26130\"],\"units\":[\"sha256:67619e1ac7aa448f568b724a6a03df5072cbb8f3dfcf0e436e85f8c263cc72ea\"]}",
+"canonical": "{\"collection\":\"sample-delivery-serving\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"overlay_sets\":[\"sha256:3a0156abf79d1ecec91d9c357d37e719bb2d76927532ad654e42503dc1b26130\"],\"units\":[\"sha256:67619e1ac7aa448f568b724a6a03df5072cbb8f3dfcf0e436e85f8c263cc72ea\"]}",
+"ref": "sha256:dfcf2a2fa06d1f0c65f15506968eba24f27ffc8470f03893b2104f6685669ff8"
+},
+{
+"text": "{\"bindings\":{\"code\":\"sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9\",\"count\":\"sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\"}",
+"canonical": "{\"bindings\":{\"code\":\"sha256:6b5c0a4c8b18502db2bed69fd49c11218644abb5516c6f8294baeedfe64f4ed9\",\"count\":\"sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\"}",
+"ref": "sha256:e0f0d87e2b86dd78999829daefb7d356a96beb3f2143ff0e08bfde49b403791e"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:e9cfe940f0fc0adab991efed7c89e4c7799185b216230200626f11c38d787d12\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"relation-set\",\"members\":[\"sha256:e9cfe940f0fc0adab991efed7c89e4c7799185b216230200626f11c38d787d12\"]}",
+"ref": "sha256:e26a0b7ebfee3bfb9920a494ec65e9b2bd39ebbf211b126616f3b7dbbfd970c2"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:1b707d44a418008e6df5c5abb837be8d2fe84e41955e84a2285a3bd466d7ecfb\",\"media_type\":\"text/plain\",\"size\":10},\"ranges\":[{\"end\":74,\"start\":64}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:7b54631d5d0e83d65c7c8d558e71665a1b6ffea44424958e56c91557718605c0\",\"payload\":{\"digest\":\"sha256:1b707d44a418008e6df5c5abb837be8d2fe84e41955e84a2285a3bd466d7ecfb\",\"media_type\":\"text/plain\",\"size\":10},\"ranges\":[{\"end\":74,\"start\":64}]}",
+"ref": "sha256:e725b20e3777020110b8b5dae26444a90561d39f1bf1a0bf98862c97d409ffa5"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"derivation\",\"method\":\"sample/method/v1\",\"operands\":[\"sha256:35a8e27deb7ebfcafc258854812c010d859a5d0b50dcc978a01d32af4d82141b\"],\"result\":{\"hours\":25}}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"derivation\",\"method\":\"sample/method/v1\",\"operands\":[\"sha256:35a8e27deb7ebfcafc258854812c010d859a5d0b50dcc978a01d32af4d82141b\"],\"result\":{\"hours\":25}}",
+"ref": "sha256:e9cfe940f0fc0adab991efed7c89e4c7799185b216230200626f11c38d787d12"
+},
+{
+"text": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/execution/v1\",\"context_inputs\":[\"sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54\"],\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"execution-lock\",\"requires\":[\"aavanam/data/v1\"]}",
+"canonical": "{\"binding_set\":\"sha256:90b40c1d7fe705a64e2e89b1d9b98df04f3776df1933252728fb23715cd8d6fb\",\"completeness\":\"sample/declared/v1\",\"consumer\":\"sample/recorder/execution/v1\",\"context_inputs\":[\"sha256:109d1f9675788c40b87873d6ac8709b72af17166444c029b13838921f329ac54\"],\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"execution-lock\",\"requires\":[\"aavanam/data/v1\"]}",
+"ref": "sha256:ea947f0d332e17b46a96999113a99dbf49a9955f82bbbae7af101ce2645aa694"
+},
+{
+"text": "{\"collection\":\"sample-product-specification-observations\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"observations\":[\"sha256:9e22ae1bda0ce398140b3eeae6618e8e2d5aa5633246cd6cdf4fdba6a5aee51d\"]}",
+"canonical": "{\"collection\":\"sample-product-specification-observations\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"observations\":[\"sha256:9e22ae1bda0ce398140b3eeae6618e8e2d5aa5633246cd6cdf4fdba6a5aee51d\"]}",
+"ref": "sha256:eae2360f795765ba7d11111c16c91c3e9faa4b4a734f0874484651c9d19083be"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:38f701474e7c40f8d0c73c56b95c89b3aa77e2bffa5bc7ec39fe0642218c80c6\",\"media_type\":\"application/json\",\"size\":238},\"schema_profile\":\"sample/schema/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:38f701474e7c40f8d0c73c56b95c89b3aa77e2bffa5bc7ec39fe0642218c80c6\",\"media_type\":\"application/json\",\"size\":238},\"schema_profile\":\"sample/schema/v1\"}",
+"ref": "sha256:eb616f556cb425ea39af03cf08338fcec2d66d90ec5c6c82f0f651ed8b033c60"
+},
+{
+"text": "{\"artifact_type\":\"sample/acceptance/v1\",\"declared_roles\":{\"requirements\":\"sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:b5ddbc5692fe36b149a623961fc90a8dfff0b46f630b9a19f920ada4c844cc87\",\"media_type\":\"text/plain\",\"size\":164},\"runtime_profile\":\"sha256:937caaf29a79b2b341c89d526e8a40675277c2cf123a65725d476690baceb85b\"}",
+"canonical": "{\"artifact_type\":\"sample/acceptance/v1\",\"declared_roles\":{\"requirements\":\"sha256:4d0eee09a49de7d59e7ef17bfef2e2787b3090ccd1518550414f140865becc97\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:b5ddbc5692fe36b149a623961fc90a8dfff0b46f630b9a19f920ada4c844cc87\",\"media_type\":\"text/plain\",\"size\":164},\"runtime_profile\":\"sha256:937caaf29a79b2b341c89d526e8a40675277c2cf123a65725d476690baceb85b\"}",
+"ref": "sha256:ec82f23f52456331b37d49113c798950bd9b9e7809621db647102859d94d252a"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:4e8f1766fcbc5a68f56a656ce692c5fb40c9b5f369d050a8cccd21b66adbdb3e\",\"sha256:3e1468b39c25ccee3dc61a333ae69289018b06725250c43e0b5eb6383857503b\"]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"overlay-set\",\"members\":[\"sha256:3e1468b39c25ccee3dc61a333ae69289018b06725250c43e0b5eb6383857503b\",\"sha256:4e8f1766fcbc5a68f56a656ce692c5fb40c9b5f369d050a8cccd21b66adbdb3e\"]}",
+"ref": "sha256:ee0e8ee2d92b9101bd2b28cbbef51514ff221945ff4e51247501e2c4b816008c"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"derivation\",\"method\":\"example/comparison\",\"operands\":[\"sha256:7bfcd8604b0d7769800cf4e89d7565630fd9fd28641cdee8d9bfe7e0aff9e26b\",\"sha256:617f971a1f97219c48e1fd3d49889d8369b4736125a6ecdf6fa5384cfad97484\"],\"result\":null}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"derivation\",\"method\":\"example/comparison\",\"operands\":[\"sha256:7bfcd8604b0d7769800cf4e89d7565630fd9fd28641cdee8d9bfe7e0aff9e26b\",\"sha256:617f971a1f97219c48e1fd3d49889d8369b4736125a6ecdf6fa5384cfad97484\"],\"result\":null}",
+"ref": "sha256:ee9926c077d990a7051409e4ba6293dc2b17c49bd435a531ae19475a3e9e0890"
+},
+{
+"text": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\\\",\\\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\\\",\\\"sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12\\\",7,15,\\\"count\\\",2]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:cdd255592c4442dcf719f7b235219037480bf03cb4506165cfbee1398c0edcdd\"}",
+"canonical": "{\"checked\":{},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"native-mapping\",\"native_id\":\"[\\\"sha256:807ec720f87027c76843bb8a7d817785531aa7b0ec818155f2b231fec61c603e\\\",\\\"sha256:7c73da9e1c39c929f0a9adb399eaa708558062d178c5e503aa36bb4e57647795\\\",\\\"sha256:61a89a2e5ace526e7dfe2ae6e323ad2b5733c307a0be0f3630f13332df5dbb12\\\",7,15,\\\"count\\\",2]\",\"native_scheme\":\"example/admitted-citation/v1\",\"subject\":\"sha256:cdd255592c4442dcf719f7b235219037480bf03cb4506165cfbee1398c0edcdd\"}",
+"ref": "sha256:ef3df3b6876c55561fa2a47a1ae9621d16988c4de3a80a9d106228848c2804fd"
+},
+{
+"text": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:3a4c75636c7300c55f29323ee220db32b59348b8f7beb3168426ec56b3cc9483\",\"media_type\":\"application/json\",\"size\":66},\"schema\":\"sha256:0a58845b2da0c9da4fb585b15ce8f7a632c6695dbc7a8e06abd34933224f1cdd\"}",
+"canonical": "{\"data_profile\":\"aavanam/table/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"data-resource\",\"payload\":{\"digest\":\"sha256:3a4c75636c7300c55f29323ee220db32b59348b8f7beb3168426ec56b3cc9483\",\"media_type\":\"application/json\",\"size\":66},\"schema\":\"sha256:0a58845b2da0c9da4fb585b15ce8f7a632c6695dbc7a8e06abd34933224f1cdd\"}",
+"ref": "sha256:f180b35fed7cf7e211fda63e083e9141e388de3187e3af00753e854886dd6bd6"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:97cb8fb5f1fd6c8de7400a78516ec0a2a4a82a5dd7f207806fc55b83970a6480\",\"media_type\":\"application/json\",\"size\":168},\"schema_profile\":\"sample/schema/v1\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"schema\",\"payload\":{\"digest\":\"sha256:97cb8fb5f1fd6c8de7400a78516ec0a2a4a82a5dd7f207806fc55b83970a6480\",\"media_type\":\"application/json\",\"size\":168},\"schema_profile\":\"sample/schema/v1\"}",
+"ref": "sha256:f805f4a8c455202ccd4dea723272c78bb99588cea0bb1730a7cc62f13eac908e"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405\",\"supports\":\"sha256:fc96d54770c1ed57b237ac3ce038f3d8822bc33d8e0a04aebbfdccfbc1acdf14\"}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"evidence\",\"origin\":\"sample/fixture/v1\",\"subject\":\"sha256:6ecff5adae2dc05dd49c8947b7c25d7dc8bc56c026485d2009de794629d1e405\",\"supports\":\"sha256:fc96d54770c1ed57b237ac3ce038f3d8822bc33d8e0a04aebbfdccfbc1acdf14\"}",
+"ref": "sha256:f9846a40715d6a643177ccaa00e001c3fe00e03b2f5ede5a73bf0ebf73883751"
+},
+{
+"text": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60\",\"payload\":{\"digest\":\"sha256:82ad71afea3b896d712dae6b3bee68d0ad0b0a9c908f803c4a9d0975afeadd5f\",\"media_type\":\"text/plain\",\"size\":56},\"ranges\":[{\"end\":244,\"start\":188}]}",
+"canonical": "{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"excerpt\",\"parent\":\"sha256:9d17c80c55cf867370e87913dbcb9e910f0fee53aad7a5be500be56a7f781d60\",\"payload\":{\"digest\":\"sha256:82ad71afea3b896d712dae6b3bee68d0ad0b0a9c908f803c4a9d0975afeadd5f\",\"media_type\":\"text/plain\",\"size\":56},\"ranges\":[{\"end\":244,\"start\":188}]}",
+"ref": "sha256:fc96d54770c1ed57b237ac3ce038f3d8822bc33d8e0a04aebbfdccfbc1acdf14"
+}
+]
