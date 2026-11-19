@@ -35,11 +35,11 @@ func CoverageValues(v jsontext.Value) bool {
 			return false
 		}
 	}
-	covered, ok := field(v, "covered").Int()
-	if !isNonEmpty(field(v, "unit")) || !ok || covered < 0 {
+	covered := field(v, "covered")
+	if !isNonEmpty(field(v, "unit")) || !isCount(covered, 0) {
 		return false
 	}
-	if total := field(v, "total"); total.Kind != jsontext.Null && !isCount(total, covered) {
+	if total := field(v, "total"); total.Kind != jsontext.Null && !isCount(total, covered.Num) {
 		return false
 	}
 	return ops.ListOf(isOmission, true)(field(v, "omissions"))

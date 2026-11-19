@@ -239,7 +239,7 @@ func ContextBundle(c *ops.Call) envelope.Envelope {
 	if hasBudget && str(budget, "unit") != "bytes" {
 		ops.Fail("unsupported_budget") // QRY-BDL-1
 	}
-	most, _ := field(budget, "max").Int()
+	most := count(field(budget, "max"))
 	rc := c.Context()
 	roots := ops.Strings(field(c.Request, "roots"))
 	if located := Located(rc, roots); len(located) > 0 {
