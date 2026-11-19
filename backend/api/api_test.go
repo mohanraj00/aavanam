@@ -15,7 +15,11 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
 	"github.com/mohanraj00/aavanam/backend/core/memstore"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
+	"github.com/mohanraj00/aavanam/backend/core/read"
 	"github.com/mohanraj00/aavanam/backend/core/storagetest"
+	textsearch "github.com/mohanraj00/aavanam/backend/core/text"
+	"github.com/mohanraj00/aavanam/backend/core/transfer"
+	"github.com/mohanraj00/aavanam/backend/core/write"
 )
 
 type service struct {
@@ -25,13 +29,23 @@ type service struct {
 	read  *httptest.Server
 }
 
+// registry returns a registry with each operation that the service has.
+func registry() *ops.Registry {
+	r := ops.NewRegistry()
+	read.Register(r)
+	textsearch.Register(r)
+	transfer.Register(r)
+	write.Register(r)
+	return r
+}
+
 func start(t *testing.T, storage ops.Storage, config api.Config) *service {
 	t.Helper()
 	mem := memstore.New()
 	if storage == nil {
 		storage = mem
 	}
-	s := &service{t: t, mem: mem, store: ops.New(ops.Writer, storage, storagetest.Registry())}
+	s := &service{t: t, mem: mem, store: ops.New(ops.Writer, storage, registry())}
 	config.Store = func() *ops.Store { return s.store }
 	s.read = httptest.NewServer(api.Read(config))
 	t.Cleanup(s.read.Close)
@@ -216,12 +230,14 @@ func TestDeadline(t *testing.T) {
 	}
 }
 
-// NET-VER-1: the description of the API.
+// NET-VER-1: the description of the API. The operations are the list of NET-SCP-1 in ascending string order.
 func TestAbout(t *testing.T) {
 	s := start(t, nil, api.Config{MaxBodyBytes: 1000, Deadline: 2 * time.Second})
 	status, kind, body := s.do("GET", "/v1/about", nil)
 	want := `{"api":"aavanam-read/v1","api_minor":0,"deadline_ms":2000,"max_body_bytes":1000,` +
-		`"operations":["get","open_context","publications"],"profile":"aavanam/base/v1","profile_minor":12}`
+		`"operations":["compare","context_bundle","coverage","evidence","export","get","impact","item_history","list_items",` +
+		`"observations","open_context","publications","query_data","read","render","search","search_text","snapshot_changes"],` +
+		`"profile":"aavanam/base/v1","profile_minor":12}`
 	if status != 200 || kind != "application/json" || body != want {
 		t.Errorf("the description: HTTP %d %s\n got  %s\n want %s", status, kind, body, want)
 	}
@@ -230,7 +246,7 @@ func TestAbout(t *testing.T) {
 // The listener for the writes has each operation of the table, and it does not have the description.
 func TestWriteListener(t *testing.T) {
 	mem := memstore.New()
-	store := ops.New(ops.Writer, mem, storagetest.Registry())
+	store := ops.New(ops.Writer, mem, registry())
 	server := httptest.NewServer(api.Write(api.Config{Store: func() *ops.Store { return store }}))
 	defer server.Close()
 	post := func(path, body string) (int, string) {
