@@ -9,12 +9,12 @@
 - Use the signed activation records of entelos v0.5.0 in the activation seam test and the library example (#91, #93, #94, #95). The stand-in records are removed. The seam test checks each signed record with `entelos-verify`, and maps the typed record fields to the dependencies of the activation.
 - Add the design of the production backend and the device bundle, `docs/design/backend.md` (#96), and the guidance on which implementation to use for what (#108).
 - Each of the three implementations passes all 642 conformance vectors: the Python reference store, the backend (in memory and on PostgreSQL 17) and the device store. The specification has 409 clauses in 22 draft contract documents. The null adapter passes 1 vector, fails 641 and exits with 1.
-- Move to the next release: the budget bench (#105), the Unix socket listener (#125), #44 and #45. This release has no measured size or time numbers.
+- Move to the next release: the budget bench (#105) and the Unix socket listener (#125). This release has no measured size or time numbers.
 - The release has three tags: `v0.4.0`, `backend/v0.4.0` and `reference/v0.4.0`. It has no package upload and no container image.
 
 Known limits:
 
-- The Go modules build from a source checkout. `reference/go.mod` requires `backend v0.4.0` and keeps a `replace` to `../backend`. Without the `replace`, `go` fetches the module from the tag `backend/v0.4.0`. An outside module must use that tag, and the `replace` does not apply to it.
+- An outside Go module can use `reference` only after the tag `backend/v0.4.0` exists. `reference/go.mod` requires `backend v0.4.0`, and its `replace` to `../backend` applies only in this repository.
 - The read binding has no access control. Run the listener on the loopback address, or put your own access control in front of it.
 - The backend and the device store pass the conformance vectors. They have no measured budget numbers.
 - The pins of the PDF example have dependency hashes for Linux x86_64 and macOS arm64 only. On a different platform, the install stops with a hash error.
