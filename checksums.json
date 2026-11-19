@@ -691,7 +691,7 @@
   "docs/contracts/18-discovery.md": "beb9c0342d2ac0a6f37a6dd37386278577018ce351a78bb3875579b095a0f7ab",
   "docs/contracts/19-producer-storage.md": "f2e9141f2c9a753c6025e24f53fa73254a7b9ed77b35115b0d4fc62b47f54de1",
   "docs/contracts/20-content-reads-and-text-search.md": "e74e570f389ff4c4a367924c6155b2f8400fc728c78ec925e994655ed8c7e403",
-  "docs/design/backend.md": "e44ec7223bdf0fc978ccd204272bbf93c2a2fe3f9c07088a338ff9ffe09d0901",
+  "docs/design/backend.md": "bceffceb7f71164c3725f0255391258d8b49b71fd66db99fa39cf1ed6bf6ad8d",
   "examples/README.md": "c9a1b1793792e8ca3754497126096ad567037a0dbd915d9888593e35ac1298c8",
   "examples/library_hours/README.md": "ea7590d7e54e00460044f3167cb5b68969a0271a65f91700ff4840f8da52e827",
   "examples/library_hours/activation_mapping.py": "4fc0cf896dbee673c1ccc4bcf7f0e9412f4d628ddabc42003ddd5588a0b061ea",
