@@ -99,6 +99,44 @@ jobs:
         env:
           AAVANAM_SEAM: "1"
         run: python3 -B -m unittest discover -s tests -p test_groundgate_seam.py
+      - name: Read the pinned entelos commit
+        id: entelos-pin
+        run: |
+          commit=$(grep '^commit=' tests/entelos-pin.txt | cut -d= -f2)
+          if ! echo "$commit" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::The pinned entelos commit must be 40 lowercase hex characters."
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - name: Check out entelos at the pinned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mohanraj00/entelos
+          ref: ${{ steps.entelos-pin.outputs.commit }}
+          path: entelos
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: 1.27.2
+      - name: Build entelos-verify
+        run: |
+          (cd entelos/src/lifecycle-core && go build -o "$RUNNER_TEMP/entelos-verify" ./cmd/entelos-verify)
+      - name: Make the activation records again and require no change
+        run: |
+          (cd tests/entelos_records && go run .)
+          if [ -n "$(git status --porcelain -- tests/entelos_records examples/library_hours)" ]; then
+            git status --porcelain -- tests/entelos_records examples/library_hours
+            echo "::error::The activation records changed."
+            exit 1
+          fi
+      - name: Run the activation seam tests against the pinned entelos
+        env:
+          AAVANAM_ENTELOS_VERIFY: ${{ runner.temp }}/entelos-verify
+        run: |
+          set -o pipefail
+          python3 -B -m unittest discover -s tests -p test_activation_seam.py -v 2>&1 | tee activation-seam.txt
+          if grep -q skipped activation-seam.txt; then echo "::error::An activation seam test skipped."; exit 1; fi
       - name: Run all vectors against the reference implementation
         run: python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter
       # The null implementation refuses each call. If it passes all vectors, a refusal vector has no positive pair.

@@ -1,0 +1,6 @@
+# Pinned entelos release (issue #94).
+# Entelos v0.5.0 has a Git tag and commit SHA, but publishes no release
+# artifact that pip can install (no GitHub release, no Python package).
+# Both requirements files stay for groundgate only.
+tag=v0.5.0
+commit=bacfb4b6d743803db3127cf75b93620669774bff

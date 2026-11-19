@@ -4,7 +4,7 @@ Each example is one file or one folder in this folder. Each example uses only th
 
 The folder [pdf_facts](pdf_facts/README.md) has the PDF example. It also needs groundgate, and its README gives the commands and its output. The test [tests/test_pdf_example.py](../tests/test_pdf_example.py) runs it.
 
-The folder [library_hours](library_hours/README.md) has the library example. It moves one update from groundgate through an activation record to the head of a gated collection, and reads the head with a filter. It also needs the pinned groundgate package. The activation record is a stand-in until entelos publishes the record format in a tagged release. The test [tests/test_library_example.py](../tests/test_library_example.py) runs it.
+The folder [library_hours](library_hours/README.md) has the library example. It moves one update from groundgate through an activation record to the head of a gated collection, and reads the head with a filter. It also needs the pinned groundgate package. The activation record comes from entelos v0.5.0. The test [tests/test_library_example.py](../tests/test_library_example.py) runs it.
 
 ## Run an example from a clean checkout
 
