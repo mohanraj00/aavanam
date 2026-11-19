@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mohanraj00/aavanam/backend/core/ops"
+	"github.com/mohanraj00/aavanam/backend/core/storagetest"
 )
 
 func update(s *Store, fn func(tx ops.Tx)) { s.Session(context.Background()).Update(fn) }
@@ -200,4 +201,9 @@ func TestUpdatesFromManyGoroutines(t *testing.T) {
 	if _, _, ok := output.Session(context.Background()).Object("h9"); !ok {
 		t.Error("a write is not in the store")
 	}
+}
+
+// The contract that each storage of the core passes.
+func TestStorageContract(t *testing.T) {
+	storagetest.Storage(t, func(*testing.T) storagetest.Backing { return New() })
 }
