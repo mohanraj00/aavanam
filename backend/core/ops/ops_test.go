@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -292,5 +293,34 @@ func TestRequestForms(t *testing.T) {
 	}
 	if string(ops.Unb64(jsontext.S(ops.B64([]byte{0, 255, 7})))) != "\x00\xff\x07" {
 		t.Error("B64 and Unb64")
+	}
+}
+
+// The operations of the read binding are the operations of the first sentence of NET-SCP-1. Each has a row
+// in the operation table, and none is a write of BUN-IMP-6.
+func TestReadBindingAgreesWithDocument22(t *testing.T) {
+	clause, err := doctable.Clause("22", "NET-SCP-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentence, _, _ := strings.Cut(clause, ". ")
+	var want []string
+	for _, name := range regexp.MustCompile("`([a-z_]+)`").FindAllStringSubmatch(sentence, -1) {
+		want = append(want, name[1])
+	}
+	sort.Strings(want)
+	var got []string
+	for _, operation := range ops.Operations() {
+		if ops.InReadBinding(operation) {
+			got = append(got, operation)
+		}
+	}
+	if len(want) != 18 || !reflect.DeepEqual(got, want) {
+		t.Errorf("the read binding has %v, and the clause has %v", got, want)
+	}
+	for _, operation := range want {
+		if ops.Writes(operation) || strings.HasPrefix(operation, "producer_") {
+			t.Errorf("%s writes content", operation)
+		}
 	}
 }
