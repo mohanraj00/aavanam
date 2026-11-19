@@ -6,6 +6,7 @@ package storagetest
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"reflect"
 	"sync"
 	"testing"
@@ -49,6 +50,7 @@ func Fault(fn func()) (err error) {
 func Storage(t *testing.T, open Open) {
 	t.Run("ContentAndCatalog", func(t *testing.T) { contentAndCatalog(t, open(t)) })
 	t.Run("ProducerRecords", func(t *testing.T) { producerRecords(t, open(t)) })
+	t.Run("LongNames", func(t *testing.T) { longNames(t, open(t)) })
 	t.Run("UpdateIsAtomic", func(t *testing.T) { updateIsAtomic(t, open(t)) })
 	t.Run("ConcurrentWritesOfOneBatch", func(t *testing.T) { concurrentWrites(t, open(t)) })
 }
@@ -186,6 +188,67 @@ func producerRecords(t *testing.T, s Backing) {
 			counts.ProducerRemovalCount(odd) != 1 || counts.ProducerRemovalCount("q") != 0 {
 			t.Error("the counts of the producer records")
 		}
+	}
+}
+
+// long returns a string of 8000 bytes that a compression does not make short. No two seeds give one string.
+func long(seed int64) string {
+	data := make([]byte, 8000)
+	rand.New(rand.NewSource(seed)).Read(data)
+	return string(data)
+}
+
+// A string of a request has no length bound: a collection name (KND-SCH-1), a policy name, and a producer
+// name, key, log name or reason in UTF-8 (PRD-SEC-3). A storage keeps each such string, and two long strings
+// with one start are different names.
+func longNames(t *testing.T, s Backing) {
+	a, b := long(1), long(1)[:7999]+"x"
+	update(s, func(tx ops.Tx) {
+		tx.LockCollections([]string{a, b})
+		tx.PutObject(ops.Object{Ref: refA, Kind: "snapshot", Text: []byte("S"), Collection: a})
+		tx.DeclareGate(a)
+		tx.DeclareSection(a, "evidence")
+		tx.PutCandidate(ops.Candidate{ID: refA, Snapshot: refA, Collection: a, Policy: a})
+		tx.Publish(ops.Publication{Candidate: refA, Receipt: refB, Collection: a, Head: refA})
+		tx.Publish(ops.Publication{Candidate: refB, Receipt: refB, Collection: b, Head: refB})
+		tx.PutProducerObject(a, a, []byte("v"))
+		tx.PutProducerObject(a, b, []byte("w"))
+		tx.PutProducerObject(a, "gone", []byte("v"))
+		tx.DeleteProducerObject(a, "gone")
+		tx.PutProducerRemoval(a, ops.Removal{Sequence: 1, Key: "gone", Time: "2026-01-02T03:04:05Z", Reason: a})
+		tx.PutProducerEntry(a, a, ops.Entry{Sequence: 1, Data: []byte("e")})
+		tx.PutProducerEntry(a, b, ops.Entry{Sequence: 1, Data: []byte("f")})
+	})
+	r := s.Session(context.Background())
+	if !r.HasSnapshot(a) || r.HasSnapshot(b) || !r.Gated(a) || r.Gated(b) {
+		t.Error("a snapshot or a gate of a long collection name")
+	}
+	if section, ok := r.Section(a); !ok || section != "evidence" {
+		t.Error("the section of a long collection name")
+	}
+	if _, ok := r.Section(b); ok {
+		t.Error("a section of a different long name")
+	}
+	if got := r.Heads([]string{a, b, "c"}); len(got) != 2 || got[a] != refA || got[b] != refB {
+		t.Errorf("the heads of long collection names: %d", len(got))
+	}
+	if got := r.Publications(a); len(got) != 1 || got[0].Candidate != refA {
+		t.Errorf("the publications of a long collection name: %d", len(got))
+	}
+	if c, ok := r.Candidate(refA); !ok || c.Collection != a || c.Policy != a {
+		t.Error("a candidate with a long collection name and a long policy name")
+	}
+	if data, ok := r.ProducerObject(a, b); !ok || string(data) != "w" {
+		t.Error("a producer object with a long key")
+	}
+	if _, ok := r.ProducerObject(b, a); ok || !r.ProducerRemoved(a, "gone") || r.ProducerRemoved(b, "gone") {
+		t.Error("the producer records of a different long name")
+	}
+	if got := r.ProducerRemovals(a); len(got) != 1 || got[0].Reason != a {
+		t.Errorf("the removal records of a long producer name: %d", len(got))
+	}
+	if got := r.ProducerEntries(a, b); len(got) != 1 || string(got[0].Data) != "f" || len(r.ProducerEntries(b, a)) != 0 {
+		t.Errorf("the entries of a long log name: %d", len(got))
 	}
 }
 

@@ -213,13 +213,14 @@ func (v view) DeferredRefs(digest string) []string {
 }
 
 func (v view) HasSnapshot(collection string) bool {
-	return v.exists(`SELECT 1 FROM objects WHERE kind = 'snapshot' AND collection = $1`, []byte(collection))
+	return v.exists(`SELECT 1 FROM objects WHERE kind = 'snapshot' AND sha256(collection) = sha256($1) AND collection = $1`, []byte(collection))
 }
 
 func (v view) Heads(collections []string) map[string]string {
-	names := make([][]byte, len(collections))
+	names, keys := make([][]byte, len(collections)), make([][]byte, len(collections))
 	for i, c := range collections {
-		names[i] = []byte(c)
+		sum := sha256.Sum256([]byte(c))
+		names[i], keys[i] = []byte(c), sum[:]
 	}
 	out := map[string]string{}
 	v.each(func(rows pgx.Rows) error { // one statement: one atomic read (CTX-VIW-3)
@@ -229,18 +230,18 @@ func (v view) Heads(collections []string) map[string]string {
 		}
 		out[string(collection)] = name(snapshot)
 		return nil
-	}, `SELECT collection, snapshot FROM heads WHERE collection = ANY($1::bytea[])`, names)
+	}, `SELECT collection, snapshot FROM heads WHERE sha256(collection) = ANY($2::bytea[]) AND collection = ANY($1::bytea[])`, names, keys)
 	return out
 }
 
 func (v view) Section(collection string) (string, bool) {
 	var section string
-	ok := v.row([]any{&section}, `SELECT section FROM sections WHERE collection = $1`, []byte(collection))
+	ok := v.row([]any{&section}, `SELECT section FROM sections WHERE sha256(collection) = sha256($1) AND collection = $1`, []byte(collection))
 	return section, ok
 }
 
 func (v view) Gated(collection string) bool {
-	return v.exists(`SELECT 1 FROM gates WHERE collection = $1`, []byte(collection))
+	return v.exists(`SELECT 1 FROM gates WHERE sha256(collection) = sha256($1) AND collection = $1`, []byte(collection))
 }
 
 func (v view) Candidate(id string) (ops.Candidate, bool) {
@@ -272,7 +273,7 @@ func (v view) Publications(collection string) []ops.Publication {
 		out = append(out, ops.Publication{Candidate: name(candidate), Receipt: name(receipt), Activation: name(activation),
 			Collection: collection, PreviousHead: name(previous), Head: name(head)})
 		return nil
-	}, `SELECT candidate, receipt, activation, previous_head, head FROM publications WHERE collection = $1 ORDER BY seq`,
+	}, `SELECT candidate, receipt, activation, previous_head, head FROM publications WHERE sha256(collection) = sha256($1) AND collection = $1 ORDER BY seq`,
 		[]byte(collection))
 	return out
 }
@@ -301,14 +302,14 @@ func (v view) Members(context string) []string {
 
 func (v view) ProducerObject(producer, key string) ([]byte, bool) {
 	data := []byte{}
-	if !v.row([]any{&data}, `SELECT data FROM producer_objects WHERE producer = $1 AND key = $2`, []byte(producer), []byte(key)) {
+	if !v.row([]any{&data}, `SELECT data FROM producer_objects WHERE sha256(producer) = sha256($1) AND producer = $1 AND sha256(key) = sha256($2) AND key = $2`, []byte(producer), []byte(key)) {
 		return nil, false
 	}
 	return data, true
 }
 
 func (v view) ProducerRemoved(producer, key string) bool {
-	return v.exists(`SELECT 1 FROM producer_removals WHERE producer = $1 AND key = $2`, []byte(producer), []byte(key))
+	return v.exists(`SELECT 1 FROM producer_removals WHERE sha256(producer) = sha256($1) AND producer = $1 AND sha256(key) = sha256($2) AND key = $2`, []byte(producer), []byte(key))
 }
 
 func (v view) ProducerRemovals(producer string) []ops.Removal {
@@ -322,7 +323,7 @@ func (v view) ProducerRemovals(producer string) []ops.Removal {
 		r.Key, r.Reason = string(key), string(reason)
 		out = append(out, r)
 		return nil
-	}, `SELECT sequence, key, time, reason FROM producer_removals WHERE producer = $1 ORDER BY sequence`, []byte(producer))
+	}, `SELECT sequence, key, time, reason FROM producer_removals WHERE sha256(producer) = sha256($1) AND producer = $1 ORDER BY sequence`, []byte(producer))
 	return out
 }
 
@@ -330,7 +331,7 @@ func (v view) ProducerRemovals(producer string) []ops.Removal {
 // sequence numbers have no gap (PRD-LOG-1), so this is the number of entries.
 func (v view) ProducerEntryCount(producer, log string) int64 {
 	var count int64
-	v.row([]any{&count}, `SELECT coalesce(max(sequence), 0) FROM producer_entries WHERE producer = $1 AND log = $2`,
+	v.row([]any{&count}, `SELECT coalesce(max(sequence), 0) FROM producer_entries WHERE sha256(producer) = sha256($1) AND producer = $1 AND sha256(log) = sha256($2) AND log = $2`,
 		[]byte(producer), []byte(log))
 	return count
 }
@@ -338,7 +339,7 @@ func (v view) ProducerEntryCount(producer, log string) int64 {
 // ProducerRemovalCount returns the last sequence number of the removal records of a producer (PRD-RMV-1).
 func (v view) ProducerRemovalCount(producer string) int64 {
 	var count int64
-	v.row([]any{&count}, `SELECT coalesce(max(sequence), 0) FROM producer_removals WHERE producer = $1`, []byte(producer))
+	v.row([]any{&count}, `SELECT coalesce(max(sequence), 0) FROM producer_removals WHERE sha256(producer) = sha256($1) AND producer = $1`, []byte(producer))
 	return count
 }
 
@@ -354,7 +355,7 @@ func (v view) ProducerEntries(producer, log string) []ops.Entry {
 		}
 		out = append(out, e)
 		return nil
-	}, `SELECT sequence, entry FROM producer_entries WHERE producer = $1 AND log = $2 ORDER BY sequence`,
+	}, `SELECT sequence, entry FROM producer_entries WHERE sha256(producer) = sha256($1) AND producer = $1 AND sha256(log) = sha256($2) AND log = $2 ORDER BY sequence`,
 		[]byte(producer), []byte(log))
 	return out
 }
@@ -399,7 +400,7 @@ func (t tx) LockCollections(collections []string) {
 	sort.Strings(names) // one order for each update, so two updates cannot wait for each other
 	for _, c := range names {
 		t.exec(`INSERT INTO collection_locks (collection) VALUES ($1) ON CONFLICT DO NOTHING`, []byte(c))
-		t.exec(`SELECT 1 FROM collection_locks WHERE collection = $1 FOR UPDATE`, []byte(c))
+		t.exec(`SELECT 1 FROM collection_locks WHERE sha256(collection) = sha256($1) AND collection = $1 FOR UPDATE`, []byte(c))
 	}
 }
 
@@ -464,7 +465,7 @@ func (t tx) PutCandidate(c ops.Candidate) {
 }
 
 func (t tx) Publish(p ops.Publication) {
-	t.exec(`INSERT INTO heads (collection, snapshot) VALUES ($1, $2) ON CONFLICT (collection) DO UPDATE SET snapshot = EXCLUDED.snapshot`,
+	t.exec(`INSERT INTO heads (collection, snapshot) VALUES ($1, $2) ON CONFLICT ((sha256(collection))) DO UPDATE SET snapshot = EXCLUDED.snapshot`,
 		[]byte(p.Collection), must(p.Head))
 	t.exec(`INSERT INTO publications (collection, candidate, receipt, activation, previous_head, head) VALUES ($1, $2, $3, $4, $5, $6)`,
 		[]byte(p.Collection), must(p.Candidate), must(p.Receipt), optional(p.Activation), optional(p.PreviousHead), must(p.Head))
@@ -489,7 +490,7 @@ func (t tx) PutProducerObject(producer, key string, data []byte) {
 }
 
 func (t tx) DeleteProducerObject(producer, key string) {
-	t.exec(`DELETE FROM producer_objects WHERE producer = $1 AND key = $2`, []byte(producer), []byte(key))
+	t.exec(`DELETE FROM producer_objects WHERE sha256(producer) = sha256($1) AND producer = $1 AND sha256(key) = sha256($2) AND key = $2`, []byte(producer), []byte(key))
 }
 
 func (t tx) PutProducerRemoval(producer string, r ops.Removal) {

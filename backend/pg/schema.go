@@ -4,6 +4,10 @@
 // tables. Each JSON string value of a request (a collection name, a policy name, a producer key, a context
 // identity) is in a `bytea` column, because a PostgreSQL `text` value cannot have U+0000 and I-JSON permits
 // it. A reference or a digest is a `bytea` value of 32 bytes. Its byte order is the order of `sha256:<hex>`.
+//
+// A string of a request has no length bound, and an entry of a B-tree index has one (about 2.7 KiB). Thus
+// no index has such a string. Each index and each unique rule uses the SHA-256 digest of the string, and
+// each statement also compares the full string.
 // The schema has no `jsonb` column: `jsonb` changes numbers and removes duplicate keys.
 package pg
 
@@ -24,7 +28,7 @@ CREATE TABLE objects (
     collection bytea,
     canonical bytea NOT NULL
 );
-CREATE INDEX objects_snapshots ON objects (collection) WHERE kind = 'snapshot';
+CREATE INDEX objects_snapshots ON objects ((sha256(collection))) WHERE kind = 'snapshot';
 CREATE TABLE edges (
     src bytea NOT NULL,
     dst bytea NOT NULL,
@@ -50,9 +54,10 @@ CREATE TABLE candidates (
     expected_head bytea
 );
 CREATE TABLE heads (
-    collection bytea PRIMARY KEY,
+    collection bytea NOT NULL,
     snapshot bytea NOT NULL
 );
+CREATE UNIQUE INDEX heads_key ON heads ((sha256(collection)));
 CREATE TABLE publications (
     seq bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     collection bytea NOT NULL,
@@ -62,13 +67,16 @@ CREATE TABLE publications (
     previous_head bytea,
     head bytea NOT NULL
 );
-CREATE INDEX publications_collection ON publications (collection, seq);
-CREATE TABLE gates (collection bytea PRIMARY KEY);
+CREATE INDEX publications_collection ON publications ((sha256(collection)), seq);
+CREATE TABLE gates (collection bytea NOT NULL);
+CREATE UNIQUE INDEX gates_key ON gates ((sha256(collection)));
 CREATE TABLE sections (
-    collection bytea PRIMARY KEY,
+    collection bytea NOT NULL,
     section text COLLATE "C" NOT NULL
 );
-CREATE TABLE collection_locks (collection bytea PRIMARY KEY);
+CREATE UNIQUE INDEX sections_key ON sections ((sha256(collection)));
+CREATE TABLE collection_locks (collection bytea NOT NULL);
+CREATE UNIQUE INDEX collection_locks_key ON collection_locks ((sha256(collection)));
 CREATE TABLE contexts (
     id bytea PRIMARY KEY,
     roots bytea[] NOT NULL,
@@ -83,25 +91,25 @@ CREATE TABLE context_members (
 CREATE TABLE producer_objects (
     producer bytea NOT NULL,
     key bytea NOT NULL,
-    data bytea NOT NULL,
-    PRIMARY KEY (producer, key)
+    data bytea NOT NULL
 );
+CREATE UNIQUE INDEX producer_objects_key ON producer_objects ((sha256(producer)), (sha256(key)));
 CREATE TABLE producer_entries (
     producer bytea NOT NULL,
     log bytea NOT NULL,
     sequence bigint NOT NULL,
-    entry bytea NOT NULL,
-    PRIMARY KEY (producer, log, sequence)
+    entry bytea NOT NULL
 );
+CREATE UNIQUE INDEX producer_entries_key ON producer_entries ((sha256(producer)), (sha256(log)), sequence);
 CREATE TABLE producer_removals (
     producer bytea NOT NULL,
     sequence bigint NOT NULL,
     key bytea NOT NULL,
     time text COLLATE "C" NOT NULL,
-    reason bytea NOT NULL,
-    PRIMARY KEY (producer, sequence)
+    reason bytea NOT NULL
 );
-CREATE INDEX producer_removals_key ON producer_removals (producer, key);
+CREATE UNIQUE INDEX producer_removals_sequence ON producer_removals ((sha256(producer)), sequence);
+CREATE INDEX producer_removals_key ON producer_removals ((sha256(producer)), (sha256(key)));
 
 CREATE FUNCTION aavanam_inserts_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
