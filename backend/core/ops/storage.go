@@ -161,6 +161,23 @@ type Storage interface {
 	Session(ctx context.Context) Session
 }
 
+// ProducerLock is an optional part of a Tx of a writer store. A storage whose updates run at the same time
+// has it. A storage that runs one update at a time does not need it.
+type ProducerLock interface {
+	// LockProducer makes this update wait for each other update that locked the producer, until it ends.
+	// A read of the objects, the logs and the removal records of the producer after the lock is stable
+	// (PRD-OBJ-2, PRD-LOG-2, PRD-RMV-1).
+	LockProducer(producer string)
+}
+
+// ProducerCounts is an optional part of a Reader: the number of entries of a log and the number of removal
+// records of a producer, with no read of the bytes. Without it, an operation counts the result of
+// ProducerEntries and ProducerRemovals.
+type ProducerCounts interface {
+	ProducerEntryCount(producer, log string) int64
+	ProducerRemovalCount(producer string) int64
+}
+
 // TextIndex is an optional part of a Tx and of a Reader: an index of the words of text payloads
 // (CRD-TXT-3). The index gives candidates only. The matches always come from the bytes.
 type TextIndex interface {

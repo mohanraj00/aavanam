@@ -10,6 +10,15 @@ import (
 func Register(r *ops.Registry) {
 	r.Handle("put", Put)
 	r.Handle("create_snapshot", CreateSnapshot)
+	r.Handle("create_candidate", CreateCandidate)
+	r.Handle("publish", Publish)
+	r.Handle("publications", Publications)
+	r.Handle("producer_put", ProducerPut)
+	r.Handle("producer_get", ProducerGet)
+	r.Handle("producer_forget", ProducerForget)
+	r.Handle("producer_removals", ProducerRemovals)
+	r.Handle("producer_append", ProducerAppend)
+	r.Handle("producer_read", ProducerRead)
 }
 
 // Put is the operation `put`: it checks each descriptor text in the steps of STS-MAL-3 and writes all of
