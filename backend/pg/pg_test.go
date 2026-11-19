@@ -152,3 +152,42 @@ func TestLocksMakeUpdatesWait(t *testing.T) {
 		}
 	}
 }
+
+// A read context has a life. After its end, the store does not keep the context for a new call, and the
+// content list stays for a call in progress until ExpireContexts removes the two. A context is not content.
+func TestContextsExpire(t *testing.T) {
+	s := open(t)
+	record := ops.ContextRecord{Roots: []string{refA}, Capabilities: []string{}}
+	update(s, func(tx ops.Tx) { tx.PutContext("old", record, []string{refA, refB}) })
+	if n, err := s.ExpireContexts(context.Background(), 0); n != 0 || err != nil {
+		t.Errorf("a store with no context life removed %d contexts: %v", n, err)
+	}
+	before := s.Fingerprint()
+	s.SetContextLife(400 * time.Millisecond)
+	defer s.SetContextLife(0)
+	if _, ok := s.Session(context.Background()).Context("old"); !ok {
+		t.Fatal("the store does not keep a context before the end of its life")
+	}
+	time.Sleep(600 * time.Millisecond)
+	update(s, func(tx ops.Tx) { tx.PutContext("new", record, []string{refA}) })
+	r := s.Session(context.Background())
+	if _, ok := r.Context("old"); ok {
+		t.Error("the store keeps a context after the end of its life")
+	}
+	if !r.IsMember("old", refB) || len(r.Members("old")) != 2 {
+		t.Error("the content list of a call in progress is not there")
+	}
+	if n, err := s.ExpireContexts(context.Background(), time.Hour); n != 0 || err != nil {
+		t.Errorf("a context in its grace time: %d removed, %v", n, err)
+	}
+	if n, err := s.ExpireContexts(context.Background(), 0); n != 1 || err != nil {
+		t.Errorf("the removal of the old context: %d removed, %v", n, err)
+	}
+	r = s.Session(context.Background())
+	if len(r.Members("old")) != 0 || len(r.Members("new")) != 1 {
+		t.Error("the content lists after the removal")
+	}
+	if _, ok := r.Context("new"); !ok || s.Fingerprint() != before {
+		t.Error("the removal changed a different context or the content of the store")
+	}
+}

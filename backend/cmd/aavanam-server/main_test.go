@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
@@ -178,7 +179,18 @@ func TestSocketPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a start with a socket of an earlier run: %v", err)
 	}
+	// A second start with the socket of the service that runs is refused, and the first service keeps it.
+	if second, err := start(context.Background(), options1(t, "--write-socket", socket), memstore.New()); err == nil {
+		second.stop()
+		t.Error("a second start took the socket of a service that runs")
+	}
+	if status, body := post(t, over(socket), "http://socket/v1/op/publications", `{"collection":"c"}`); status != 200 || !strings.Contains(body, `"status":"ok"`) {
+		t.Errorf("the first service after the second start: HTTP %d %s", status, body)
+	}
 	s.stop()
+	if _, err := os.Lstat(socket); err == nil {
+		t.Error("the socket stays after the stop of its service")
+	}
 	file := filepath.Join(dir, "data")
 	if err := os.WriteFile(file, []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
@@ -193,7 +205,7 @@ func TestSocketPath(t *testing.T) {
 
 func TestConfigurationThatIsNotCorrect(t *testing.T) {
 	for _, args := range [][]string{{"--section", "c"}, {"--section", "=serving"}, {"--policy", "pol"}, {"--policy", "pol="},
-		{"--deadline", "0s"}, {"--max-body-bytes", "0"}, {"--unknown"}, {"extra"}} {
+		{"--deadline", "0s"}, {"--max-body-bytes", "0"}, {"--context-life", "-1s"}, {"--unknown"}, {"extra"}} {
 		if _, err := parse(args, io.Discard); err == nil {
 			t.Errorf("the arguments %v are not correct", args)
 		}
@@ -218,5 +230,55 @@ func TestConfigurationThatIsNotCorrect(t *testing.T) {
 	}
 	if o, err := parse(nil, io.Discard); err != nil || o.readAddr != "127.0.0.1:8437" || o.writeSocket != "" {
 		t.Errorf("the default configuration: %+v %v", o, err)
+	}
+}
+
+// contexts is a storage that records the configuration and the removals of its read contexts.
+type contexts struct {
+	*memstore.Store
+	life    chan time.Duration
+	removed chan time.Duration
+}
+
+func (c contexts) SetContextLife(life time.Duration) { c.life <- life }
+
+func (c contexts) ExpireContexts(_ context.Context, grace time.Duration) (int64, error) {
+	select {
+	case c.removed <- grace:
+	default:
+	}
+	return 0, nil
+}
+
+// The service gives the life of a read context to its storage and removes the old contexts again and again.
+// The grace time of a removal is longer than the deadline of a call.
+func TestContextLife(t *testing.T) {
+	storage := contexts{memstore.New(), make(chan time.Duration, 1), make(chan time.Duration, 1)}
+	s, err := start(context.Background(), options1(t, "--context-life", "200ms", "--deadline", "3s"), storage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.stop()
+	if life := <-storage.life; life != 200*time.Millisecond {
+		t.Errorf("the life of a context: %v", life)
+	}
+	select {
+	case grace := <-storage.removed:
+		if grace <= 3*time.Second {
+			t.Errorf("the grace time %v is not longer than the deadline of a call", grace)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("the service did not remove the old contexts")
+	}
+	none := contexts{memstore.New(), make(chan time.Duration, 1), make(chan time.Duration, 1)}
+	s2, err := start(context.Background(), options1(t, "--context-life", "0"), none)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.stop()
+	select {
+	case <-none.life:
+		t.Error("a service with no context life gave one to its storage")
+	case <-time.After(100 * time.Millisecond):
 	}
 }

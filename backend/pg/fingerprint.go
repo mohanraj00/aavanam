@@ -44,7 +44,7 @@ func (s *Store) Fingerprint() string {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	h := sha256.New()
-	v := view{ctx, tx}
+	v := view{ctx: ctx, q: tx}
 	for _, f := range fingerprints {
 		v.each(func(rows pgx.Rows) error {
 			var line string
