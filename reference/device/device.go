@@ -101,6 +101,10 @@ type Store struct {
 // Open opens the device store and the local output store of a directory. It checks the `meta` rows of
 // each file before it uses the file (DEV-PRF-2).
 func Open(dir string) (device, output *Store, err error) {
+	// The attachment is a file URI. A relative path in it would give a URI authority, so the path is absolute.
+	if dir, err = filepath.Abs(dir); err != nil {
+		return nil, nil, err
+	}
 	devicePath, outputPath := filepath.Join(dir, DeviceFile), filepath.Join(dir, OutputFile)
 	options := "?_pragma=busy_timeout(10000)&_txlock=immediate" // DEV-UPD-1: BEGIN IMMEDIATE
 	device = &Store{db: sql.OpenDB(connector{dsn: devicePath + options}), role: "device", schemas: []string{"main"}}

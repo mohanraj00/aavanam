@@ -3,6 +3,7 @@ package device
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -154,4 +155,27 @@ func TestImportRows(t *testing.T) {
 			t.Error("the local output store has an import record")
 		}
 	})
+}
+
+// A relative directory gives the same stores as an absolute one: the attachment of the device file has
+// no URI authority (DEV-OUT-2).
+func TestOpenRelativeDirectory(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.Mkdir("store", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Create("store"); err != nil {
+		t.Fatal(err)
+	}
+	dev, out, err := Open("store")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	defer out.Close()
+	ctx := context.Background()
+	dev.Session(ctx).Update(func(tx ops.Tx) { tx.PutBlob(ref(2), []byte("abc")) })
+	if data, ok := out.Session(ctx).Blob(ref(2)); !ok || string(data) != "abc" {
+		t.Fatalf("output Blob: %q %v", data, ok)
+	}
 }
