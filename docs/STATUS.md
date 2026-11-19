@@ -1,6 +1,19 @@
 # Status
 
-Version 0.3.0 is the current version. The specification has 22 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
+Version 0.3.0 is the current version. The specification has 22 contract documents in the `draft` state. The reference implementation in `src/`, the backend in `backend/` and the device store in `reference/` pass all conformance vectors. The null implementation fails, as it must.
+
+## Implementations
+
+Each implementation passes all the conformance vectors. The count comes from the vector files. `make check` fails if the lists of an implementation miss a vector or hold a vector twice.
+
+| Implementation | Result | Command |
+|---|---|---|
+| Reference, Python over SQLite | All vectors | `make check` |
+| Backend, storage in memory | All vectors, in two lists | `make check-backend-mem` |
+| Backend, PostgreSQL 17, reads over HTTP | All vectors | `make check-backend-pg` (needs `AAVANAM_PG_DSN`) |
+| Device store, SQLite with FTS5 | All vectors | `make check-device` |
+
+The lists are `backend/conformance/passing.txt`, `backend/conformance/passing-mem-core.txt`, `backend/conformance/passing-mem-read.txt` and `reference/conformance/passing.txt`. The vectors have no measured size or time numbers. The budget bench is not built.
 
 ## Done
 
