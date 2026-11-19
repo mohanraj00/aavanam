@@ -23,9 +23,7 @@ func (s *Store) Fingerprint() string {
 			return "error: " + err.Error()
 		}
 		for rows.Next() {
-			var a []byte
-			var b string
-			var c []byte
+			var a, b, c []byte
 			if err := rows.Scan(&a, &b, &c); err != nil {
 				rows.Close()
 				return "error: " + err.Error()

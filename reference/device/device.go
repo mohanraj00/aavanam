@@ -35,9 +35,9 @@ const (
 // tables has the tables of both files (DEV-LAY-3, DEV-OUT-1). The indexes are not tables.
 var tables = []string{
 	`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
-	`CREATE TABLE objects (ref BLOB PRIMARY KEY, kind TEXT NOT NULL, logical_id BLOB, collection BLOB,
+	`CREATE TABLE objects (ref BLOB PRIMARY KEY, kind BLOB NOT NULL, logical_id BLOB, collection BLOB,
 		canonical BLOB NOT NULL) WITHOUT ROWID`,
-	`CREATE INDEX objects_snapshot ON objects (collection) WHERE kind = 'snapshot'`,
+	`CREATE INDEX objects_snapshot ON objects (collection) WHERE kind = CAST('snapshot' AS BLOB)`,
 	`CREATE TABLE edges (src BLOB NOT NULL, dst BLOB NOT NULL, field TEXT NOT NULL, PRIMARY KEY (src, dst, field))
 		WITHOUT ROWID`,
 	`CREATE INDEX edges_dst ON edges (dst, src)`,
@@ -98,8 +98,8 @@ type Store struct {
 	schemas []string // the schemas that a read uses: "main", and "device" for the local output store
 }
 
-// Open opens the device store and the local output store of a directory. It checks the `meta` rows of
-// each file before it uses the file (DEV-PRF-2).
+// Open opens the device store and the local output store of a directory. It checks the `meta` rows
+// and the declared type of `objects.kind` in each file (DEV-PRF-2, DEV-LAY-2 rule 2).
 func Open(dir string) (device, output *Store, err error) {
 	// The attachment is a file URI. A relative path in it would give a URI authority, so the path is absolute.
 	if dir, err = filepath.Abs(dir); err != nil {
@@ -113,7 +113,7 @@ func Open(dir string) (device, output *Store, err error) {
 	output = &Store{db: sql.OpenDB(connector{dsn: outputPath + options, attach: attach}), role: "output",
 		schemas: []string{"main", "device"}}
 	for _, s := range []*Store{device, output} {
-		if err = s.checkMeta(); err != nil {
+		if err = s.checkLayout(); err != nil {
 			device.Close()
 			output.Close()
 			return nil, nil, err
@@ -125,7 +125,7 @@ func Open(dir string) (device, output *Store, err error) {
 // Close closes the connections of the store.
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) checkMeta() error {
+func (s *Store) checkLayout() error {
 	rows := map[string]string{}
 	found, err := s.db.Query(`SELECT key, value FROM main.meta`)
 	if err != nil {
@@ -144,6 +144,15 @@ func (s *Store) checkMeta() error {
 	}
 	if rows["layout"] != Layout || rows["role"] != s.role {
 		return fmt.Errorf("the %s file is not a store of %s (DEV-PRF-2)", s.role, Layout)
+	}
+	var kindType string
+	if err := s.db.QueryRow(`SELECT type FROM pragma_table_info('objects', 'main') WHERE name = 'kind'`).Scan(&kindType); err != nil {
+		return fmt.Errorf("the %s file is not a store of %s: cannot read the declared type of objects.kind (DEV-LAY-2 rule 2): %w",
+			s.role, Layout, err)
+	}
+	if !strings.EqualFold(kindType, "BLOB") {
+		return fmt.Errorf("the %s file is not a store of %s: objects.kind has type %q, want BLOB (DEV-LAY-2 rule 2)",
+			s.role, Layout, kindType)
 	}
 	return nil
 }
@@ -248,14 +257,14 @@ func (v view) keys(query string, args ...any) []string {
 
 func (v view) Object(ref string) (string, []byte, bool) {
 	var row struct {
-		kind string
+		kind []byte
 		text []byte
 	}
 	for _, schema := range v.s.schemas {
 		err := v.q.QueryRowContext(v.ctx, in(`SELECT kind, canonical FROM {s}.objects WHERE ref = ?`, schema), key(ref)).
 			Scan(&row.kind, &row.text)
 		if err == nil {
-			return row.kind, row.text, true
+			return string(row.kind), row.text, true
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			ops.Raise(err)
@@ -295,7 +304,8 @@ func (v view) DeferredRefs(digest string) []string {
 // HasSnapshot reads only the file of the store, as a store in memory does.
 func (v view) HasSnapshot(collection string) bool {
 	var n int
-	err := v.q.QueryRowContext(v.ctx, `SELECT 1 FROM main.objects WHERE kind = 'snapshot' AND collection = ? LIMIT 1`,
+	err := v.q.QueryRowContext(v.ctx, `SELECT 1 FROM main.objects
+		WHERE kind = CAST('snapshot' AS BLOB) AND collection = ? LIMIT 1`,
 		[]byte(collection)).Scan(&n)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		ops.Raise(err)
@@ -493,7 +503,7 @@ func (t tx) PutObject(o ops.Object) {
 	}
 	ref := key(o.Ref)
 	t.exec(`INSERT INTO main.objects (ref, kind, logical_id, collection, canonical) VALUES (?, ?, ?, ?, ?)`,
-		ref, o.Kind, logicalID, collection, o.Text)
+		ref, []byte(o.Kind), logicalID, collection, o.Text) // DEV-LAY-2 rule 2
 	for _, r := range check.References(desc) {
 		t.exec(`INSERT OR IGNORE INTO main.edges (src, dst, field) VALUES (?, ?, ?)`, ref, key(r.Ref), r.Field)
 	}
