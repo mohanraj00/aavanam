@@ -1,0 +1,482 @@
+package pg
+
+import (
+	"context"
+	"encoding/hex"
+	"errors"
+	"sort"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/ops"
+)
+
+// Store is one writer store in PostgreSQL.
+type Store struct{ pool *pgxpool.Pool }
+
+// Open connects to the database of a DSN, checks that it answers and applies the schema changes. An error
+// does not have the DSN, because a DSN can have a password.
+func Open(ctx context.Context, dsn string) (*Store, error) {
+	if dsn == "" {
+		return nil, errors.New("the PostgreSQL storage needs a DSN")
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, errors.New("the PostgreSQL configuration is not valid")
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, errors.New("PostgreSQL does not answer: " + err.Error())
+	}
+	if err := Migrate(ctx, pool); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return &Store{pool: pool}, nil
+}
+
+// Close closes the connections of the store.
+func (s *Store) Close() { s.pool.Close() }
+
+// Session returns the store for one call. The context gives the deadline of each statement.
+func (s *Store) Session(ctx context.Context) ops.Session {
+	return session{view{ctx, s.pool}, s.pool}
+}
+
+// raw returns the 32 bytes of a reference or a digest. A string of a different form names no row.
+func raw(ref string) ([]byte, bool) {
+	if !jsontext.IsDigest(ref) {
+		return nil, false
+	}
+	out, err := hex.DecodeString(ref[len("sha256:"):])
+	return out, err == nil
+}
+
+// must returns the bytes of a reference that the core made. A different form is a defect of the caller.
+func must(ref string) []byte {
+	out, ok := raw(ref)
+	if !ok {
+		ops.Raise(errors.New("a reference of a write does not have the form of a digest"))
+	}
+	return out
+}
+
+// optional returns the bytes of a reference, or nil for the empty string.
+func optional(ref string) []byte {
+	if ref == "" {
+		return nil
+	}
+	return must(ref)
+}
+
+func name(b []byte) string {
+	if b == nil {
+		return ""
+	}
+	return "sha256:" + hex.EncodeToString(b)
+}
+
+func raws(refs []string) [][]byte {
+	out := make([][]byte, len(refs))
+	for i, ref := range refs {
+		out[i] = must(ref)
+	}
+	return out
+}
+
+// querier is the part of a pool and of a transaction that the reads use.
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// view reads the store through a pool or a transaction. Each failure is a storage fault (ops.Raise).
+type view struct {
+	ctx context.Context
+	q   querier
+}
+
+// row scans one row. It returns false if the query gives no row.
+func (v view) row(dest []any, sql string, args ...any) bool {
+	err := v.q.QueryRow(v.ctx, sql, args...).Scan(dest...)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false
+	}
+	if err != nil {
+		ops.Raise(err)
+	}
+	return true
+}
+
+func (v view) exists(sql string, args ...any) bool {
+	var found bool
+	v.row([]any{&found}, `SELECT EXISTS (`+sql+`)`, args...)
+	return found
+}
+
+// each runs a query and calls scan for each row.
+func (v view) each(scan func(rows pgx.Rows) error, sql string, args ...any) {
+	rows, err := v.q.Query(v.ctx, sql, args...)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err := scan(rows); err != nil {
+			ops.Raise(err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+}
+
+// refs returns the references of a query with one `bytea` column.
+func (v view) refs(sql string, args ...any) []string {
+	var out []string
+	v.each(func(rows pgx.Rows) error {
+		var b []byte
+		if err := rows.Scan(&b); err != nil {
+			return err
+		}
+		out = append(out, name(b))
+		return nil
+	}, sql, args...)
+	return out
+}
+
+func (v view) exec(sql string, args ...any) {
+	if _, err := v.q.Exec(v.ctx, sql, args...); err != nil {
+		ops.Raise(err)
+	}
+}
+
+func (v view) Object(ref string) (string, []byte, bool) {
+	key, ok := raw(ref)
+	if !ok {
+		return "", nil, false
+	}
+	var kind string
+	var text []byte
+	if !v.row([]any{&kind, &text}, `SELECT kind, canonical FROM objects WHERE ref = $1`, key) {
+		return "", nil, false
+	}
+	return kind, text, true
+}
+
+func (v view) Targets(ref string) []string {
+	key, ok := raw(ref)
+	if !ok {
+		return nil
+	}
+	return v.refs(`SELECT dst FROM edges WHERE src = $1 ORDER BY dst`, key)
+}
+
+func (v view) Sources(ref string) []string {
+	key, ok := raw(ref)
+	if !ok {
+		return nil
+	}
+	return v.refs(`SELECT src FROM edges WHERE dst = $1 ORDER BY src`, key)
+}
+
+func (v view) Blob(digest string) ([]byte, bool) {
+	key, ok := raw(digest)
+	if !ok {
+		return nil, false
+	}
+	data := []byte{}
+	if !v.row([]any{&data}, `SELECT data FROM payloads WHERE digest = $1`, key) {
+		return nil, false
+	}
+	return data, true
+}
+
+func (v view) HasDeferred(ref string) bool {
+	key, ok := raw(ref)
+	return ok && v.exists(`SELECT 1 FROM deferred WHERE ref = $1`, key)
+}
+
+func (v view) DeferredRefs(digest string) []string {
+	key, ok := raw(digest)
+	if !ok {
+		return nil
+	}
+	return v.refs(`SELECT ref FROM deferred WHERE digest = $1 ORDER BY ref`, key)
+}
+
+func (v view) HasSnapshot(collection string) bool {
+	return v.exists(`SELECT 1 FROM objects WHERE kind = 'snapshot' AND collection = $1`, []byte(collection))
+}
+
+func (v view) Heads(collections []string) map[string]string {
+	names := make([][]byte, len(collections))
+	for i, c := range collections {
+		names[i] = []byte(c)
+	}
+	out := map[string]string{}
+	v.each(func(rows pgx.Rows) error { // one statement: one atomic read (CTX-VIW-3)
+		var collection, snapshot []byte
+		if err := rows.Scan(&collection, &snapshot); err != nil {
+			return err
+		}
+		out[string(collection)] = name(snapshot)
+		return nil
+	}, `SELECT collection, snapshot FROM heads WHERE collection = ANY($1::bytea[])`, names)
+	return out
+}
+
+func (v view) Section(collection string) (string, bool) {
+	var section string
+	ok := v.row([]any{&section}, `SELECT section FROM sections WHERE collection = $1`, []byte(collection))
+	return section, ok
+}
+
+func (v view) Gated(collection string) bool {
+	return v.exists(`SELECT 1 FROM gates WHERE collection = $1`, []byte(collection))
+}
+
+func (v view) Candidate(id string) (ops.Candidate, bool) {
+	key, ok := raw(id)
+	if !ok {
+		return ops.Candidate{}, false
+	}
+	var snapshot, collection, policy, expected []byte
+	if !v.row([]any{&snapshot, &collection, &policy, &expected},
+		`SELECT snapshot, collection, policy, expected_head FROM candidates WHERE id = $1`, key) {
+		return ops.Candidate{}, false
+	}
+	return ops.Candidate{ID: id, Snapshot: name(snapshot), Collection: string(collection), Policy: string(policy),
+		ExpectedHead: name(expected)}, true
+}
+
+func (v view) Published(candidate string) bool {
+	key, ok := raw(candidate)
+	return ok && v.exists(`SELECT 1 FROM publications WHERE candidate = $1`, key)
+}
+
+func (v view) Publications(collection string) []ops.Publication {
+	var out []ops.Publication
+	v.each(func(rows pgx.Rows) error {
+		var candidate, receipt, activation, previous, head []byte
+		if err := rows.Scan(&candidate, &receipt, &activation, &previous, &head); err != nil {
+			return err
+		}
+		out = append(out, ops.Publication{Candidate: name(candidate), Receipt: name(receipt), Activation: name(activation),
+			Collection: collection, PreviousHead: name(previous), Head: name(head)})
+		return nil
+	}, `SELECT candidate, receipt, activation, previous_head, head FROM publications WHERE collection = $1 ORDER BY seq`,
+		[]byte(collection))
+	return out
+}
+
+func (v view) Context(id string) (ops.ContextRecord, bool) {
+	var roots [][]byte
+	var capabilities []string
+	if !v.row([]any{&roots, &capabilities}, `SELECT roots, capabilities FROM contexts WHERE id = $1`, []byte(id)) {
+		return ops.ContextRecord{}, false
+	}
+	record := ops.ContextRecord{Roots: make([]string, len(roots)), Capabilities: capabilities}
+	for i, root := range roots {
+		record.Roots[i] = name(root)
+	}
+	return record, true
+}
+
+func (v view) IsMember(context, ref string) bool {
+	key, ok := raw(ref)
+	return ok && v.exists(`SELECT 1 FROM context_members WHERE context = $1 AND ref = $2`, []byte(context), key)
+}
+
+func (v view) Members(context string) []string {
+	return v.refs(`SELECT ref FROM context_members WHERE context = $1 ORDER BY ref`, []byte(context))
+}
+
+func (v view) ProducerObject(producer, key string) ([]byte, bool) {
+	data := []byte{}
+	if !v.row([]any{&data}, `SELECT data FROM producer_objects WHERE producer = $1 AND key = $2`, []byte(producer), []byte(key)) {
+		return nil, false
+	}
+	return data, true
+}
+
+func (v view) ProducerRemoved(producer, key string) bool {
+	return v.exists(`SELECT 1 FROM producer_removals WHERE producer = $1 AND key = $2`, []byte(producer), []byte(key))
+}
+
+func (v view) ProducerRemovals(producer string) []ops.Removal {
+	var out []ops.Removal
+	v.each(func(rows pgx.Rows) error {
+		var r ops.Removal
+		var key, reason []byte
+		if err := rows.Scan(&r.Sequence, &key, &r.Time, &reason); err != nil {
+			return err
+		}
+		r.Key, r.Reason = string(key), string(reason)
+		out = append(out, r)
+		return nil
+	}, `SELECT sequence, key, time, reason FROM producer_removals WHERE producer = $1 ORDER BY sequence`, []byte(producer))
+	return out
+}
+
+func (v view) ProducerEntries(producer, log string) []ops.Entry {
+	var out []ops.Entry
+	v.each(func(rows pgx.Rows) error {
+		var e ops.Entry
+		if err := rows.Scan(&e.Sequence, &e.Data); err != nil {
+			return err
+		}
+		if e.Data == nil {
+			e.Data = []byte{}
+		}
+		out = append(out, e)
+		return nil
+	}, `SELECT sequence, entry FROM producer_entries WHERE producer = $1 AND log = $2 ORDER BY sequence`,
+		[]byte(producer), []byte(log))
+	return out
+}
+
+// session is the store for one call. Each read is one statement on the pool.
+type session struct {
+	view
+	pool *pgxpool.Pool
+}
+
+// rollbackTime is the time that the rollback of a failed update can use.
+const rollbackTime = 5 * time.Second
+
+// Update runs fn in one transaction. The transaction commits when fn returns. If fn panics, or the commit
+// fails, the transaction does not commit (STS-MAL-2).
+func (s session) Update(fn func(tx ops.Tx)) {
+	t, err := s.pool.Begin(s.ctx)
+	if err != nil {
+		ops.Raise(err)
+	}
+	committed := false
+	defer func() {
+		if !committed { // the context of the call can be at its deadline, so the rollback has its own
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(s.ctx), rollbackTime)
+			defer cancel()
+			_ = t.Rollback(ctx)
+		}
+	}()
+	fn(tx{view{s.ctx, t}})
+	if err := t.Commit(s.ctx); err != nil {
+		ops.Raise(err)
+	}
+	committed = true
+}
+
+// tx is one update: a transaction at the READ COMMITTED level. After a lock, a read gives the committed
+// state of each update that had the lock before.
+type tx struct{ view }
+
+func (t tx) LockCollections(collections []string) {
+	names := append([]string(nil), collections...)
+	sort.Strings(names) // one order for each update, so two updates cannot wait for each other
+	for _, c := range names {
+		t.exec(`INSERT INTO collection_locks (collection) VALUES ($1) ON CONFLICT DO NOTHING`, []byte(c))
+		t.exec(`SELECT 1 FROM collection_locks WHERE collection = $1 FOR UPDATE`, []byte(c))
+	}
+}
+
+func (t tx) LockDigests(digests []string) {
+	names := append([]string(nil), digests...)
+	sort.Strings(names)
+	for _, d := range names {
+		key := must(d)
+		var id int64
+		for _, b := range key[:8] {
+			id = id<<8 | int64(b)
+		}
+		t.exec(`SELECT pg_advisory_xact_lock($1)`, id)
+	}
+}
+
+func (t tx) PutObject(o ops.Object) {
+	var collection []byte
+	if o.Kind == "snapshot" {
+		collection = []byte(o.Collection)
+	}
+	t.exec(`INSERT INTO objects (ref, kind, collection, canonical) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+		must(o.Ref), o.Kind, collection, o.Text)
+	if len(o.Targets) > 0 {
+		t.exec(`INSERT INTO edges (src, dst) SELECT $1, unnest($2::bytea[]) ON CONFLICT DO NOTHING`, must(o.Ref), raws(o.Targets))
+	}
+}
+
+func (t tx) PutBlob(digest string, data []byte) {
+	if data == nil {
+		data = []byte{}
+	}
+	t.exec(`INSERT INTO payloads (digest, size, data) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, must(digest), len(data), data)
+}
+
+func (t tx) ClearDeferred(digest string) {
+	t.exec(`DELETE FROM deferred WHERE digest = $1`, must(digest))
+}
+
+func (t tx) PutDeferred(digest, ref string) {
+	t.exec(`INSERT INTO deferred (digest, ref) VALUES ($1, $2) ON CONFLICT DO NOTHING`, must(digest), must(ref))
+}
+
+func (t tx) DeclareGate(collection string) {
+	t.exec(`INSERT INTO gates (collection) VALUES ($1) ON CONFLICT DO NOTHING`, []byte(collection))
+}
+
+func (t tx) DeclareSection(collection, section string) {
+	t.exec(`INSERT INTO sections (collection, section) VALUES ($1, $2) ON CONFLICT DO NOTHING`, []byte(collection), section)
+}
+
+func (t tx) PutCandidate(c ops.Candidate) {
+	t.exec(`INSERT INTO candidates (id, snapshot, collection, policy, expected_head) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+		must(c.ID), must(c.Snapshot), []byte(c.Collection), []byte(c.Policy), optional(c.ExpectedHead))
+}
+
+func (t tx) Publish(p ops.Publication) {
+	t.exec(`INSERT INTO heads (collection, snapshot) VALUES ($1, $2) ON CONFLICT (collection) DO UPDATE SET snapshot = EXCLUDED.snapshot`,
+		[]byte(p.Collection), must(p.Head))
+	t.exec(`INSERT INTO publications (collection, candidate, receipt, activation, previous_head, head) VALUES ($1, $2, $3, $4, $5, $6)`,
+		[]byte(p.Collection), must(p.Candidate), must(p.Receipt), optional(p.Activation), optional(p.PreviousHead), must(p.Head))
+}
+
+func (t tx) PutContext(id string, record ops.ContextRecord, members []string) {
+	capabilities := record.Capabilities
+	if capabilities == nil {
+		capabilities = []string{}
+	}
+	t.exec(`INSERT INTO contexts (id, roots, capabilities) VALUES ($1, $2, $3)`, []byte(id), raws(record.Roots), capabilities)
+	if len(members) > 0 {
+		t.exec(`INSERT INTO context_members (context, ref) SELECT $1, unnest($2::bytea[]) ON CONFLICT DO NOTHING`, []byte(id), raws(members))
+	}
+}
+
+func (t tx) PutProducerObject(producer, key string, data []byte) {
+	if data == nil {
+		data = []byte{}
+	}
+	t.exec(`INSERT INTO producer_objects (producer, key, data) VALUES ($1, $2, $3)`, []byte(producer), []byte(key), data)
+}
+
+func (t tx) DeleteProducerObject(producer, key string) {
+	t.exec(`DELETE FROM producer_objects WHERE producer = $1 AND key = $2`, []byte(producer), []byte(key))
+}
+
+func (t tx) PutProducerRemoval(producer string, r ops.Removal) {
+	t.exec(`INSERT INTO producer_removals (producer, sequence, key, time, reason) VALUES ($1, $2, $3, $4, $5)`,
+		[]byte(producer), r.Sequence, []byte(r.Key), r.Time, []byte(r.Reason))
+}
+
+func (t tx) PutProducerEntry(producer, log string, e ops.Entry) {
+	data := e.Data
+	if data == nil {
+		data = []byte{}
+	}
+	t.exec(`INSERT INTO producer_entries (producer, log, sequence, entry) VALUES ($1, $2, $3, $4)`,
+		[]byte(producer), []byte(log), e.Sequence, data)
+}
