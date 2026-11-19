@@ -17,7 +17,9 @@ class Adapter(Protocol):
     `fingerprint` returns a text that changes if the content of the given
     store changes. `accept`
     registers an acceptance policy (PUB-RCP-1): a validator of a candidate
-    identity, a receipt reference and an activation reference or None.
+    identity, a receipt reference and an activation reference or None. The
+    validator raises TimeoutError if it does not answer before its deadline
+    (PUB-RCP-4).
     `gate` declares a collection as gated
     (PUB-GAT-1). `section` declares the storage section of a collection
     (PUB-SEC-1).

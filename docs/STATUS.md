@@ -1,6 +1,6 @@
 # Status
 
-Version 0.3.0 is the current version. The specification has 20 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
+Version 0.3.0 is the current version. The specification has 22 contract documents in the `draft` state. The reference implementation in `src/` passes all conformance vectors. The null implementation fails, as it must.
 
 ## Done
 
@@ -12,6 +12,7 @@ Version 0.3.0 is the current version. The specification has 20 contract document
 - Filters: the half-open range match and the interval match on declared columns, and the filter on declared metadata for a listing and an export.
 - Producer exports: the admitted-facts adapter accepts the optional export members, and the PDF example reads the page from the citation locator (#80, PR 85).
 - Device imports: a bundle with absent withheld bytes keeps each descriptor and defers the byte checks until a read (#58).
+- Bundle update: a device store accepts a second import and adds only the new content. A context that was open before the update keeps its members (BUN-UPD-1 to BUN-UPD-6, #97). Documents 21 and 22 specify the SQLite layout of a device store and the network read binding. The reference implementation does not declare these two profiles.
 - Activation integration: the seam test checks a valid activation, a refused activation and a repeat (#4). The library example moves one update through the gate and reads the head with a metadata filter (#83). Both use stand-in activation records until entelos publishes the record format in a tagged release.
 
 ## Next
