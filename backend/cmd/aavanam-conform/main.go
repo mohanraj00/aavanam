@@ -1,8 +1,9 @@
 // Command aavanam-conform is the conformance driver of the backend. It connects the Python vector runner
 // to the writer store over the line protocol of package conformance.
 //
-// In this version each storage gives `unsupported_operation` for each call. The storage `pg` also checks
-// the connection to PostgreSQL. A later change adds the stores.
+// The storage `mem` is the Go core on a storage in memory. In this version the storage `pg` checks the
+// connection to PostgreSQL and gives `unsupported_operation` for each call. The storage `null` always
+// refuses each call.
 package main
 
 import (
@@ -15,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mohanraj00/aavanam/backend/conformance"
+	"github.com/mohanraj00/aavanam/backend/core/memstore"
 )
 
 func main() {
@@ -26,8 +28,13 @@ func main() {
 	flag.Parse()
 	var store conformance.Store
 	switch *storage {
-	case "null", "mem":
+	case "null":
 		store = conformance.Null{}
+	case "mem":
+		store = &conformance.Core{Debug: os.Getenv("AAVANAM_DEBUG") != "", Open: func() (map[string]conformance.Backing, error) {
+			device := memstore.New()
+			return map[string]conformance.Backing{"writer": memstore.New(), "device": device, "output": device.Output()}, nil
+		}}
 	case "pg":
 		pool, err := connect(os.Getenv("AAVANAM_PG_DSN"))
 		if err != nil {
@@ -38,6 +45,10 @@ func main() {
 		store = conformance.Null{}
 	default:
 		fmt.Fprintf(os.Stderr, "aavanam-conform: unknown storage %q\n", *storage)
+		os.Exit(2)
+	}
+	if err := store.Reset(); err != nil {
+		fmt.Fprintln(os.Stderr, "aavanam-conform:", err)
 		os.Exit(2)
 	}
 	if err := conformance.Serve(os.Stdin, os.Stdout, store, conformance.Hello{Ready: true}); err != nil {
