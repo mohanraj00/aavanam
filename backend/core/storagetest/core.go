@@ -27,6 +27,7 @@ func Core(t *testing.T, open Open) {
 	t.Run("Publication", func(t *testing.T) { publication(t, newFixture(t, open(t))) })
 	t.Run("GateDuringValidation", func(t *testing.T) { gateDuringValidation(t, newFixture(t, open(t))) })
 	t.Run("ConcurrentPublish", func(t *testing.T) { concurrentPublish(t, newFixture(t, open(t))) })
+	t.Run("GateWaitsForThePublication", func(t *testing.T) { gateWaits(t, newFixture(t, open(t))) })
 	t.Run("Producer", func(t *testing.T) { producer(t, newFixture(t, open(t))) })
 	t.Run("ConcurrentProducer", func(t *testing.T) { concurrentProducer(t, newFixture(t, open(t))) })
 }

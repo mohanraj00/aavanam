@@ -169,6 +169,50 @@ func gateDuringValidation(t *testing.T, f *fixture) {
 	}
 }
 
+// A gate declaration of a different open waits for an update that has the lock of the collection, as the
+// atomic step of a `publish` has (PUB-GAT-3, PUB-HED-3 step 5). Thus no declaration ends between the gate
+// check of that step and its commit.
+func gateWaits(t *testing.T, f *fixture) {
+	locked, release, declared := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		f.storage.Session(context.Background()).Update(func(tx ops.Tx) {
+			tx.LockCollections([]string{"g"})
+			if tx.Gated("g") {
+				t.Error("the collection has a gate before the declaration")
+			}
+			close(locked)
+			<-release
+		})
+	}()
+	<-locked
+	go func() { declared <- ops.New(ops.Writer, f.storage, Registry()).Gate(context.Background(), "g") }()
+	early := false
+	select {
+	case err := <-declared:
+		early = true
+		t.Errorf("the declaration did not wait for the update that has the collection lock: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	close(release)
+	wg.Wait()
+	if !early {
+		select {
+		case err := <-declared:
+			if err != nil {
+				t.Error(err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("the declaration did not end after the update")
+		}
+	}
+	if !f.storage.Session(context.Background()).Gated("g") {
+		t.Error("the store does not have the declaration")
+	}
+}
+
 // Two calls publish two candidates with one expected head at the same time. One call publishes its
 // candidate, and the other gets `head_moved` (PUB-HED-3 step 5, PUB-RCP-3).
 func concurrentPublish(t *testing.T, f *fixture) {

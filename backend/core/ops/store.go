@@ -208,6 +208,9 @@ func (s *Store) Gate(ctx context.Context, collection string) error {
 		return errors.New("declare a gated collection before the first call (PUB-GAT-1)")
 	}
 	return s.configure(ctx, func(tx Tx) error {
+		// The atomic step of a `publish` has this lock when it applies the gate check (PUB-GAT-3). Thus a
+		// declaration ends before that step starts or after it ends, never between its check and its commit.
+		tx.LockCollections([]string{collection})
 		tx.DeclareGate(collection)
 		return nil
 	})
