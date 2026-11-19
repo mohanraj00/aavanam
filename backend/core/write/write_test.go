@@ -355,3 +355,31 @@ func TestOpenContextAndGet(t *testing.T) {
 		}
 	}
 }
+
+// CTX-SKW-4: the store checks skew only if each item is `ok` after the collection conflict check
+// (CTX-CMP-1). Two snapshots of one collection give `ambiguous`, and two other snapshots with skew stay `ok`.
+func TestSkewCheckComesAfterTheCollectionConflict(t *testing.T) {
+	f := newFixture(t)
+	snapshot := func(collection, profileID string) string {
+		profile1 := `{` + profile + `,"kind":"runtime-profile","logical_id":"runtime","profile_id":"` + profileID + `"}`
+		set := `{` + profile + `,"kind":"binding-set","runtime_profiles":["` + revision(t, profile1) + `"]}`
+		unit := `{` + profile + `,"kind":"knowledge-unit","binding_set":"` + revision(t, set) + `"}`
+		if got := summary(f.call("put", put([]string{profile1, set, unit}))); !strings.HasPrefix(got, "ok") {
+			t.Fatal(got)
+		}
+		return f.call("create_snapshot", `{"collection":"`+collection+`","units":["`+revision(t, unit)+`"]}`).Items[0].Fields[0].Val.Str
+	}
+	x, y := snapshot("x", "a/a/v1"), snapshot("y", "b/b/v1")
+	z1, z2 := snapshot("z", "a/a/v1"), snapshot("z", "b/b/v1")
+	roots := func(refs ...string) string { return `{"roots":["` + strings.Join(refs, `","`) + `"]}` }
+	if got := summary(f.call("open_context", roots(x, y))); got != "incompatible:binding_skew,binding_skew | incompatible:binding_skew | incompatible:binding_skew" {
+		t.Errorf("two snapshots with skew: %s", got)
+	}
+	if got := summary(f.call("open_context", roots(x, y)[:len(roots(x, y))-1]+`,"skew_policy":"permit"}`)); got != "ok | ok | ok" {
+		t.Errorf("the policy permit: %s", got)
+	}
+	want := "ambiguous:collection_conflict,collection_conflict | ambiguous:collection_conflict | ambiguous:collection_conflict | ok | ok"
+	if got := summary(f.call("open_context", roots(z1, z2, x, y))); got != want {
+		t.Errorf("a collection conflict and skew:\n got  %s\n want %s", got, want)
+	}
+}

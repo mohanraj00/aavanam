@@ -1,5 +1,11 @@
-"""Write fixtures.json: each descriptor text of the fixture vectors, with the canonical form and the revision
-that the reference implementation gives. The Go test of package canon compares its results with this file.
+"""Write fixtures.json: each descriptor text of the fixture vectors, with its canonical form and its revision.
+The Go test of package canon compares its results with this file.
+
+The expected values come from the conformance runner. The runner computes the normal form, the canonical
+form and the revision by itself, from the tables of the specification (IDN-CAN-1, IDN-CAN-2, KND-SCH-3,
+KND-SCH-5), and no implementation gives them. The reference implementation only runs the vectors, so that
+each reference in a descriptor has its value. This script also stops if the reference implementation gives
+a different canonical form or revision.
 
 Run from the root of the repository: python3 -B backend/core/canon/testdata/golden.py
 """
@@ -15,6 +21,9 @@ from aavanam import descriptors, jsontext  # noqa: E402
 from store_adapter import StoreAdapter  # noqa: E402
 
 
+SCHEMAS = runner.check_spec.schemas()
+
+
 class Recorder(StoreAdapter):
     seen: dict = {}
 
@@ -23,9 +32,12 @@ class Recorder(StoreAdapter):
         if operation == 'put' and isinstance(request.get('descriptors'), list):
             for text, item in zip(request['descriptors'], result.get('items', [])):
                 if item.get('status') == 'ok' and isinstance(text, str):
-                    normal = descriptors.check(jsontext.parse(text))
-                    assert jsontext.revision(normal) == item['ref']
-                    self.seen[text] = {'text': text, 'canonical': jsontext.canonical(normal), 'ref': item['ref']}
+                    value = json.loads(text)
+                    row = {'text': text, 'canonical': runner.canonical(runner.normal(value, SCHEMAS)),
+                           'ref': runner.revision(value, SCHEMAS)}
+                    assert jsontext.canonical(descriptors.check(jsontext.parse(text))) == row['canonical'], text
+                    assert item['ref'] == row['ref'], text
+                    self.seen[text] = row
         return result
 
 

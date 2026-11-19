@@ -332,7 +332,11 @@ func (b Batch) write(c *ops.Call, checked []Checked) (failed found, fault *envel
 		if len(stopped) > 0 {
 			panic(stopped)
 		}
-		for _, ref := range refs {
+		// The writes are in ascending order of the key, so two updates that write the same rows take
+		// the row locks of a storage in one order and cannot wait for each other.
+		ascending := append([]string(nil), refs...)
+		sort.Strings(ascending)
+		for _, ref := range ascending {
 			desc := batch[ref]
 			object := ops.Object{Ref: ref, Kind: check.Kind(desc), Text: canon.Canonical(desc), Targets: check.Targets(desc)}
 			if object.Kind == "snapshot" {
@@ -341,7 +345,9 @@ func (b Batch) write(c *ops.Call, checked []Checked) (failed found, fault *envel
 			}
 			tx.PutObject(object)
 		}
-		for _, digest := range order {
+		ascending = append([]string(nil), order...)
+		sort.Strings(ascending)
+		for _, digest := range ascending {
 			waiting := tx.DeferredRefs(digest)
 			tx.PutBlob(digest, blobs[digest])
 			tx.ClearDeferred(digest)

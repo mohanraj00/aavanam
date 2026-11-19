@@ -119,15 +119,16 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 		}
 	}
 	resolved := make([]string, 0, len(items))
-	allOK := true
 	for _, i := range items {
 		if i.Status == "ok" {
 			resolved = append(resolved, i.Fields[0].Val.Str)
-		} else {
-			allOK = false
 		}
 	}
 	composed(c, items)
+	allOK := true // CTX-SKW-4: after CTX-OPN-1, CTX-VIW-2 and CTX-CMP-1
+	for _, i := range items {
+		allOK = allOK && i.Status == "ok"
+	}
 	policy, hasPolicy := c.Request.Get("skew_policy")
 	if allOK && (!hasPolicy || policy.Str == "reject") {
 		skewed(c, items)
