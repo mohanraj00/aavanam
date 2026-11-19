@@ -16,9 +16,10 @@ The production backend is a Go service over PostgreSQL. The device store is a SQ
 - `reference/`: the Go module `github.com/mohanraj00/aavanam/reference`, the device reader that #65 names. It is an application module, not a part of the core store package. It imports `backend/core` with a `replace` directive to `../backend`.
   - `device/`: the SQLite storage, the FTS5 index and the bundle update. `cmd/aavanam-device/`: the device driver. `devicetest/`: the tests. `conformance/passing.txt`.
 - Versions: Go 1.27 (the `go` directive is `go 1.27`). PostgreSQL 17. SQLite 3.45 or later, with FTS5. CI tests only these versions.
-- Third-party dependencies, two in total:
+- Third-party dependencies, three in total:
   - `github.com/jackc/pgx/v5` in `backend/`. The PostgreSQL driver. The standard library has no PostgreSQL driver.
   - `modernc.org/sqlite` in `reference/`. A SQLite driver in Go with FTS5 included. It needs no cgo, so a device build can cross-compile.
+  - `golang.org/x/text` in `backend/`, only the package `unicode/norm`. `core/check` uses it for the NFC check of ADP-SEL-4. The standard library has no normalization tables. The PostgreSQL driver already needs this module.
 - No JSON or RFC 8785 library. The standard `encoding/json` decoder changes a lone surrogate escape and invalid UTF-8 into U+FFFD, and it accepts a duplicate key. These changes hide `malformed_json`, `duplicate_key` and `non_ijson_value` (STS-MAL-3 step 1). Thus `core/jsontext` is a strict reader with an explicit stack and no recursion, as `src/aavanam/jsontext.py` is.
 - CI runs PostgreSQL as a GitHub Actions service container, `postgres:17` pinned by digest, with a health check. The jobs read `AAVANAM_PG_DSN`. A local run uses the same image in Docker.
 

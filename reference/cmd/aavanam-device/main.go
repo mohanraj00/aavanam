@@ -16,6 +16,9 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/mohanraj00/aavanam/backend/conformance"
+	// The device store applies the checks of the core. This import keeps the requirements of the module
+	// the same when the store comes.
+	_ "github.com/mohanraj00/aavanam/backend/core/check"
 )
 
 // Layout is the identity of the layout profile (DEV-PRF-1).

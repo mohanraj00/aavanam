@@ -173,7 +173,6 @@ jobs:
           --health-retries 20
     env:
       AAVANAM_PG_DSN: postgres://aavanam:ci-only@127.0.0.1:5432/aavanam?sslmode=disable
-      AAVANAM_CONFORM_BIN: ${{ runner.temp }}/aavanam-conform
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -199,7 +198,9 @@ jobs:
           go test ./...
       - name: Build the driver
         working-directory: backend
-        run: go build -o "$RUNNER_TEMP/aavanam-conform" ./cmd/aavanam-conform
+        run: |
+          go build -o "$RUNNER_TEMP/aavanam-conform" ./cmd/aavanam-conform
+          echo "AAVANAM_CONFORM_BIN=$RUNNER_TEMP/aavanam-conform" >> "$GITHUB_ENV"
       # The Makefile has the commands of these steps, so a local run and this job use the same commands.
       - name: Run the listed vectors on the storage in memory
         run: make check-backend-mem
@@ -219,8 +220,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    env:
-      AAVANAM_DEVICE_BIN: ${{ runner.temp }}/aavanam-device
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -248,7 +247,9 @@ jobs:
           go test ./...
       - name: Build the driver
         working-directory: reference
-        run: go build -o "$RUNNER_TEMP/aavanam-device" ./cmd/aavanam-device
+        run: |
+          go build -o "$RUNNER_TEMP/aavanam-device" ./cmd/aavanam-device
+          echo "AAVANAM_DEVICE_BIN=$RUNNER_TEMP/aavanam-device" >> "$GITHUB_ENV"
       - name: Run the listed vectors on the device store
         run: make check-device
   # Build the wheel and the source archive from a clean copy of the commit, then run the examples from the wheel.
