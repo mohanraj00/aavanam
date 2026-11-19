@@ -31,7 +31,7 @@
   "backend/conformance/driver.go": "616cd91fc563fbde524ef1405616323ddf54fda7f25ae144e8d89daf047915d7",
   "backend/conformance/driver_test.go": "f302790eff934a2aa1bb4daa298d09617f8a5270588db439382cf916e6268d5d",
   "backend/conformance/passing-mem-core.txt": "6492b16612989bf896008fbe519eca5e8df0398cbf4af2a62024fd754e936d63",
-  "backend/conformance/passing-mem-read.txt": "d96fa012bc11f0594d7b46b5f25a680f947352bfe79b73c85a5975a643840819",
+  "backend/conformance/passing-mem-read.txt": "f290f3f21cb6d0d5d4411e27ee96536f7a6738360b1ef1acc2baa591dfa66d04",
   "backend/conformance/passing.txt": "c3a2a7d1fa9ba21234095a242bd5e5a6cf34e288dd969dffc9f18a8162ec4967",
   "backend/core/canon/canon.go": "663d0a7c0e38b7362df64c77b3f7af8d541e911eee86ee0f71706ac3f201858c",
   "backend/core/canon/canon_test.go": "97794fc0a1b1bef03aaee62eeadf50f2af4c04799fb709837a544c9dd1d0b719",
