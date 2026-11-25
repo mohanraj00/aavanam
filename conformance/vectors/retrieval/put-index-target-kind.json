@@ -1,0 +1,52 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An index whose snapshot field names a unit gives unsupported_target_kind",
+  "clauses": [
+    "IDX-PRF-2",
+    "KND-REF-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/put-index-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retrieval-index",
+              "snapshot": {
+                "$ref": "u-pump"
+              },
+              "method": "aavanam/hashed-terms/v1",
+              "parameters": {
+                "dimensions": 16
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

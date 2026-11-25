@@ -1,0 +1,146 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An index with one dimension gives each item with a text the score 1",
+  "clauses": [
+    "IDX-MTH-4",
+    "IDX-MTH-5",
+    "IDX-SRC-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "With one dimension, each term has the bucket 0. Thus each item with one or more words shares one bucket with each query. The index with 65536 dimensions gives no item for this query."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1-one"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1-one"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1-one"
+        },
+        "query": "zebra"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1-one"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1-one"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1-one"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1-one"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

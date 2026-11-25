@@ -200,10 +200,11 @@ class BackendAdapter:
             if store.role != 'output':  # the device store closes its output store
                 store.close()
         self.local = {}
+        # This adapter has no `declare` method, so a store declares no profile (KND-REG-2, RSV-LST-4).
         if self.writer == 'reference':
-            self.local['writer'] = Store(debug=debug)
+            self.local['writer'] = Store(debug=debug, profiles=())
         if self.device == 'reference':
-            device = Store(debug=debug, role='device')  # with its local output store (BUN-IMP-5)
+            device = Store(debug=debug, role='device', profiles=())  # with its local output store (BUN-IMP-5)
             self.local['device'], self.local['output'] = device, device.output
 
     def processes(self) -> list[Driver]:

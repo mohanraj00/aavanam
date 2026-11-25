@@ -1,0 +1,53 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An index whose snapshot is not in the store gives missing_target",
+  "clauses": [
+    "IDX-PRF-2",
+    "IDX-DEF-1",
+    "KND-REF-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/put-index-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retrieval-index",
+              "snapshot": {
+                "$absent": "x"
+              },
+              "method": "aavanam/hashed-terms/v1",
+              "parameters": {
+                "dimensions": 16
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "missing_target"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "missing_target"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

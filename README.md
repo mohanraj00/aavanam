@@ -115,13 +115,13 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.4.0 is the current version. All 23 contract documents are drafts. Version 0.4.0 adds a production backend in Go over PostgreSQL with reads over HTTP, and a device store in Go over SQLite with a text index. It also adds the bundle update, the device layout (document 21) and the read binding (document 22). The activation seam now uses signed activation records. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.4.0 is the current version. All 24 contract documents are drafts. Version 0.4.0 adds a production backend in Go over PostgreSQL with reads over HTTP, and a device store in Go over SQLite with a text index. It also adds the bundle update, the device layout (document 21) and the read binding (document 22). The activation seam now uses signed activation records. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 438, in 23 documents under `docs/contracts/` |
-| Conformance vectors | 694. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 693. The runner exits with 1 |
+| Contract clauses | 466, in 24 documents under `docs/contracts/` |
+| Conformance vectors | 739. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 738. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
 | Reference implementation | Python over SQLite. The standard library only |
 

@@ -1,0 +1,170 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A context with only an index as its root has the index and the closure of its snapshot",
+  "clauses": [
+    "IDX-DEF-3",
+    "IDX-STL-2",
+    "IDX-SRC-2",
+    "CTX-OPN-1",
+    "CTX-OPN-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The store has a later snapshot of the collection. The context has no snapshot root, so the index of the earlier snapshot is not stale (IDX-STL-2)."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "i1"
+          },
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "a-valve-m"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-valve-m"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "pump bearing"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

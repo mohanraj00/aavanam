@@ -1,0 +1,118 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An index of an external method is an object with opaque parameters",
+  "clauses": [
+    "IDX-MTH-2",
+    "IDX-DEF-1",
+    "IDX-DEF-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "i-other",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retrieval-index",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "method": "sample/embedding/v2",
+              "parameters": {
+                "model": "sample-model-2",
+                "weights": [
+                  1,
+                  2
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "i-other"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i-other"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "i-other"
+          },
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i-other"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

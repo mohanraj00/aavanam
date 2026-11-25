@@ -146,7 +146,7 @@ class ProfileTest(unittest.TestCase):
         self.assertEqual((refusal(changes), changes['items']), (('unsupported', ['unknown_kind']), []))
         self.assertEqual(store.fingerprint(), before)
         self.assertEqual(put(store, lock)['status'], 'ok')
-        self.assertEqual(Store(debug=True).profiles, ('aavanam/layer/v1',))
+        self.assertEqual(Store(debug=True).profiles, ('aavanam/layer/v1', 'aavanam/semantic-index/v1'))
         with self.assertRaises(ValueError):
             Store(profiles=('sample/other/v1',))
 

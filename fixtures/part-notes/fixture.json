@@ -1,0 +1,440 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-part-notes",
+  "root": "s1",
+  "payloads": {},
+  "descriptors": [
+    {
+      "as": "a-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Grease the pump bearing each week.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Close the valve before service of the pump.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-valve-m",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Valve manual: open the valve slowly.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-seal",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Replace the seal each year.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-seal-b",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/drawing/v1",
+        "payload": {
+          "$text": "pump pump pump",
+          "media_type": "application/octet-stream"
+        }
+      }
+    },
+    {
+      "as": "a-motor",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Check the motor bearing and the pump bearing.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-loose",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Loose note about the pump.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "b-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "parameters": {
+          "item": "pump"
+        }
+      }
+    },
+    {
+      "as": "b-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "manual": {
+            "$ref": "a-valve-m"
+          }
+        }
+      }
+    },
+    {
+      "as": "b-seal",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "drawing": {
+            "$ref": "a-seal-b"
+          }
+        }
+      }
+    },
+    {
+      "as": "b-motor",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "parameters": {
+          "item": "motor"
+        }
+      }
+    },
+    {
+      "as": "u-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "pump",
+        "binding_set": {
+          "$ref": "b-pump"
+        },
+        "narratives": [
+          {
+            "$ref": "a-pump"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "valve",
+        "binding_set": {
+          "$ref": "b-valve"
+        },
+        "narratives": [
+          {
+            "$ref": "a-valve"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u-seal",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "seal",
+        "binding_set": {
+          "$ref": "b-seal"
+        },
+        "narratives": [
+          {
+            "$ref": "a-seal"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u-motor",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "motor",
+        "binding_set": {
+          "$ref": "b-motor"
+        },
+        "narratives": [
+          {
+            "$ref": "a-motor"
+          }
+        ]
+      }
+    },
+    {
+      "as": "o-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "u-pump"
+        },
+        "origin": "sample-planner",
+        "values": {
+          "area": "north"
+        }
+      }
+    },
+    {
+      "as": "o-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "u-valve"
+        },
+        "origin": "sample-planner",
+        "values": {
+          "area": "south"
+        }
+      }
+    },
+    {
+      "as": "o-motor",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "u-motor"
+        },
+        "origin": "sample-planner",
+        "values": {
+          "area": "north"
+        }
+      }
+    },
+    {
+      "as": "os-area",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay-set",
+        "members": [
+          {
+            "$ref": "o-pump"
+          },
+          {
+            "$ref": "o-valve"
+          },
+          {
+            "$ref": "o-motor"
+          }
+        ]
+      }
+    },
+    {
+      "as": "s1",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-part-notes",
+        "units": [
+          {
+            "$ref": "u-pump"
+          },
+          {
+            "$ref": "u-valve"
+          },
+          {
+            "$ref": "u-seal"
+          },
+          {
+            "$ref": "u-motor"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os-area"
+          }
+        ]
+      }
+    },
+    {
+      "as": "a-pump-2",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Grease the pump bearing each day.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "u-pump-2",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "pump",
+        "binding_set": {
+          "$ref": "b-pump"
+        },
+        "narratives": [
+          {
+            "$ref": "a-pump-2"
+          }
+        ]
+      }
+    },
+    {
+      "as": "a-fan",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Clean the fan blades.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "b-fan",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "parameters": {
+          "item": "fan"
+        }
+      }
+    },
+    {
+      "as": "u-fan",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "fan",
+        "binding_set": {
+          "$ref": "b-fan"
+        },
+        "narratives": [
+          {
+            "$ref": "a-fan"
+          }
+        ]
+      }
+    },
+    {
+      "as": "s2",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-part-notes",
+        "units": [
+          {
+            "$ref": "u-pump-2"
+          },
+          {
+            "$ref": "u-valve"
+          },
+          {
+            "$ref": "u-seal"
+          },
+          {
+            "$ref": "u-motor"
+          },
+          {
+            "$ref": "u-fan"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os-area"
+          }
+        ]
+      }
+    },
+    {
+      "as": "i1",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "retrieval-index",
+        "snapshot": {
+          "$ref": "s1"
+        },
+        "method": "aavanam/hashed-terms/v1",
+        "parameters": {
+          "dimensions": 65536
+        }
+      }
+    },
+    {
+      "as": "i1-one",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "retrieval-index",
+        "snapshot": {
+          "$ref": "s1"
+        },
+        "method": "aavanam/hashed-terms/v1",
+        "parameters": {
+          "dimensions": 1
+        }
+      }
+    },
+    {
+      "as": "i2",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "retrieval-index",
+        "snapshot": {
+          "$ref": "s2"
+        },
+        "method": "aavanam/hashed-terms/v1",
+        "parameters": {
+          "dimensions": 65536
+        }
+      }
+    },
+    {
+      "as": "i-ext",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "retrieval-index",
+        "snapshot": {
+          "$ref": "s1"
+        },
+        "method": "sample/embedding/v1",
+        "parameters": {
+          "model": "sample-model-1",
+          "dimensions": 8
+        }
+      }
+    }
+  ]
+}

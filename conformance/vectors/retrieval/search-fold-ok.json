@@ -1,0 +1,128 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search folds A to Z in the query and in the texts",
+  "clauses": [
+    "IDX-MTH-4",
+    "IDX-SRC-3",
+    "CRD-TXT-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "PUMP Bearing"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An index of the later snapshot gives the items of that snapshot",
+  "clauses": [
+    "IDX-SRC-3",
+    "IDX-STL-1",
+    "IDX-STL-2",
+    "IDX-MTH-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The later snapshot has the unit fan and a new revision of the unit pump. Each result names the later snapshot and the revision in it."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s2"
+          },
+          {
+            "$ref": "i2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i2"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i2"
+        },
+        "query": "fan pump"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-fan"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "fan",
+              "snapshot": {
+                "$ref": "s2"
+              },
+              "index": {
+                "$ref": "i2"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s2"
+              },
+              "index": {
+                "$ref": "i2"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump-2"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s2"
+              },
+              "index": {
+                "$ref": "i2"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s2"
+              },
+              "index": {
+                "$ref": "i2"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

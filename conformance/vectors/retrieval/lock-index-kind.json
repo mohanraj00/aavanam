@@ -1,0 +1,93 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A lock request with a snapshot in indexes gives unsupported_target_kind",
+  "clauses": [
+    "IDX-LCK-2",
+    "LCK-BLD-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/lock-build-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "build_inputs",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "inputs": [
+          {
+            "$ref": "u-pump"
+          }
+        ],
+        "consumer": "sample/recorder/build/v1",
+        "completeness": "sample/declared/v1",
+        "indexes": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "unsupported_target_kind",
+            "refs": [
+              {
+                "$ref": "s1"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

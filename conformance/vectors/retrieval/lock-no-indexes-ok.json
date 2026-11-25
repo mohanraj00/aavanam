@@ -1,0 +1,154 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An empty list of indexes gives a lock with no indexes",
+  "clauses": [
+    "IDX-LCK-1",
+    "KND-SCH-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The two requests give one lock (KND-SCH-3), so the second call does not change the store."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "build_inputs",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "inputs": [
+          {
+            "$ref": "u-pump"
+          }
+        ],
+        "consumer": "sample/recorder/build/v1",
+        "completeness": "sample/declared/v1",
+        "indexes": []
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-pump"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-pump"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    },
+    {
+      "operation": "build_inputs",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "inputs": [
+          {
+            "$ref": "u-pump"
+          }
+        ],
+        "consumer": "sample/recorder/build/v1",
+        "completeness": "sample/declared/v1"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-pump"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-pump"
+              }
+            }
+          }
+        ],
+        "unordered": true,
+        "store_unchanged": true
+      }
+    }
+  ]
+}

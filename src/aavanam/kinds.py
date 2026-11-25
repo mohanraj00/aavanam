@@ -1,4 +1,5 @@
-"""The kind table of the base profile (document 02) and of the layer profile (document 23). tests/test_tables.py
+"""The kind table of the base profile (document 02), of the layer profile (document 23) and of the retrieval index
+profile (document 24). tests/test_tables.py
 checks it against the documents.
 
 Each field has its value type, its count and its target kinds (KND-SCH-1, KND-REF-3). The groups of the
@@ -8,7 +9,9 @@ from __future__ import annotations
 
 BASE_PROFILE = 'aavanam/base/v1'
 LAYER_PROFILE = 'aavanam/layer/v1'  # document 23
-PROFILES = (LAYER_PROFILE,)  # the profiles that a store can declare (LYR-PRF-1)
+INDEX_PROFILE = 'aavanam/semantic-index/v1'  # document 24
+PROFILES = (LAYER_PROFILE, INDEX_PROFILE)  # the profiles that a store can declare (LYR-PRF-1, IDX-PRF-1)
+HASHED_TERMS = 'aavanam/hashed-terms/v1'  # the method of the retrieval index profile (IDX-MTH-1)
 REF_TYPES = ('ref', 'ref-map')
 SETS = ('0..n', '1..n')  # sets of KND-SCH-5; a count with 'list' keeps its order
 
@@ -142,6 +145,7 @@ KINDS = {
         'context_inputs': ('ref', '0..n', ('artifact', 'binding-set', 'check', 'data-resource', 'derivation', 'evidence', 'excerpt', 'knowledge-unit', 'observation', 'overlay', 'overlay-set', 'reading', 'receipt', 'relation-set', 'retraction', 'runtime-profile', 'schema', 'source', 'supersession')),
         'requires': ('string', '0..n', ()),
         'view': ('ref', '0..n', ('layer', 'snapshot')),  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-LCK-1)
+        'indexes': ('ref', '0..n', ('retrieval-index',)),  # the profile aavanam/semantic-index/v1 (IDX-PRF-2, IDX-LCK-3)
         'consumer': ('string', '1', ()),
         'completeness': ('string', '1', ()),
     },
@@ -149,6 +153,7 @@ KINDS = {
         'inputs': ('ref', '1..n', ('artifact', 'binding-set', 'check', 'data-resource', 'derivation', 'evidence', 'excerpt', 'knowledge-unit', 'observation', 'overlay', 'overlay-set', 'reading', 'receipt', 'relation-set', 'retraction', 'runtime-profile', 'schema', 'snapshot', 'source', 'supersession')),
         'requires': ('string', '0..n', ()),
         'view': ('ref', '0..n', ('layer', 'snapshot')),  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-LCK-1)
+        'indexes': ('ref', '0..n', ('retrieval-index',)),  # the profile aavanam/semantic-index/v1 (IDX-PRF-2, IDX-LCK-3)
         'consumer': ('string', '1', ()),
         'completeness': ('string', '1', ()),
     },
@@ -177,12 +182,18 @@ KINDS = {
         'observations': ('ref', '0..n', ('observation',)),
         'native_mappings': ('ref', '0..n', ('native-mapping',)),
     },
+    'retrieval-index': {  # the profile aavanam/semantic-index/v1 (IDX-PRF-2, IDX-DEF-1)
+        'snapshot': ('ref', '1', ('snapshot',)),
+        'method': ('string', '1', ()),
+        'parameters': ('json', '1', ()),
+    },
 }
 
 
-# The kinds and the fields that a profile adds (KND-REG-2, LYR-PRF-2). A store that does not declare the profile does not have them.
-PROFILE_KINDS = {'layer': LAYER_PROFILE}
-PROFILE_FIELDS = {('execution-lock', 'view'): LAYER_PROFILE, ('build-lock', 'view'): LAYER_PROFILE}
+# The kinds and the fields that a profile adds (KND-REG-2, LYR-PRF-2, IDX-PRF-2). A store that does not declare the profile does not have them.
+PROFILE_KINDS = {'layer': LAYER_PROFILE, 'retrieval-index': INDEX_PROFILE}
+PROFILE_FIELDS = {('execution-lock', 'view'): LAYER_PROFILE, ('build-lock', 'view'): LAYER_PROFILE,
+                  ('execution-lock', 'indexes'): INDEX_PROFILE, ('build-lock', 'indexes'): INDEX_PROFILE}
 
 
 def registered(kind, profiles=PROFILES) -> bool:

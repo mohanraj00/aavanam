@@ -23,6 +23,8 @@ This document lists features that the specification names but does not yet defin
 
 **RSV-LST-3.** The names in the reserved profile table are reserved. An extension MUST NOT add an operation or a profile with one of these names. Only a profile document that specifies the feature can use them.
 
+**RSV-LST-4.** Document 24 specifies the profile `aavanam/semantic-index/v1`. The profile is not part of `aavanam/base/v1`, so its row stays in the reserved profile table. A store that does not declare the profile gives the response of RSV-RSP-1 for `semantic_search`. For a store that declares the profile, RSV-LST-1 and RSV-RSP-1 do not apply to `semantic_search`. That store uses the operation row of document 24 (IDX-PRF-4).
+
 The reserved profile table:
 
 | Profile | Feature | Operations |

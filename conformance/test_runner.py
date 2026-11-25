@@ -61,7 +61,7 @@ class Scripted:
             self.probe = result['lock']
             if self.write_locks:
                 target = self.lock_store or ('output' if store == 'device' else store)
-                self.state[target] += 1
+                self.state[target] += result['lock'] not in self.kept[target]  # a lock that the store has does not change it (LCK-EXE-4)
                 self.kept[target].add(result['lock'])
         if operation == 'put' and isinstance(result, dict) and result.get('status') == 'ok':
             self.kept[store].update(i['ref'] for i in result.get('items') or [] if isinstance(i, dict) and isinstance(i.get('ref'), str))

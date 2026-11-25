@@ -1,0 +1,75 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search with an index that is not a member of the context gives not_in_context",
+  "clauses": [
+    "IDX-SRC-2",
+    "IDX-DEF-3",
+    "QRY-GET-2",
+    "CTX-OPN-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "An index refers to its snapshot, and the snapshot does not refer to the index. Thus a context with only the snapshot as its root does not have the index."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/search-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "pump bearing"
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "not_in_context"
+        ],
+        "items": [],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "not_in_context",
+            "refs": [
+              {
+                "$ref": "i1"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

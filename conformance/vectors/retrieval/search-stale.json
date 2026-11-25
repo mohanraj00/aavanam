@@ -1,0 +1,89 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search through the index of an earlier snapshot in a context of the later snapshot gives index_stale",
+  "clauses": [
+    "IDX-STL-1",
+    "IDX-SRC-2",
+    "IDX-PRF-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/search-later-snapshot-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s2"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "pump bearing"
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "index_stale"
+        ],
+        "items": [],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "index_stale",
+            "refs": [
+              {
+                "$ref": "i1"
+              },
+              {
+                "$ref": "s2"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

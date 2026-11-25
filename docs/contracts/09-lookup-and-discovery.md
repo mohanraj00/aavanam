@@ -18,7 +18,7 @@ This document defines exact lookup, bounded typed data queries, lexical search, 
 
 ## Clauses
 
-The topic `SEM` has no clauses. The semantic index is reserved: `semantic_search` returns `reserved_profile` (RSV-RSP-1). Selectors in `get` wait for document 06.
+The topic `SEM` has no clauses. Document 24 specifies the semantic index as the profile `aavanam/semantic-index/v1`. For a store that does not declare that profile, `semantic_search` returns `reserved_profile` (RSV-RSP-1). Selectors in `get` wait for document 06.
 
 ### Exact get
 

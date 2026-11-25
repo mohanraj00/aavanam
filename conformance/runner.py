@@ -317,9 +317,9 @@ def revision(descriptor, schemas: dict) -> str:
 
 def lock_descriptor(operation: str, request: dict, view=None) -> dict:
     """Return the lock that an ok lock operation writes for a request (LCK-EXE-4, LCK-BLD-3). `view` is the
-    base snapshot and the layer of a layered context, or None (LYR-LCK-1)."""
-    kind, fields = {'execution_inputs': ('execution-lock', ('binding_set', 'context_inputs', 'requires', 'consumer', 'completeness')),
-                    'build_inputs': ('build-lock', ('inputs', 'requires', 'consumer', 'completeness'))}[operation]
+    base snapshot and the layer of a layered context, or None (LYR-LCK-1). The lock has the `indexes` of the request (IDX-LCK-3)."""
+    kind, fields = {'execution_inputs': ('execution-lock', ('binding_set', 'context_inputs', 'requires', 'indexes', 'consumer', 'completeness')),
+                    'build_inputs': ('build-lock', ('inputs', 'requires', 'indexes', 'consumer', 'completeness'))}[operation]
     return {'descriptor_profile': BASE_PROFILE, 'kind': kind, **{f: request[f] for f in fields if f in request},
             **({'view': view} if view else {})}
 
@@ -549,11 +549,10 @@ def render_problems(operation: str, request: dict, actual: dict) -> list[str]:
     return problems
 
 
-def complete_operations() -> set[str]:
-    """Return the operations whose row in the operation table does not permit `partial` (STS-ENV-4)."""
-    cs = check_spec
-    rows = cs.table(cs.STATUSES.read_text(), 'The operation table:', 3, cs.STATUSES.name, [])
-    return {row[0] for row in rows if 'partial' not in {s.strip() for s in row[2].split(',')}}
+def complete_operations(profile: str = BASE_PROFILE) -> set[str]:
+    """Return the operations whose row in the operation table does not permit `partial` (STS-ENV-4), for a store
+    that declares `profile` (IDX-PRF-4)."""
+    return {op for op, statuses in check_spec.operations(profile).items() if 'partial' not in statuses}
 
 
 def complete_problems(operation: str, actual: dict, complete: set[str]) -> list[str]:
@@ -740,7 +739,7 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
         return [problem]
     expander = Expander(vid, vector)
     profiles = check_spec.reserved()
-    complete = complete_operations()
+    complete = complete_operations(vector.get('profile', BASE_PROFILE))
     calls = []  # the validator calls of the current step (PUB-RCP-2)
     if 'acceptance' in vector:
         register(adapter, expander, vector['acceptance'], calls)
