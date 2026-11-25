@@ -409,9 +409,13 @@ class Handler(BaseHTTPRequestHandler):
             if data is None:
                 return self.reply(HTTPStatus.NOT_FOUND, 'text/plain', b'Not found.')
             return self.reply(HTTPStatus.OK, 'text/css; charset=utf-8', data)
-        query = urllib.parse.parse_qs(parts.query, keep_blank_values=True, max_num_fields=10)
         views = self.server.views
         try:
+            try:
+                query = urllib.parse.parse_qs(parts.query, keep_blank_values=True, strict_parsing=False,
+                                              max_num_fields=10)
+            except ValueError:
+                raise BadRequest('the query has too many fields') from None
             if parts.path == '/':
                 title, body = views.index()
             elif parts.path == '/collection':

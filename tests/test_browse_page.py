@@ -222,6 +222,8 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(self.status('/', host='other.test'), 421)
         self.assertEqual(self.status('/snapshot?ref=x'), 400)
         self.assertEqual(self.status('/item?snapshot=x'), 400)
+        self.assertEqual(self.status('/snapshot?' + '&'.join(f'f{n}=1' for n in range(11))), 400)
+        self.assertEqual(self.status('/snapshot?ref=sha256:' + '0' * 64 + '&ref=sha256:' + '1' * 64), 400)
         self.assertEqual(self.status('/collection?name=not-configured'), 400)
         self.assertEqual(self.status('/v1/op/publish'), 404)
         self.assertEqual(self.status('/kit/page.css'), 404)  # this server has no kit
