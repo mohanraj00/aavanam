@@ -22,7 +22,7 @@ from decimal import Decimal
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
-from .kinds import BASE_PROFILE, KINDS, LAYER_PROFILE, PROFILES
+from .kinds import BASE_PROFILE, LAYER_PROFILE, PROFILES, registered
 from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
@@ -1717,10 +1717,10 @@ class Store:
 
     # Lifecycle and discovery (documents 17 and 18)
 
-    @staticmethod
-    def known_kinds(request: dict) -> None:
-        """Step 4 of LIF-CHG-1 and step 5 of DSC-LST-1: one unknown_kind for each name that is not a base kind."""
-        unknown = [k for k in request.get('kinds', []) if k not in KINDS]
+    def known_kinds(self, request: dict) -> None:
+        """Step 4 of LIF-CHG-1 and step 5 of DSC-LST-1: one unknown_kind for each name that is not a registered kind.
+        A kind of a profile that the store does not declare is not registered (KND-REG-2, LYR-PRF-1)."""
+        unknown = [k for k in request.get('kinds', []) if not registered(k, self.profiles)]
         if unknown:
             raise Failure('unsupported', [reason('unknown_kind') for _ in unknown])
 

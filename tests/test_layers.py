@@ -139,6 +139,11 @@ class ProfileTest(unittest.TestCase):
         self.assertEqual(refusal(put(store, {**lock, 'view': [base]})), ('failed', ['unknown_field']))
         request = {'roots': [base], 'layer': {'ref': base, 'scope': 'scope-1'}}
         self.assertEqual(refusal(store.call('open_context', request)), ('failed', ['unknown_field']))
+        # The name `layer` in `kinds` is not a registered kind: no ok result with no items (DSC-LST-1, LIF-CHG-1).
+        context = store.call('open_context', {'roots': [base]})['context']
+        self.assertEqual(refusal(store.call('list_items', {'context': context, 'kinds': ['layer']})), ('unsupported', ['unknown_kind']))
+        changes = store.call('snapshot_changes', {'before': base, 'after': base, 'kinds': ['layer', 'artifact']})
+        self.assertEqual((refusal(changes), changes['items']), (('unsupported', ['unknown_kind']), []))
         self.assertEqual(store.fingerprint(), before)
         self.assertEqual(put(store, lock)['status'], 'ok')
         self.assertEqual(Store(debug=True).profiles, ('aavanam/layer/v1',))

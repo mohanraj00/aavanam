@@ -5,7 +5,7 @@ import re
 import unicodedata
 
 from .jsontext import is_digest, is_ijson, valid_string
-from .kinds import KINDS, PROFILE_KINDS, PROFILES, REF_TYPES, SETS, schema
+from .kinds import PROFILES, REF_TYPES, SETS, registered, schema
 
 BYTES = 'aavanam/bytes/v1'
 NFC_TEXT = 'aavanam/nfc-text/v1'  # ADP-SEL-4
@@ -87,7 +87,7 @@ def check(value, profiles=PROFILES) -> dict:
         raise Refusal(['field_count'])
     if not isinstance(kind, str):
         raise Refusal(['field_type'])
-    if kind not in KINDS or PROFILE_KINDS.get(kind, '') not in ('', *profiles):
+    if not registered(kind, profiles):
         raise Refusal(['unknown_kind'])  # KND-REG-3
     fields = schema(kind, profiles)
     unknown = [f for f in value if f not in fields]

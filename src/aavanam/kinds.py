@@ -185,6 +185,11 @@ PROFILE_KINDS = {'layer': LAYER_PROFILE}
 PROFILE_FIELDS = {('execution-lock', 'view'): LAYER_PROFILE, ('build-lock', 'view'): LAYER_PROFILE}
 
 
+def registered(kind, profiles=PROFILES) -> bool:
+    """A kind of the kind table, or a kind of a profile in `profiles` (KND-REG-1, KND-REG-2)."""
+    return kind in KINDS and PROFILE_KINDS.get(kind, BASE_PROFILE) in (BASE_PROFILE, *profiles)
+
+
 def schema(kind: str, profiles=PROFILES) -> dict[str, tuple[str, str, tuple[str, ...]]]:
     """Return the fields of a kind, with the common fields (KND-SCH-1), for a store that declares `profiles`."""
     return {**COMMON, **{f: v for f, v in KINDS[kind].items() if PROFILE_FIELDS.get((kind, f), BASE_PROFILE) in (BASE_PROFILE, *profiles)}}
