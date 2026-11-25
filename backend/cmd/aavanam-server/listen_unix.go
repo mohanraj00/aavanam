@@ -20,17 +20,16 @@ func listenSocket(path string, mode os.FileMode) (net.Listener, error) {
 
 var socketMask sync.Mutex
 
-func bindSocket(path string) (net.Listener, error) {
-	// The mask applies to the process. Start with mode 0000 so the file never has more permissions
-	// than the configured mode.
+func bindSocket(path string, mode os.FileMode) (net.Listener, error) {
+	// The file mode mask applies to the process. Set the mask only during the bind.
 	socketMask.Lock()
 	defer socketMask.Unlock()
-	old := syscall.Umask(0o777)
+	old := syscall.Umask(int(0o777 &^ mode))
 	defer syscall.Umask(old)
 	return net.Listen("unix", path)
 }
 
-func socketListener(path string, mode os.FileMode, listen func(string) (net.Listener, error)) (net.Listener, error) {
+func socketListener(path string, mode os.FileMode, listen func(string, os.FileMode) (net.Listener, error)) (net.Listener, error) {
 	// On Linux, an abstract socket has no file or mode. Use only a file path.
 	if !filepath.IsAbs(path) || strings.ContainsRune(path, 0) {
 		return nil, errors.New("the path of the socket must be an absolute file path")
@@ -48,7 +47,7 @@ func socketListener(path string, mode os.FileMode, listen func(string) (net.List
 			return nil, errors.New("the path has a file that is not a socket")
 		}
 		if unlock == nil {
-			return nil, errors.New("the path already has a socket and this system does not use a socket lock")
+			return nil, fmt.Errorf("the socket %q already exists. Make sure that no service uses the socket. Then remove the file", path)
 		}
 		conn, err := net.DialTimeout("unix", path, time.Second)
 		if err == nil {
@@ -72,21 +71,16 @@ func socketListener(path string, mode os.FileMode, listen func(string) (net.List
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	listener, err := listen(path)
+	listener, err := listen(path, mode)
 	if err != nil {
 		return nil, err
 	}
 	info, err := os.Lstat(path)
-	if err != nil || info.Mode() != os.ModeSocket {
-		_ = listener.Close()
-		return nil, errors.New("the new socket file must have mode 0000")
-	}
-	if err := os.Chmod(path, mode); err != nil {
+	if err != nil {
 		_ = listener.Close()
 		return nil, err
 	}
-	current, err := os.Lstat(path)
-	if err != nil || current.Mode() != os.ModeSocket|mode || !os.SameFile(info, current) {
+	if info.Mode() != os.ModeSocket|mode {
 		_ = listener.Close()
 		return nil, fmt.Errorf("the socket file must have mode %04o", mode)
 	}

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -99,8 +100,11 @@ func TestService(t *testing.T) {
 	}
 	defer s.stop()
 	info, err := os.Lstat(socket)
-	if err != nil || info.Mode()&os.ModeSocket == 0 || info.Mode().Perm() != 0o600 {
-		t.Fatalf("the socket of the write listener: %v %v", info.Mode(), err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode() != os.ModeSocket|0o600 {
+		t.Fatalf("the write socket must have mode 0600: %v", info.Mode())
 	}
 	write, base := over(socket), "http://socket/v1/op/"
 
@@ -165,7 +169,8 @@ func TestService(t *testing.T) {
 	}
 }
 
-// A socket of an earlier run does not stop a start. A file of a different type does, and it stays.
+// A system with a socket lock can replace a socket from an earlier run.
+// A system with no socket lock asks the operator to remove the file.
 func TestSocketPath(t *testing.T) {
 	dir := folder(t)
 	socket := filepath.Join(dir, "w.sock")
@@ -176,6 +181,19 @@ func TestSocketPath(t *testing.T) {
 	old.(*net.UnixListener).SetUnlinkOnClose(false)
 	old.Close()
 	o := options1(t, "--write-socket", socket)
+	if runtime.GOOS == "aix" || runtime.GOOS == "solaris" {
+		s, err := start(context.Background(), o, memstore.New())
+		if err == nil {
+			s.stop()
+			t.Fatal("the service started with an existing socket and no socket lock")
+		}
+		if !strings.Contains(err.Error(), "Make sure that no service uses the socket. Then remove the file") {
+			t.Fatalf("the error must tell the operator how to remove the socket: %v", err)
+		}
+		if err := os.Remove(socket); err != nil {
+			t.Fatalf("remove the socket from the earlier run: %v", err)
+		}
+	}
 	type result struct {
 		service *service
 		err     error
@@ -192,7 +210,7 @@ func TestSocketPath(t *testing.T) {
 		first, second = second, first
 	}
 	if first.err != nil {
-		t.Fatalf("a start with a socket of an earlier run: %v and %v", first.err, second.err)
+		t.Fatalf("the two starts failed: %v and %v", first.err, second.err)
 	}
 	if second.err == nil {
 		second.service.stop()

@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -87,28 +88,49 @@ func TestReadSocket(t *testing.T) {
 	}
 }
 
-func TestSocketBeforeModeChange(t *testing.T) {
+func TestSocketModeAtBind(t *testing.T) {
+	for _, mode := range []os.FileMode{0o000, 0o600, 0o660, 0o777} {
+		t.Run(fmt.Sprintf("%04o", mode), func(t *testing.T) {
+			path := filepath.Join(folder(t), "read.sock")
+			listener, err := bindSocket(path, mode)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			info, err := os.Lstat(path)
+			if err != nil || info.Mode() != os.ModeSocket|mode {
+				t.Fatalf("the bind must create a socket with mode %04o: %v %v", mode, info, err)
+			}
+		})
+	}
+}
+
+func TestSocketFileCheck(t *testing.T) {
 	dir := folder(t)
-	openTCP := func(string) (net.Listener, error) { return net.Listen("tcp", "127.0.0.1:0") }
+	openTCP := func(string, os.FileMode) (net.Listener, error) {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return listener, nil
+	}
 	if listener, err := socketListener(filepath.Join(dir, "none.sock"), 0o600, openTCP); err == nil {
 		listener.Close()
 		t.Error("a listener with no socket file at the path")
 	}
-	openUnix := func(path string) (net.Listener, error) {
-		listener, err := bindSocket(path)
+	path := filepath.Join(dir, "read.sock")
+	openUnix := func(path string, _ os.FileMode) (net.Listener, error) {
+		listener, err := bindSocket(path, 0o660)
 		if err != nil {
-			return nil, err
-		}
-		info, err := os.Lstat(path)
-		if err != nil || info.Mode() != os.ModeSocket {
-			listener.Close()
-			t.Fatalf("the initial socket must have mode 0000: %v %v", info, err)
+			t.Fatal(err)
 		}
 		return listener, nil
 	}
-	listener, err := socketListener(filepath.Join(dir, "read.sock"), 0o600, openUnix)
-	if err != nil {
-		t.Fatal(err)
+	if listener, err := socketListener(path, 0o600, openUnix); err == nil {
+		listener.Close()
+		t.Fatal("the listener accepted a socket with mode 0660 when the configured mode is 0600")
 	}
-	listener.Close()
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("the socket file must be absent after the listener closes: %v", err)
+	}
 }
