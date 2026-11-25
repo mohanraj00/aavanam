@@ -44,7 +44,7 @@ The status table:
 
 **STS-RSN-1.** Each result that is not `ok` MUST have one or more reasons. Each item that is not `ok` MUST have one or more reasons. An `ok` result and an `ok` item MUST have an empty reason list.
 
-**STS-RSN-2.** A reason is an object with the fields `code`, `refs` and `capabilities`. `code` MUST be a code in the reason table, or an extension code of the form `ext:<owner>/<name>/v<N>#<code>`. `refs` names each affected reference. `capabilities` names each affected capability or profile. The fields `refs` and `capabilities` can be empty lists. An optional field `detail` holds a text for persons. A consumer MUST NOT parse `detail`.
+**STS-RSN-2.** A reason is an object with the fields `code`, `refs` and `capabilities`. `code` MUST be a code in the reason table, a code in the reason table of a profile that the store declares (LYR-PRF-3), or an extension code of the form `ext:<owner>/<name>/v<N>#<code>`. `refs` names each affected reference. `capabilities` names each affected capability or profile. The fields `refs` and `capabilities` can be empty lists. An optional field `detail` holds a text for persons. A consumer MUST NOT parse `detail`.
 
 **STS-RSN-3.** Each reason code has one status in the reason table. A result or an item that has the code MUST have that status. An extension code MUST name one status from the status table.
 
@@ -207,7 +207,7 @@ Conflicting evidence is not `ambiguous`. `evidence` returns each conflict as an 
 3. Schema: `unknown_field`, `field_count`, `field_type`.
 4. References: `missing_target`, `unsupported_target_kind`, `replacement_kind`.
 5. Payload bytes: `payload_missing`, `digest_mismatch`, `size_mismatch`.
-6. Content: `excerpt_mismatch` (BUN-EXC-3), `native_id_conflict` (IDN-NAT-3), `section_violation` (PUB-SEC-3).
+6. Content: `excerpt_mismatch` (BUN-EXC-3), `native_id_conflict` (IDN-NAT-3, LYR-DEF-4), `section_violation` (PUB-SEC-3, LYR-DEF-5).
 
 In step 1, a number is outside I-JSON if it is not finite as an IEEE 754 double, or if its canonical form (IDN-CAN-1) has a different value (RFC 7493 section 2.2). The notation has no effect. Thus `9007199254740993` and `9007199254740993e0` give `non_ijson_value`, but `100000000000000000000` and `1e20` do not. Each number that the store keeps has a canonical form that the store accepts again, so an exported bundle imports again (BUN-IMP-3).
 

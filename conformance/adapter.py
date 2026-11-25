@@ -22,7 +22,10 @@ class Adapter(Protocol):
     (PUB-RCP-4).
     `gate` declares a collection as gated
     (PUB-GAT-1). `section` declares the storage section of a collection
-    (PUB-SEC-1).
+    (PUB-SEC-1). `declare` makes each of the three stores declare the given
+    profiles, for example the layer profile (LYR-PRF-1). The runner calls it
+    after `reset`, only for a vector whose profile is not the base profile.
+    After `reset`, a store declares no profile.
     """
 
     def reset(self) -> None: ...
@@ -36,6 +39,8 @@ class Adapter(Protocol):
     def gate(self, collection: str) -> None: ...
 
     def section(self, collection: str, section: str) -> None: ...
+
+    def declare(self, profiles: list[str]) -> None: ...
 
 
 def envelope(operation: str, status: str, codes: list[str], items: list[dict] | None = None) -> dict:

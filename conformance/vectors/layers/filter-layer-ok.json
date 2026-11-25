@@ -1,0 +1,95 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A filter reads the overlay of a layer in a layered context with that layer",
+  "clauses": [
+    "LYR-ISO-3",
+    "LYR-PRE-4",
+    "DSC-FLT-2",
+    "DSC-FLT-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "kinds": [
+          "data-resource"
+        ],
+        "logical_ids": [
+          "site-limits"
+        ],
+        "filter": {
+          "equals": {
+            "region": "north"
+          }
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              },
+              "kind": "data-resource",
+              "logical_id": "site-limits"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

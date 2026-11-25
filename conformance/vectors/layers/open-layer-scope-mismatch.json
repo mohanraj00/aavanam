@@ -1,0 +1,69 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer of a different scope than the scope of the request gives layer_scope_mismatch",
+  "clauses": [
+    "LYR-OPN-2",
+    "LYR-OPN-4",
+    "LYR-DEF-2",
+    "LYR-PRF-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "layer_scope_mismatch"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "incompatible",
+            "reasons": [
+              "layer_scope_mismatch"
+            ],
+            "reason_details": [
+              {
+                "code": "layer_scope_mismatch",
+                "refs": [
+                  {
+                    "$ref": "layer-north"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

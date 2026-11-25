@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parent.parent
 STATES = {'stub', 'draft', 'normative'}
 INDEX_ROW = re.compile(r'^\| ([A-Z]{3}) \| \[[^\]]+\]\((docs/contracts/[^)]+\.md)\) \|')
 HEADER = re.compile(r'^State: (\w+)\. Prefix: `([A-Z]{3})`\.', re.M)
+PROFILE = re.compile(r'^State: \w+\. Prefix: `([A-Z]{3})`\. Profile: `([^`]+)`\.', re.M)
+BASE_PROFILE = 'aavanam/base/v1'
 TOPIC_ROW = re.compile(r'^\| `([A-Z]{2,4})` \|', re.M)
 CLAUSE = re.compile(r'^\*\*([A-Z]{3})-([A-Z]{2,4})-([1-9][0-9]*)\.\*\*', re.M)
 LOOSE_ID = re.compile(r'\b[A-Z]{3}-[A-Z]{2,4}-[0-9]+\b')
@@ -90,6 +92,79 @@ def table(text: str, lead: str, width: int, name: str, errors: list[str]) -> lis
     return rows
 
 
+FIELD_LEAD = 'The field table. The targets column applies only to the value types `ref` and `ref-map`.'
+# A profile document can have these three tables. They have the form of the tables of documents 02 and 03 (LYR-PRF-2, LYR-PRF-3).
+PROFILE_KINDS, PROFILE_FIELDS, PROFILE_REASONS = 'The kind table of the profile:', 'The field table of the profile:', 'The reason table of the profile:'
+LOCK_KINDS = {'execution-lock', 'build-lock'}  # a profile can add an optional field to these kinds only (KND-REG-2)
+
+
+def profile_rows(lead: str, width: int, errors: list[str] | None = None) -> list[tuple[Path, list[str]]]:
+    """Return the rows of the table after `lead` in each contract document that has it, with the document."""
+    out = []
+    for path in sorted((ROOT / 'docs/contracts').glob('*.md')):
+        if path in (REGISTRY, STATUSES):
+            continue
+        text = path.read_text()
+        if lead in text.splitlines():
+            out += [(path, row) for row in table(text, lead, width, path.name, errors if errors is not None else [])]
+    return out
+
+
+def profiles() -> dict[str, str]:
+    """Return the profile of each document prefix, from the header line of the document."""
+    out = {}
+    for path in sorted((ROOT / 'docs/contracts').glob('*.md')):
+        found = PROFILE.search(path.read_text())
+        if found:
+            out[found.group(1)] = found.group(2)
+    return out
+
+
+def check_profile_tables() -> list[str]:
+    """Check the tables of each profile document against the tables of documents 02 and 03 (KND-REG-2, STS-RSN-2)."""
+    if not REGISTRY.exists() or not STATUSES.exists():
+        return []
+    errors: list[str] = []
+    text = REGISTRY.read_text()
+    base_kinds = {row[0] for row in table(text, 'The kind table:', 3, REGISTRY.name, [])}
+    types = {row[0] for row in table(text, 'The value types:', 2, REGISTRY.name, [])}
+    groups = {row[0] for row in table(text, 'The target groups:', 2, REGISTRY.name, [])}
+    common = {row[0] for row in table(text, 'The common fields:', 4, REGISTRY.name, [])}
+    base_fields = {(row[0], row[1]) for row in table(text, FIELD_LEAD, 5, REGISTRY.name, [])}
+    added = set()
+    for path, row in profile_rows(PROFILE_KINDS, 3, errors):
+        if row[0] in base_kinds | added | groups:
+            errors.append(f'{path.name}: kind {row[0]} of the profile is a base kind, a group or listed twice')
+        added.add(row[0])
+    fields = set()
+    for path, (kind, field, vtype, count, names) in profile_rows(PROFILE_FIELDS, 5, errors):
+        where = f'{path.name}: {kind}.{field}'
+        if kind not in added and not (kind in LOCK_KINDS and count in ('0..1', '0..n')):
+            errors.append(f'{where}: a profile adds a field to its own kind, or an optional field to a lock kind (KND-REG-2)')
+        if (kind, field) in base_fields | fields or field in common or field in FORBIDDEN_FIELDS:
+            errors.append(f'{where}: the field is a base field, a common field, a second dependency list or listed twice')
+        fields.add((kind, field))
+        if vtype not in types or count not in COUNTS:
+            errors.append(f'{where}: unknown value type or count')
+        if vtype in REF_TYPES:
+            for target in (x.strip() for x in names.split(',')):
+                if target not in base_kinds | added | groups:
+                    errors.append(f'{where}: unknown target {target}')
+        elif names != '-':
+            errors.append(f'{where}: only ref and ref-map fields have targets')
+    for kind in sorted(added - {k for k, _ in fields}):
+        errors.append(f'kind {kind} of a profile has no fields')
+    base_reasons = {row[0] for row in table(STATUSES.read_text(), 'The reason table:', 3, STATUSES.name, [])}
+    seen = set()
+    for path, (code, status, _) in profile_rows(PROFILE_REASONS, 3, errors):
+        if code in base_reasons | seen:
+            errors.append(f'{path.name}: reason {code} of the profile is a base reason or listed twice')
+        seen.add(code)
+        if status not in STATUS_SET or status in ('ok', 'partial'):
+            errors.append(f'{path.name}: reason {code} has the status {status}')
+    return errors
+
+
 def check_registry() -> list[str]:
     if not REGISTRY.exists():
         return []
@@ -126,7 +201,7 @@ def check_registry() -> list[str]:
         if count not in COUNTS:
             errors.append(f'{where} has unknown count {count}')
     fields = set()
-    lead = 'The field table. The targets column applies only to the value types `ref` and `ref-map`.'
+    lead = FIELD_LEAD
     for kind, field, vtype, count, targets in table(text, lead, 5, name, errors):
         where = f'{name}: {kind}.{field}'
         if kind not in kinds:
@@ -158,8 +233,10 @@ def schemas() -> dict[str, dict[str, tuple[str, str]]]:
     text, out = REGISTRY.read_text(), {'': {}}
     for field, vtype, count, _ in table(text, 'The common fields:', 4, REGISTRY.name, []):
         out[''][field] = (vtype, count)
-    lead = 'The field table. The targets column applies only to the value types `ref` and `ref-map`.'
+    lead = FIELD_LEAD
     for kind, field, vtype, count, _ in table(text, lead, 5, REGISTRY.name, []):
+        out.setdefault(kind, {})[field] = (vtype, count)
+    for _, (kind, field, vtype, count, _) in profile_rows(PROFILE_FIELDS, 5):  # the kinds and fields of a profile (KND-REG-2)
         out.setdefault(kind, {})[field] = (vtype, count)
     return out
 
@@ -188,6 +265,7 @@ def check_statuses(docs: list[Path]) -> list[str]:
         for s in (x.strip() for x in listed.split(',')):
             if s not in STATUS_SET:
                 errors.append(f'{name}: operation {op} has unknown status {s}')
+    reasons.update({row[0]: row[1] for _, row in profile_rows(PROFILE_REASONS, 3)})  # the reasons of a profile (STS-RSN-2)
     for path in docs:
         if not path.exists():
             continue
@@ -362,7 +440,8 @@ def reason_statuses() -> dict[str, str]:
     """Return the status of each reason code in the reason table (STS-RSN-3)."""
     if not STATUSES.exists():
         return {}
-    return {row[0]: row[1] for row in table(STATUSES.read_text(), 'The reason table:', 3, STATUSES.name, [])}
+    out = {row[0]: row[1] for row in table(STATUSES.read_text(), 'The reason table:', 3, STATUSES.name, [])}
+    return {**out, **{row[0]: row[1] for _, row in profile_rows(PROFILE_REASONS, 3)}}  # STS-RSN-2
 
 
 def check_gates(where: str, gates) -> list[str]:
@@ -403,6 +482,7 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
     errors: list[str] = []
     text = STATUSES.read_text()
     reasons = reason_statuses()
+    document_profiles = profiles()
     ops = {row[0]: {s.strip() for s in row[2].split(',')} for row in table(text, 'The operation table:', 3, STATUSES.name, [])}
     vectors, final = {}, {}
     for path in sorted(root.rglob('*.json')):
@@ -427,8 +507,12 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
             errors.append(f'{where}: unknown field {f}')
         if v.get('format') != 'aavanam-vector/v1':
             errors.append(f'{where}: format is not aavanam-vector/v1')
-        if v.get('profile') != 'aavanam/base/v1':
-            errors.append(f'{where}: profile is not aavanam/base/v1')
+        cited = {document_profiles.get(c[:3], BASE_PROFILE) for c in v.get('clauses', []) if isinstance(c, str)} - {BASE_PROFILE}
+        wanted = cited.pop() if len(cited) == 1 else BASE_PROFILE
+        if cited:
+            errors.append(f'{where}: the clauses are of more than one profile document')
+        elif v.get('profile') != wanted:
+            errors.append(f'{where}: profile is not {wanted}, the profile of the documents of its clauses')
         if not isinstance(v.get('title'), str) or not v['title']:
             errors.append(f'{where}: no title')
         cited = v.get('clauses')
@@ -631,9 +715,10 @@ def targets() -> dict[tuple[str, str], set[str]]:
     text = REGISTRY.read_text()
     groups = {row[0]: {k.strip().strip('`') for k in row[1].split(',')}
               for row in table(text, 'The target groups:', 2, REGISTRY.name, [])}
-    lead = 'The field table. The targets column applies only to the value types `ref` and `ref-map`.'
+    lead = FIELD_LEAD
     out = {}
-    for kind, field, vtype, _, names in table(text, lead, 5, REGISTRY.name, []):
+    rows = table(text, lead, 5, REGISTRY.name, []) + [row for _, row in profile_rows(PROFILE_FIELDS, 5)]
+    for kind, field, vtype, _, names in rows:
         if vtype in REF_TYPES:
             out[(kind, field)] = set().union(*(groups.get(n, {n}) for n in (x.strip() for x in names.split(','))))
     return out
@@ -977,7 +1062,7 @@ def check(vectors: Path = VECTORS) -> list[str]:
         for cid in set(LOOSE_ID.findall(path.read_text())):
             if cid not in seen and path.name != 'SPEC.md':
                 errors.append(f'{path.name}: {cid} is cited but not defined')
-    return (errors + check_registry() + check_statuses(list(index.values())) + check_reserved()
+    return (errors + check_registry() + check_profile_tables() + check_statuses(list(index.values())) + check_reserved()
             + check_vectors(set(seen), withdrawn, vectors) + check_fixtures())
 
 

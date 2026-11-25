@@ -1,0 +1,71 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A get of a member of a layer gives not_in_context in a context with no layer",
+  "clauses": [
+    "LYR-ISO-1",
+    "LYR-ISO-2",
+    "CTX-OPN-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/get-members-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "p"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "refs": [
+          {
+            "$ref": "u-filter-n"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "not_in_context"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "not_in_context"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

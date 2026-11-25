@@ -1,0 +1,106 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer with two native identities for two subjects is ok",
+  "clauses": [
+    "LYR-DEF-4",
+    "IDN-NAT-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "m1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "native-mapping",
+              "subject": {
+                "$ref": "u-fan-s"
+              },
+              "native_scheme": "sample-scheme",
+              "native_id": "doc-1",
+              "checked": {
+                "by": "a"
+              }
+            }
+          },
+          {
+            "as": "m2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "native-mapping",
+              "subject": {
+                "$ref": "u-valve"
+              },
+              "native_scheme": "sample-scheme",
+              "native_id": "doc-2",
+              "checked": {
+                "by": "a"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "layer-west",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-west",
+              "units": [
+                {
+                  "$ref": "u-fan-s"
+                }
+              ],
+              "native_mappings": [
+                {
+                  "$ref": "m1"
+                },
+                {
+                  "$ref": "m2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer with a schema in units gives unsupported_target_kind",
+  "clauses": [
+    "LYR-DEF-3",
+    "KND-REF-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/put-layer-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-west",
+              "units": [
+                {
+                  "$ref": "sch"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_target_kind"
+        ],
+        "items": [
+          {
+            "status": "unsupported",
+            "reasons": [
+              "unsupported_target_kind"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

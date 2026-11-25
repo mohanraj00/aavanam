@@ -1,0 +1,56 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A knowledge-unit root with a layer gives layer_base_mismatch",
+  "clauses": [
+    "LYR-OPN-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "layer_base_mismatch"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              }
+            }
+          },
+          {
+            "status": "incompatible",
+            "reasons": [
+              "layer_base_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

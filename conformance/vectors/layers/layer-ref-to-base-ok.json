@@ -1,0 +1,185 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer member that refers to a base table reads the exact base revision",
+  "clauses": [
+    "LYR-REF-1",
+    "LYR-PRE-2",
+    "LYR-LCK-1",
+    "QRY-DAT-3",
+    "LCK-EXE-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The BindingSet b-pump-n of layer-north binds the base table t-base."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "refs": [
+          {
+            "$ref": "b-pump-n"
+          },
+          {
+            "$ref": "t-base"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-pump-n"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "resources": [
+          {
+            "$ref": "t-base"
+          }
+        ],
+        "where": {
+          "part": "pump"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              },
+              "rows": [
+                {
+                  "part": "pump",
+                  "limit": 40
+                }
+              ],
+              "next": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "execution_inputs",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "binding_set": {
+          "$ref": "b-pump-n"
+        },
+        "consumer": "sample/recorder/execution/v1",
+        "completeness": "sample/declared/v1"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-pump-n"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "sch"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    }
+  ]
+}

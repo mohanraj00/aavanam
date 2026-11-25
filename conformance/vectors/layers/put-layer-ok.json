@@ -1,0 +1,85 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A put of a layer with members in the store is ok",
+  "clauses": [
+    "LYR-PRF-2",
+    "LYR-DEF-1",
+    "LYR-DEF-3",
+    "KND-REG-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses. The second put has the same descriptor, so it gives the same reference (IDN-CAN-3)."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "layer-west",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-west",
+              "units": [
+                {
+                  "$ref": "u-fan-s"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-west",
+              "units": [
+                {
+                  "$ref": "u-fan-s"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-west"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

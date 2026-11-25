@@ -1,0 +1,57 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer reference that is not in the store gives unknown_ref",
+  "clauses": [
+    "LYR-OPN-2",
+    "STS-ENV-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$absent": "x"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}
