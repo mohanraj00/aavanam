@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Add the layer (document 23, LYR-DEF-1 to LYR-EXP-3, #44). A layer adds members to a base collection, or replaces members of it, for one scope, for example one tenant. `open_context` gets the field `layer`. A layered read context has the base snapshot and one layer. It has no content of a different layer, and a reference that is not a member gives `unknown_ref`. A lock of a layered context records the base snapshot and the layer in its field `view`. The layer is the profile `aavanam/layer/v1`: a store declares it separately, and the base profile stays at minor version 12. The reference store declares the profile and passes the 52 vectors of `conformance/vectors/layers/`. The Go implementations do not have layers yet (#132), and `conformance/pending-go.txt` names these vectors.
+- Add the layer (document 23, LYR-DEF-1 to LYR-EXP-3, #44). A layer adds members to a base collection, or replaces members of it, for one scope, for example one tenant. `open_context` gets the field `layer`. A layered read context has the base snapshot and one layer. It has no content of a different layer, and a reference that is not a member gives `unknown_ref`. A lock of a layered context records the base snapshot and the layer in its field `view`. The layer is the profile `aavanam/layer/v1`: a store declares it separately, and the base profile stays at minor version 12. A reference store declares the profile with `Store(profiles=...)`, and passes the 52 vectors of `conformance/vectors/layers/`. The Go implementations do not have layers yet (#132), and `conformance/pending-go.txt` names these vectors.
 
 ## 0.4.0
 

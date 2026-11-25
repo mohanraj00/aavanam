@@ -7,6 +7,8 @@ targets column are expanded.
 from __future__ import annotations
 
 BASE_PROFILE = 'aavanam/base/v1'
+LAYER_PROFILE = 'aavanam/layer/v1'  # document 23
+PROFILES = (LAYER_PROFILE,)  # the profiles that a store can declare (LYR-PRF-1)
 REF_TYPES = ('ref', 'ref-map')
 SETS = ('0..n', '1..n')  # sets of KND-SCH-5; a count with 'list' keeps its order
 
@@ -178,6 +180,11 @@ KINDS = {
 }
 
 
-def schema(kind: str) -> dict[str, tuple[str, str, tuple[str, ...]]]:
-    """Return the fields of a kind, with the common fields (KND-SCH-1)."""
-    return {**COMMON, **KINDS[kind]}
+# The kinds and the fields that a profile adds (KND-REG-2, LYR-PRF-2). A store that does not declare the profile does not have them.
+PROFILE_KINDS = {'layer': LAYER_PROFILE}
+PROFILE_FIELDS = {('execution-lock', 'view'): LAYER_PROFILE, ('build-lock', 'view'): LAYER_PROFILE}
+
+
+def schema(kind: str, profiles=PROFILES) -> dict[str, tuple[str, str, tuple[str, ...]]]:
+    """Return the fields of a kind, with the common fields (KND-SCH-1), for a store that declares `profiles`."""
+    return {**COMMON, **{f: v for f, v in KINDS[kind].items() if PROFILE_FIELDS.get((kind, f), BASE_PROFILE) in (BASE_PROFILE, *profiles)}}

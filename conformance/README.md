@@ -190,13 +190,14 @@ BUN-IMP-11 has no vectors. The vector format cannot express a race between two c
 
 ## Calls to the adapter
 
-The adapter interface is in `adapter.py`. It has five methods:
+The adapter interface is in `adapter.py`. It has these methods:
 
 - `reset()` makes the three stores empty. The runner calls it before each vector.
 - `call(operation, request, store)` sends the request to the store and returns the result envelope as a JSON object. The default store is `writer`.
 - `fingerprint(store)` returns a text that changes if the content of the store changes.
 - `accept(policy, validate)` registers an acceptance policy. `validate(candidate, receipt, activation)` returns true if it accepts the receipt reference for the candidate identity (PUB-RCP-2). `activation` is the activation reference of the request, or None. It raises `TimeoutError` if the validator does not answer before its deadline (PUB-RCP-4).
 - `gate(collection)` declares the collection as gated in each of the three stores (PUB-GAT-1). A step with `fresh_store` makes new stores, and a new store has no gate.
+- `declare(profiles)` makes each of the three stores declare the given profiles (LYR-PRF-1). After `reset()`, a store declares no profile. The runner calls `declare` after each `reset()` of a vector whose `profile` is not `aavanam/base/v1`. Thus a base vector runs on a store of the base profile only. An adapter of an implementation without the profile raises an error or has no such method, and the vector fails.
 
 The request of a `put` step is a list of descriptor entries. Each entry has `value` (a JSON descriptor) or `raw` (the descriptor text, for malformed JSON). It can also have `as`, a handle name. The runner sends this request to the adapter:
 

@@ -22,7 +22,7 @@ from decimal import Decimal
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
-from .kinds import BASE_PROFILE, KINDS
+from .kinds import BASE_PROFILE, KINDS, LAYER_PROFILE, PROFILES
 from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
@@ -332,13 +332,16 @@ class Store:
     `output_path`. A local output store reads the objects and bytes of its `device` also (BUN-IMP-8)."""
 
     def __init__(self, path: str = ':memory:', debug: bool = False, role: str = 'writer', output_path: str = ':memory:',
-                 device: Store | None = None):
+                 device: Store | None = None, profiles=PROFILES):
         if role not in ROLES or (role == 'output') != (device is not None):
             raise ValueError('a local output store has one device store, and only a local output store has one')
         if role == 'output' and (device.role != 'device' or device.output is not None):
             raise ValueError('only a device store creates its local output store (BUN-IMP-5)')
         if role == 'device' and path != ':memory:' and os.path.realpath(path) == os.path.realpath(output_path):
             raise ValueError('a device store and its local output store have separate databases (BUN-IMP-7)')
+        if set(profiles) - set(PROFILES):
+            raise ValueError(f'a store declares only these profiles: {", ".join(PROFILES)} (LYR-PRF-1)')
+        self.profiles = tuple(profiles)  # the declared profiles, for the life of this open
         self.role, self.device, self.output = role, device, None
         self.debug = debug  # raise in place of storage_error, for tests
         self.broken = False  # a rollback failed, so the connection can show a partial write
@@ -355,7 +358,7 @@ class Store:
         self.called = False  # a gate is declared before the first call (PUB-GAT-1)
         self.cache: dict[str, dict] = {}  # descriptors do not change (IDN-CAN-1)
         self.policies: dict[str, object] = {}  # the acceptance policies of the application (PUB-RCP-1)
-        self.output = Store(output_path, debug, 'output', device=self) if role == 'device' else None
+        self.output = Store(output_path, debug, 'output', device=self, profiles=profiles) if role == 'device' else None
         if self.output and ':memory:' not in (path, output_path) and os.path.samefile(path, output_path):
             self.close()  # a hard link names one file with two paths (BUN-IMP-7)
             raise ValueError('a device store and its local output store have separate databases (BUN-IMP-7)')
@@ -703,10 +706,11 @@ class Store:
                 todo.extend(self.targets(ref))
         return seen | {base, layer}
 
-    @staticmethod
-    def open_form(request: dict) -> None:
-        """The request form of open_context: CTX-OPN-5, in order, with one reason for each affected value."""
-        unknown = [f for f in request if f not in ('roots', 'heads', 'skew_policy', 'capabilities', 'layer')]
+    def open_form(self, request: dict) -> None:
+        """The request form of open_context: CTX-OPN-5, in order, with one reason for each affected value.
+        Only a store that declares the layer profile has the field `layer` (LYR-PRF-1, LYR-OPN-1)."""
+        fields = ('roots', 'heads', 'skew_policy', 'capabilities') + (('layer',) if LAYER_PROFILE in self.profiles else ())
+        unknown = [f for f in request if f not in fields]
         if unknown:
             raise fail(*['unknown_field'] * len(unknown))
         types = [f for f in ('roots', 'heads', 'capabilities') if f in request and not isinstance(request[f], list)]
@@ -817,7 +821,7 @@ class Store:
         out, batch = [], {}
         for text in texts:
             try:
-                desc = d.check(parse(text) if isinstance(text, str) else text)
+                desc = d.check(parse(text) if isinstance(text, str) else text, self.profiles)
                 batch[revision(desc)] = desc
                 out.append(desc)
             except (FormError, d.Refusal) as e:
@@ -1120,7 +1124,7 @@ class Store:
         fields = {k: v for k, v in request.items() if k != 'context'}
         if view:
             fields['view'] = view
-        desc = d.check({'descriptor_profile': BASE_PROFILE, 'kind': LOCK_KINDS[operation], **fields})
+        desc = d.check({'descriptor_profile': BASE_PROFILE, 'kind': LOCK_KINDS[operation], **fields}, self.profiles)
         ref = revision(desc)
         items = [item(ref=r) for r in sorted(self.closure(covered))]  # read before the write (STS-ENV-4)
         target = self.output or self

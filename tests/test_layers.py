@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from support import BASE, Store, payload, put_ref
+from support import BASE, Store, payload, put, put_ref
 
 COLLECTION = 'sample-parts'
 
@@ -122,6 +122,34 @@ class LayerTest(unittest.TestCase):
         self.assertEqual(lock['view'], sorted([self.base, self.first]))
         plain = self.store.descriptor(self.store.call('build_inputs', {**request, 'inputs': [self.base_units[0]], 'context': opened(self.store, self.base)})['lock'])
         self.assertNotIn('view', plain)
+
+
+class ProfileTest(unittest.TestCase):
+    def test_a_store_that_does_not_declare_the_profile_is_a_base_store(self):  # LYR-PRF-1, KND-REG-2
+        store = Store(debug=True, profiles=())
+        base = store.call('create_snapshot', {'collection': COLLECTION})['items'][0]['ref']
+        binding = put_ref(store, desc('binding-set', parameters={'item': 'one'}))
+
+        def refusal(result):
+            return result['status'], [r['code'] for r in result['reasons']]
+
+        before = store.fingerprint()
+        self.assertEqual(refusal(put(store, desc('layer', base=COLLECTION, scope='scope-1'))), ('unsupported', ['unknown_kind']))
+        lock = desc('build-lock', inputs=[binding], consumer='sample-consumer', completeness='sample/declared/v1')
+        self.assertEqual(refusal(put(store, {**lock, 'view': [base]})), ('failed', ['unknown_field']))
+        request = {'roots': [base], 'layer': {'ref': base, 'scope': 'scope-1'}}
+        self.assertEqual(refusal(store.call('open_context', request)), ('failed', ['unknown_field']))
+        self.assertEqual(store.fingerprint(), before)
+        self.assertEqual(put(store, lock)['status'], 'ok')
+        self.assertEqual(Store(debug=True).profiles, ('aavanam/layer/v1',))
+        with self.assertRaises(ValueError):
+            Store(profiles=('sample/other/v1',))
+
+    def test_a_device_store_and_its_output_store_declare_the_same_profiles(self):  # LYR-PRF-1, BUN-IMP-5
+        for profiles in ((), ('aavanam/layer/v1',)):
+            device = Store(role='device', profiles=profiles)
+            self.assertEqual(device.output.profiles, profiles)
+            device.close()
 
 
 class LayerFileTest(unittest.TestCase):

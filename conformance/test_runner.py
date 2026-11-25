@@ -87,6 +87,9 @@ class Scripted:
     def accept(self, policy, validate):
         self.validate = validate
 
+    def declare(self, profiles):
+        self.declared = list(profiles)
+
     def gate(self, collection):
         self.gates = getattr(self, 'gates', []) + [collection]
 
@@ -644,6 +647,28 @@ class EchoTest(unittest.TestCase):
         for vid, vector in runner.load().items():
             adapter = Scripted(*echo(vector))
             self.assertEqual(runner.run_vector(adapter, vid, vector), [], vid)
+
+
+class DeclareTest(unittest.TestCase):
+    def test_the_runner_declares_the_profile_of_a_vector_after_each_reset(self):  # LYR-PRF-1
+        vectors = runner.load()
+        layered, base = vectors['layers/device-ok'], vectors['contexts/open-roots-ok']
+        adapter = Scripted(*echo(layered))
+        self.assertEqual(runner.run_vector(adapter, 'layers/device-ok', layered), [])
+        self.assertEqual(adapter.declared, ['aavanam/layer/v1'])
+        adapter = Scripted(*echo(base))
+        self.assertEqual(runner.run_vector(adapter, 'contexts/open-roots-ok', base), [])
+        self.assertFalse(hasattr(adapter, 'declared'))  # a base vector runs on a store with no profile
+
+    def test_an_adapter_that_cannot_declare_the_profile_fails_the_vector(self):  # LYR-PRF-1
+        class NoProfile(Scripted):
+            def declare(self, profiles):
+                raise NotImplementedError('no profile')
+
+        vector = runner.load()['layers/open-ok']
+        problems = runner.run_vector(NoProfile(*echo(vector)), 'layers/open-ok', vector)
+        self.assertEqual(len(problems), 1)
+        self.assertIn('did not declare the profile aavanam/layer/v1', problems[0])
 
 
 class MainTest(unittest.TestCase):

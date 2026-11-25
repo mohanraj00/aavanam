@@ -717,6 +717,17 @@ def validator_problems(operation: str, request: dict, expect: dict, calls: list)
     return []
 
 
+def declare_problem(adapter, profiles: list[str]) -> str | None:
+    """Make the new stores of the adapter declare the profile of the vector (LYR-PRF-1). A base vector declares none."""
+    if not profiles:
+        return None
+    try:
+        adapter.declare(profiles)
+    except Exception as e:  # noqa: BLE001  an implementation without the profile fails this vector only
+        return f'the adapter did not declare the profile {profiles[0]}: {e!r}'
+    return None
+
+
 def run_vector(adapter, vid: str, vector: dict) -> list[str]:
     """Run each step of one vector. Return the problems of the first step that fails."""
     try:
@@ -724,6 +735,9 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
     except ValueError as e:
         raise VectorError(f'{vid}: {e}') from None
     adapter.reset()
+    declared = [vector['profile']] if vector.get('profile', BASE_PROFILE) != BASE_PROFILE else []
+    if problem := declare_problem(adapter, declared):
+        return [problem]
     expander = Expander(vid, vector)
     profiles = check_spec.reserved()
     complete = complete_operations()
@@ -746,6 +760,8 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
     for n, step in enumerate(vector['steps'], 1):
         if step.get('fresh_store'):
             adapter.reset()
+            if problem := declare_problem(adapter, declared):
+                return [problem]
             expander.contexts.clear()
             for s in check_spec.STORES:
                 kept[s].clear()
