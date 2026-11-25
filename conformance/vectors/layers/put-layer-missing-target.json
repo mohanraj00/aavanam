@@ -1,0 +1,52 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer with a member that is not in the store gives missing_target",
+  "clauses": [
+    "LYR-DEF-3",
+    "KND-REF-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/put-layer-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-west",
+              "units": [
+                {
+                  "$absent": "x"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "missing_target"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "missing_target"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

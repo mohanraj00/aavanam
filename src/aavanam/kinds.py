@@ -1,4 +1,5 @@
-"""The kind table of the base profile (document 02). tests/test_kinds.py checks it against document 02.
+"""The kind table of the base profile (document 02) and of the layer profile (document 23). tests/test_tables.py
+checks it against the documents.
 
 Each field has its value type, its count and its target kinds (KND-SCH-1, KND-REF-3). The groups of the
 targets column are expanded.
@@ -6,6 +7,8 @@ targets column are expanded.
 from __future__ import annotations
 
 BASE_PROFILE = 'aavanam/base/v1'
+LAYER_PROFILE = 'aavanam/layer/v1'  # document 23
+PROFILES = (LAYER_PROFILE,)  # the profiles that a store can declare (LYR-PRF-1)
 REF_TYPES = ('ref', 'ref-map')
 SETS = ('0..n', '1..n')  # sets of KND-SCH-5; a count with 'list' keeps its order
 
@@ -138,12 +141,14 @@ KINDS = {
         'binding_set': ('ref', '1', ('binding-set',)),
         'context_inputs': ('ref', '0..n', ('artifact', 'binding-set', 'check', 'data-resource', 'derivation', 'evidence', 'excerpt', 'knowledge-unit', 'observation', 'overlay', 'overlay-set', 'reading', 'receipt', 'relation-set', 'retraction', 'runtime-profile', 'schema', 'source', 'supersession')),
         'requires': ('string', '0..n', ()),
+        'view': ('ref', '0..n', ('layer', 'snapshot')),  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-LCK-1)
         'consumer': ('string', '1', ()),
         'completeness': ('string', '1', ()),
     },
     'build-lock': {
         'inputs': ('ref', '1..n', ('artifact', 'binding-set', 'check', 'data-resource', 'derivation', 'evidence', 'excerpt', 'knowledge-unit', 'observation', 'overlay', 'overlay-set', 'reading', 'receipt', 'relation-set', 'retraction', 'runtime-profile', 'schema', 'snapshot', 'source', 'supersession')),
         'requires': ('string', '0..n', ()),
+        'view': ('ref', '0..n', ('layer', 'snapshot')),  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-LCK-1)
         'consumer': ('string', '1', ()),
         'completeness': ('string', '1', ()),
     },
@@ -162,9 +167,29 @@ KINDS = {
         'approver': ('string', '1', ()),
         'removed': ('ref', '0..n', ('knowledge-unit', 'native-mapping', 'observation', 'overlay-set', 'relation-set', 'schema')),
     },
+    'layer': {  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-DEF-1)
+        'base': ('string', '1', ()),
+        'scope': ('string', '1', ()),
+        'units': ('ref', '0..n', ('knowledge-unit',)),
+        'schemas': ('ref', '0..n', ('schema',)),
+        'relation_sets': ('ref', '0..n', ('relation-set',)),
+        'overlay_sets': ('ref', '0..n', ('overlay-set',)),
+        'observations': ('ref', '0..n', ('observation',)),
+        'native_mappings': ('ref', '0..n', ('native-mapping',)),
+    },
 }
 
 
-def schema(kind: str) -> dict[str, tuple[str, str, tuple[str, ...]]]:
-    """Return the fields of a kind, with the common fields (KND-SCH-1)."""
-    return {**COMMON, **KINDS[kind]}
+# The kinds and the fields that a profile adds (KND-REG-2, LYR-PRF-2). A store that does not declare the profile does not have them.
+PROFILE_KINDS = {'layer': LAYER_PROFILE}
+PROFILE_FIELDS = {('execution-lock', 'view'): LAYER_PROFILE, ('build-lock', 'view'): LAYER_PROFILE}
+
+
+def registered(kind, profiles=PROFILES) -> bool:
+    """A kind of the kind table, or a kind of a profile in `profiles` (KND-REG-1, KND-REG-2)."""
+    return kind in KINDS and PROFILE_KINDS.get(kind, BASE_PROFILE) in (BASE_PROFILE, *profiles)
+
+
+def schema(kind: str, profiles=PROFILES) -> dict[str, tuple[str, str, tuple[str, ...]]]:
+    """Return the fields of a kind, with the common fields (KND-SCH-1), for a store that declares `profiles`."""
+    return {**COMMON, **{f: v for f, v in KINDS[kind].items() if PROFILE_FIELDS.get((kind, f), BASE_PROFILE) in (BASE_PROFILE, *profiles)}}

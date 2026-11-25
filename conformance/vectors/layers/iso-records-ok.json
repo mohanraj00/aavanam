@@ -1,0 +1,273 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A record of a layer about a base subject gives an item only in a layered context with that layer",
+  "clauses": [
+    "LYR-ISO-3",
+    "LYR-REF-2",
+    "REL-EVD-2",
+    "OBS-SUB-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The evidence record ev-n and the observation ob-n are in layer-north only. Their subjects a-valve and u-valve are base objects."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "subject": {
+          "$ref": "a-valve"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "relation": "support",
+              "ref": {
+                "$ref": "ev-n"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "observations",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "subject": {
+          "$ref": "u-valve"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ob-base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ob-n"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "subject": {
+          "$ref": "a-valve"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "observations",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "subject": {
+          "$ref": "u-valve"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ob-base"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "p"
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "subject": {
+          "$ref": "a-valve"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "observations",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "subject": {
+          "$ref": "u-valve"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ob-base"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

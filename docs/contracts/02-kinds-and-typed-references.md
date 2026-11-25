@@ -22,9 +22,9 @@ This document does not define the meaning of a kind. Other documents do that, fo
 
 ### Registry
 
-**KND-REG-1.** Each descriptor MUST have a `kind` field. Its value MUST be a kind in the kind table, or an extension kind of an extension profile that the store supports.
+**KND-REG-1.** Each descriptor MUST have a `kind` field. Its value MUST be a kind in the kind table, a kind of a profile of this specification that the store declares (KND-REG-2), or an extension kind of an extension profile that the store supports.
 
-**KND-REG-2.** The profile `aavanam/base/v1` registers the kinds in the kind table, and no other kinds.
+**KND-REG-2.** The profile `aavanam/base/v1` registers the kinds in the kind table, and no other kinds. A different profile of this specification can register a kind in its own document. It can also add a field with a count of `0..1` or `0..n` to the kind `execution-lock` or `build-lock`. These additions apply only to a store that declares the profile. A lock without the added field keeps its revision (IDN-CAN-1). The layer profile of document 23 does this (LYR-PRF-2).
 
 **KND-REG-3.** If a descriptor has a kind that is not registered, the store MUST reject the write with status `unsupported` and reason `unknown_kind`. The store does not keep the descriptor.
 

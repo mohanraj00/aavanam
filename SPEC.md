@@ -1,6 +1,6 @@
 # Aavanam specification
 
-Status: draft. Documents 01 to 22 are in the `draft` state. No clause is normative yet.
+Status: draft. Documents 01 to 23 are in the `draft` state. No clause is normative yet.
 
 This file is the index. The normative text is in `docs/contracts/`. The [constitution](CONSTITUTION.md) has authority over this specification. This specification has authority over the implementation.
 
@@ -30,6 +30,7 @@ This file is the index. The normative text is in `docs/contracts/`. The [constit
 | CRD | [20 Content reads and text search](docs/contracts/20-content-reads-and-text-search.md) | The content read of a member with a selector |
 | DEV | [21 Device stores](docs/contracts/21-device-stores.md) | The SQLite layout of a device store and its output file, the layout profile, the FTS5 index |
 | NET | [22 Network read binding](docs/contracts/22-network-read-binding.md) | The network binding of the operations that do not write content: transport, limits, version rule |
+| LYR | [23 Layers](docs/contracts/23-layers.md) | The layer profile: a layer for one scope on a base collection, precedence, layered read contexts, isolation, the view of a lock |
 
 The conformance vector format and the runner are in [conformance/](conformance/README.md). Vectors cite the clause IDs in these documents.
 
@@ -45,7 +46,7 @@ Each normative statement is one clause. A clause starts a paragraph with its ID 
 - If the meaning of a clause changes, withdraw it and write a new clause.
 - The two rules above apply when a document is `normative`. In a `draft` document, a clause can change in place. The PR that changes it names the clause and the affected vectors.
 
-`tools/check_spec.py` checks the prefixes, the topics and the uniqueness of IDs. It also checks the kind registry tables in document 02, the status, reason and operation tables in document 03, the reserved profile table in document 16, and each conformance vector against these tables.
+`tools/check_spec.py` checks the prefixes, the topics and the uniqueness of IDs. It also checks the kind registry tables in document 02, the status, reason and operation tables in document 03, the reserved profile table in document 16, the tables of each profile document, for example document 23, and each conformance vector against these tables.
 
 ## Keywords
 
@@ -59,7 +60,7 @@ The base profile is at minor version 12. Minor version 1 adds the kind `activati
 
 - A compatible addition to a profile increments the minor version in the profile document.
 - An incompatible change makes a new major version, for example `aavanam/base/v2`. Old objects keep their old profile identity. A transformation makes new objects.
-- Document 21 has the layout profile `aavanam/device-sqlite/v1`, and document 22 has the API profile `aavanam-read/v1`. A store declares them separately from the base profile. Their clauses apply only to a store that declares them.
+- Document 21 has the layout profile `aavanam/device-sqlite/v1`, and document 22 has the API profile `aavanam-read/v1`. Document 23 has the layer profile `aavanam/layer/v1`. A store declares each of these profiles separately from the base profile. Their clauses apply only to a store that declares them. The layer profile has its own kind, field and reason tables (LYR-PRF-2, LYR-PRF-3). Thus it does not change the tables or the minor version of the base profile.
 - A reserved profile is listed in document 16. Operations that need it return `unsupported` until it is specified.
 
 Extensions use the namespace `ext:<owner>/<name>/v<N>`. The owner is a DNS name or a GitHub owner. An extension MAY add kinds, fields or reason codes. It MUST NOT change the meaning of a base clause. An application that is not aware of an extension keeps the extension data as opaque content.

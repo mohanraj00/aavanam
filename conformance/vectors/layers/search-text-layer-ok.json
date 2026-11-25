@@ -1,0 +1,156 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A text search in a layered context reads the members and not a replaced member",
+  "clauses": [
+    "LYR-PRE-4",
+    "LYR-PRE-2",
+    "CRD-TXT-2",
+    "CRD-TXT-6"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The word week occurs only in the note of the replaced unit. The note a-pump-n is not in the closure of the base snapshot, so its snapshots list is empty."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "query": "week"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "query": "day"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-pump-n"
+              },
+              "snapshots": [],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 41,
+                "end": 44
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "query": "valve"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-valve"
+              },
+              "snapshots": [
+                {
+                  "$ref": "base"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 5,
+                "end": 10
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-valve"
+              },
+              "snapshots": [
+                {
+                  "$ref": "base"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 27,
+                "end": 32
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

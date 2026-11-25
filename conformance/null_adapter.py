@@ -27,3 +27,6 @@ class NullAdapter:
 
     def section(self, collection, section) -> None:
         pass
+
+    def declare(self, profiles) -> None:
+        pass

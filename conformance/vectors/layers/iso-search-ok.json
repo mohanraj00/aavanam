@@ -1,0 +1,282 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search gives a match in the content of a layer only in a layered context with that layer",
+  "clauses": [
+    "LYR-ISO-1",
+    "LYR-PRE-4",
+    "QRY-LEX-2",
+    "CRD-TXT-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The reading rd-n and the note a-gauge-n are in layer-north only. The note a-fan-s is in layer-south only."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "search",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "query": "handle"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd-n"
+              },
+              "kind": "reading",
+              "count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "query": "calibrate"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-gauge-n"
+              },
+              "snapshots": [],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 18,
+                "end": 27
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "search",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "query": "handle"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "query": "calibrate"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "query": "blades"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-fan-s"
+              },
+              "snapshots": [],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 30,
+                "end": 36
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "p"
+    },
+    {
+      "operation": "search",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "query": "handle"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "query": "calibrate"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "query": "blades"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    }
+  ]
+}

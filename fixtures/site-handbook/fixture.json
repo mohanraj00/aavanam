@@ -1,0 +1,533 @@
+{
+  "format": "aavanam-fixture/v1",
+  "collection": "sample-site-handbook",
+  "root": "base",
+  "payloads": {},
+  "descriptors": [
+    {
+      "as": "a-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Base pump note: grease the bearing each week.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Base valve note: close the valve before service.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "a-seal",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "Base seal note: replace the seal each year.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "sch",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "schema",
+        "schema_profile": "sample/schema/v1",
+        "payload": {
+          "$text": "{\"fields\": [\"part\", \"limit\"]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "t-base",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "logical_id": "site-limits",
+        "data_profile": "aavanam/table/v1",
+        "schema": {
+          "$ref": "sch"
+        },
+        "payload": {
+          "$text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"pump\", 40], [\"valve\", 16]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "b-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "limits": {
+            "$ref": "t-base"
+          }
+        },
+        "parameters": {
+          "item": "pump"
+        }
+      }
+    },
+    {
+      "as": "b-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "limits": {
+            "$ref": "t-base"
+          }
+        },
+        "parameters": {
+          "item": "valve"
+        }
+      }
+    },
+    {
+      "as": "b-seal",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "parameters": {
+          "item": "seal"
+        }
+      }
+    },
+    {
+      "as": "u-pump",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "pump",
+        "binding_set": {
+          "$ref": "b-pump"
+        },
+        "narratives": [
+          {
+            "$ref": "a-pump"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u-valve",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "valve",
+        "binding_set": {
+          "$ref": "b-valve"
+        },
+        "narratives": [
+          {
+            "$ref": "a-valve"
+          }
+        ]
+      }
+    },
+    {
+      "as": "u-seal",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "seal",
+        "binding_set": {
+          "$ref": "b-seal"
+        },
+        "narratives": [
+          {
+            "$ref": "a-seal"
+          }
+        ]
+      }
+    },
+    {
+      "as": "ob-base",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "observation",
+        "subjects": [
+          {
+            "$ref": "u-pump"
+          },
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "observation_type": "sample/inspection/v1",
+        "scope": {
+          "site": "all"
+        },
+        "values": {
+          "checked": false
+        }
+      }
+    },
+    {
+      "as": "base",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "snapshot",
+        "collection": "sample-site-handbook",
+        "units": [
+          {
+            "$ref": "u-pump"
+          },
+          {
+            "$ref": "u-valve"
+          },
+          {
+            "$ref": "u-seal"
+          }
+        ],
+        "schemas": [
+          {
+            "$ref": "sch"
+          }
+        ],
+        "observations": [
+          {
+            "$ref": "ob-base"
+          }
+        ]
+      }
+    },
+    {
+      "as": "a-pump-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "North pump note: grease the bearing each day.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "b-pump-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "limits": {
+            "$ref": "t-base"
+          }
+        },
+        "parameters": {
+          "item": "pump",
+          "site": "north"
+        }
+      }
+    },
+    {
+      "as": "u-pump-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "pump",
+        "binding_set": {
+          "$ref": "b-pump-n"
+        },
+        "narratives": [
+          {
+            "$ref": "a-pump-n"
+          }
+        ]
+      }
+    },
+    {
+      "as": "a-filter-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "North filter note: wash the filter each month.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "t-north",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "data-resource",
+        "data_profile": "aavanam/table/v1",
+        "schema": {
+          "$ref": "sch"
+        },
+        "payload": {
+          "$text": "{\"columns\": [\"part\", \"limit\"], \"key\": [\"part\"], \"rows\": [[\"filter\", 8]]}",
+          "media_type": "application/json"
+        }
+      }
+    },
+    {
+      "as": "b-filter-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "bindings": {
+          "limits": {
+            "$ref": "t-north"
+          }
+        }
+      }
+    },
+    {
+      "as": "u-filter-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "filter",
+        "binding_set": {
+          "$ref": "b-filter-n"
+        },
+        "narratives": [
+          {
+            "$ref": "a-filter-n"
+          }
+        ]
+      }
+    },
+    {
+      "as": "a-gauge-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "North gauge note: calibrate the gauge each quarter.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "b-gauge-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "parameters": {
+          "item": "gauge"
+        }
+      }
+    },
+    {
+      "as": "u-gauge-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "gauge",
+        "binding_set": {
+          "$ref": "b-gauge-n"
+        },
+        "narratives": [
+          {
+            "$ref": "a-gauge-n"
+          }
+        ]
+      }
+    },
+    {
+      "as": "o-north",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay",
+        "subject": {
+          "$ref": "t-base"
+        },
+        "origin": "sample-site-north",
+        "values": {
+          "region": "north"
+        }
+      }
+    },
+    {
+      "as": "os-north",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "overlay-set",
+        "members": [
+          {
+            "$ref": "o-north"
+          }
+        ]
+      }
+    },
+    {
+      "as": "src-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "source",
+        "payload": {
+          "$text": "Field report 7. The valve handle is loose.",
+          "media_type": "text/markdown"
+        }
+      }
+    },
+    {
+      "as": "rd-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "reading",
+        "source": {
+          "$ref": "src-n"
+        },
+        "producer": "sample/reader/v1",
+        "coverage_profile": "sample/coverage/v1",
+        "payload": {
+          "$text": "Field report 7. The valve handle is loose.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "ev-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "evidence",
+        "subject": {
+          "$ref": "a-valve"
+        },
+        "supports": {
+          "$ref": "rd-n"
+        },
+        "origin": "sample-site-north"
+      }
+    },
+    {
+      "as": "rs-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "relation-set",
+        "members": [
+          {
+            "$ref": "ev-n"
+          }
+        ]
+      }
+    },
+    {
+      "as": "ob-n",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "observation",
+        "subjects": [
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "observation_type": "sample/inspection/v1",
+        "scope": {
+          "site": "north"
+        },
+        "values": {
+          "checked": true
+        }
+      }
+    },
+    {
+      "as": "layer-north",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "layer",
+        "base": "sample-site-handbook",
+        "scope": "site-north",
+        "units": [
+          {
+            "$ref": "u-pump-n"
+          },
+          {
+            "$ref": "u-filter-n"
+          },
+          {
+            "$ref": "u-gauge-n"
+          }
+        ],
+        "relation_sets": [
+          {
+            "$ref": "rs-n"
+          }
+        ],
+        "overlay_sets": [
+          {
+            "$ref": "os-north"
+          }
+        ],
+        "observations": [
+          {
+            "$ref": "ob-n"
+          }
+        ]
+      }
+    },
+    {
+      "as": "a-fan-s",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "artifact",
+        "artifact_type": "sample/note/v1",
+        "payload": {
+          "$text": "South fan note: clean the fan blades.",
+          "media_type": "text/plain"
+        }
+      }
+    },
+    {
+      "as": "b-fan-s",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "binding-set",
+        "parameters": {
+          "item": "fan"
+        }
+      }
+    },
+    {
+      "as": "u-fan-s",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "knowledge-unit",
+        "logical_id": "fan",
+        "binding_set": {
+          "$ref": "b-fan-s"
+        },
+        "narratives": [
+          {
+            "$ref": "a-fan-s"
+          }
+        ]
+      }
+    },
+    {
+      "as": "layer-south",
+      "value": {
+        "descriptor_profile": "aavanam/base/v1",
+        "kind": "layer",
+        "base": "sample-site-handbook",
+        "scope": "site-south",
+        "units": [
+          {
+            "$ref": "u-fan-s"
+          }
+        ]
+      }
+    }
+  ]
+}

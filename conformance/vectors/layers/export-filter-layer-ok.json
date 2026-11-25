@@ -1,0 +1,429 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A replaced unit is not a candidate of a filtered export in a layered context",
+  "clauses": [
+    "LYR-EXP-2",
+    "LYR-PRE-2",
+    "BUN-FLT-1",
+    "BUN-FLT-3",
+    "BUN-FLT-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. The overlays give zone a to the units filter and pump of the layer and to the replaced unit u-pump. The replaced unit is not a member, so it is not a candidate and not a root of the bundle."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "z-u-filter-n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-filter-n"
+              },
+              "origin": "sample-site-north",
+              "values": {
+                "zone": "a"
+              }
+            }
+          },
+          {
+            "as": "z-u-gauge-n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-gauge-n"
+              },
+              "origin": "sample-site-north",
+              "values": {
+                "zone": "b"
+              }
+            }
+          },
+          {
+            "as": "z-u-pump-n",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-pump-n"
+              },
+              "origin": "sample-site-north",
+              "values": {
+                "zone": "a"
+              }
+            }
+          },
+          {
+            "as": "z-u-valve",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-valve"
+              },
+              "origin": "sample-site-north",
+              "values": {
+                "zone": "b"
+              }
+            }
+          },
+          {
+            "as": "z-u-seal",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-seal"
+              },
+              "origin": "sample-site-north",
+              "values": {
+                "zone": "b"
+              }
+            }
+          },
+          {
+            "as": "z-u-pump",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay",
+              "subject": {
+                "$ref": "u-pump"
+              },
+              "origin": "sample-site-north",
+              "values": {
+                "zone": "a"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "os-zone",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "overlay-set",
+              "members": [
+                {
+                  "$ref": "z-u-filter-n"
+                },
+                {
+                  "$ref": "z-u-gauge-n"
+                },
+                {
+                  "$ref": "z-u-pump-n"
+                },
+                {
+                  "$ref": "z-u-valve"
+                },
+                {
+                  "$ref": "z-u-seal"
+                },
+                {
+                  "$ref": "z-u-pump"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "layer-zone",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-north",
+              "units": [
+                {
+                  "$ref": "u-pump-n"
+                },
+                {
+                  "$ref": "u-filter-n"
+                },
+                {
+                  "$ref": "u-gauge-n"
+                }
+              ],
+              "overlay_sets": [
+                {
+                  "$ref": "os-zone"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-zone"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-zone"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "z"
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "z"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ],
+        "filter": {
+          "equals": {
+            "zone": "a"
+          }
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-filter-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "filter"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "z"
+        },
+        "roots": [
+          {
+            "$ref": "base"
+          },
+          {
+            "$ref": "layer-zone"
+          }
+        ],
+        "filter": {
+          "equals": {
+            "zone": "a"
+          }
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-filter-n"
+              },
+              "matched": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-filter-n"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-north"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "sch"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-filter-n"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump-n"
+              },
+              "matched": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-pump-n"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              },
+              "matched": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-pump-n"
+              },
+              "matched": false
+            }
+          }
+        ],
+        "unordered": true
+      }
+    }
+  ]
+}

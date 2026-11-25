@@ -1,0 +1,79 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A root snapshot of a different collection than the base of the layer gives layer_base_mismatch",
+  "clauses": [
+    "LYR-OPN-2",
+    "LYR-DEF-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-site-glossary",
+        "schemas": [
+          {
+            "$ref": "sch"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "gloss"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "gloss"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "layer_base_mismatch"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "gloss"
+              }
+            }
+          },
+          {
+            "status": "incompatible",
+            "reasons": [
+              "layer_base_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read of a member of a different layer gives unknown_ref",
+  "clauses": [
+    "LYR-ISO-1",
+    "LYR-ISO-2",
+    "CRD-READ-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/read-layer-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "read",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "ref": {
+          "$ref": "a-filter-n"
+        }
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

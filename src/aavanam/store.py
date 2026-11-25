@@ -22,7 +22,7 @@ from decimal import Decimal
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
-from .kinds import BASE_PROFILE, KINDS
+from .kinds import BASE_PROFILE, LAYER_PROFILE, PROFILES, registered
 from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS edges (source TEXT NOT NULL, target TEXT NOT NULL, PR
 CREATE TABLE IF NOT EXISTS blobs (digest TEXT PRIMARY KEY, data BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS deferred (digest TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (digest, ref));
 CREATE TABLE IF NOT EXISTS contexts (id TEXT PRIMARY KEY, roots TEXT NOT NULL, capabilities TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS context_views (context TEXT PRIMARY KEY, view TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_members (context TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (context, ref));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, collection TEXT NOT NULL,
     policy TEXT NOT NULL, expected_head TEXT);
@@ -83,6 +84,8 @@ class Failure(Exception):
 
 SECTIONS = ('serving', 'evidence')  # PUB-SEC-1
 NOT_IN_SERVING = ('source', 'reading', 'excerpt', 'evidence')  # PUB-SEC-3
+# The field that names the collection of a snapshot, and the base collection of a layer (LYR-DEF-1)
+COLLECTION_FIELD = {'snapshot': 'collection', 'layer': 'base'}
 
 
 class DeferredFailure(Exception):
@@ -91,6 +94,12 @@ class DeferredFailure(Exception):
     def __init__(self, found: dict[str, list[str]]):
         super().__init__('deferred check')
         self.found = found  # the reason codes of each descriptor in the original batch
+
+
+class Members(set):
+    """The members of a read context (CTX-VIW-1). `view` is the base snapshot and the layer of a layered
+    context (LYR-PRE-2), or None."""
+    view: list[str] | None = None
 
 
 class SectionViolation(Exception):
@@ -323,13 +332,16 @@ class Store:
     `output_path`. A local output store reads the objects and bytes of its `device` also (BUN-IMP-8)."""
 
     def __init__(self, path: str = ':memory:', debug: bool = False, role: str = 'writer', output_path: str = ':memory:',
-                 device: Store | None = None):
+                 device: Store | None = None, profiles=PROFILES):
         if role not in ROLES or (role == 'output') != (device is not None):
             raise ValueError('a local output store has one device store, and only a local output store has one')
         if role == 'output' and (device.role != 'device' or device.output is not None):
             raise ValueError('only a device store creates its local output store (BUN-IMP-5)')
         if role == 'device' and path != ':memory:' and os.path.realpath(path) == os.path.realpath(output_path):
             raise ValueError('a device store and its local output store have separate databases (BUN-IMP-7)')
+        if set(profiles) - set(PROFILES):
+            raise ValueError(f'a store declares only these profiles: {", ".join(PROFILES)} (LYR-PRF-1)')
+        self.profiles = tuple(profiles)  # the declared profiles, for the life of this open
         self.role, self.device, self.output = role, device, None
         self.debug = debug  # raise in place of storage_error, for tests
         self.broken = False  # a rollback failed, so the connection can show a partial write
@@ -346,7 +358,7 @@ class Store:
         self.called = False  # a gate is declared before the first call (PUB-GAT-1)
         self.cache: dict[str, dict] = {}  # descriptors do not change (IDN-CAN-1)
         self.policies: dict[str, object] = {}  # the acceptance policies of the application (PUB-RCP-1)
-        self.output = Store(output_path, debug, 'output', device=self) if role == 'device' else None
+        self.output = Store(output_path, debug, 'output', device=self, profiles=profiles) if role == 'device' else None
         if self.output and ':memory:' not in (path, output_path) and os.path.samefile(path, output_path):
             self.close()  # a hard link names one file with two paths (BUN-IMP-7)
             raise ValueError('a device store and its local output store have separate databases (BUN-IMP-7)')
@@ -408,9 +420,9 @@ class Store:
                 if declared not in (None, section):
                     raise ValueError(f'the collection already has the section {declared} (PUB-SEC-2)')
                 if declared is None:
-                    for (text,) in self.db.execute("SELECT descriptor FROM objects WHERE kind = 'snapshot'"):
-                        if json.loads(text, parse_float=number_value)['collection'] == collection:
-                            raise ValueError('the collection already has a snapshot (PUB-SEC-2)')
+                    for kind, text in self.db.execute("SELECT kind, descriptor FROM objects WHERE kind IN ('snapshot', 'layer')"):
+                        if json.loads(text, parse_float=number_value)[COLLECTION_FIELD[kind]] == collection:
+                            raise ValueError(f'the collection already has a {kind} (PUB-SEC-2, LYR-DEF-5)')
                     self.db.execute('INSERT INTO sections VALUES (?, ?)', (collection, section))
                 self.db.execute('COMMIT')
             except BaseException:
@@ -644,7 +656,7 @@ class Store:
             raise Failure('unsupported', [reason('capability_unavailable', (), [NEEDS[operation]])])
         return context, members
 
-    def context_of(self, request: dict) -> tuple[str, set[str], list[str]]:
+    def context_of(self, request: dict) -> tuple[str, Members, list[str]]:
         """The identity, the content and the capabilities of the read context of the request (CTX-OPN-3, CTX-PRJ-2)."""
         context = request.get('context')
         if not isinstance(context, str):
@@ -652,19 +664,53 @@ class Store:
         row = self.db.execute('SELECT capabilities FROM contexts WHERE id = ?', (context,)).fetchone()
         if row is None:
             raise fail('context_expired')
-        rows = self.db.execute('SELECT ref FROM context_members WHERE context = ?', (context,))
-        return context, {r for (r,) in rows}, json.loads(row[0])
+        members = Members(r for (r,) in self.db.execute('SELECT ref FROM context_members WHERE context = ?', (context,)))
+        view = self.db.execute('SELECT view FROM context_views WHERE context = ?', (context,)).fetchone()
+        members.view = json.loads(view[0]) if view else None  # a context with no row has no layer (LYR-OPN-3)
+        return context, members, json.loads(row[0])
 
     def locate(self, ref: str, members: set[str]) -> str | None:
-        """The reason code of a reference that is not in the read context (QRY-GET-2, CTX-OPN-4)."""
+        """The reason code of a reference that is not in the read context (QRY-GET-2, CTX-OPN-4). A layered
+        context does not show that the store has the object (LYR-ISO-2)."""
         if ref in members:
             return None
-        return 'not_in_context' if self.descriptor(ref) else 'unknown_ref'
+        layered = getattr(members, 'view', None) is not None
+        return 'not_in_context' if self.descriptor(ref) and not layered else 'unknown_ref'
 
-    @staticmethod
-    def open_form(request: dict) -> None:
-        """The request form of open_context: CTX-OPN-5, in order, with one reason for each affected value."""
-        unknown = [f for f in request if f not in ('roots', 'heads', 'skew_policy', 'capabilities')]
+    def layer_item(self, layer: dict, root: dict) -> dict:
+        """The item of the layer of an open_context request: the first check that fails, in order (LYR-OPN-2)."""
+        ref, desc = layer['ref'], self.descriptor(layer['ref'])
+        if desc is None:
+            return refused(['unknown_ref'], [ref])
+        if desc['kind'] != 'layer':
+            return refused(['unsupported_target_kind'], [ref])
+        if desc['scope'] != layer['scope']:
+            return refused(['layer_scope_mismatch'], [ref])
+        base = self.descriptor(root['ref']) if root['status'] == 'ok' else None
+        if base is not None and (base['kind'] != 'snapshot' or base['collection'] != desc['base']):
+            return refused(['layer_base_mismatch'], [ref])
+        return item(ref=ref)
+
+    def layered(self, base: str, layer: str) -> set[str]:
+        """The members of a layered context (LYR-PRE-2): the base snapshot, the layer, and each object that a kept
+        member or a layer member reaches on a path with no replaced member (LYR-PRE-1)."""
+        added = self.members_of(layer)
+        keys = {(self.kind(r), self.descriptor(r)['logical_id']) for r in added if 'logical_id' in self.descriptor(r)}
+        replaced = {r for r in self.members_of(base) - added
+                    if (self.kind(r), self.descriptor(r).get('logical_id')) in keys}
+        seen, todo = set(), deque((self.members_of(base) - replaced) | added)
+        while todo:
+            ref = todo.popleft()
+            if ref not in seen and ref not in replaced:
+                seen.add(ref)
+                todo.extend(self.targets(ref))
+        return seen | {base, layer}
+
+    def open_form(self, request: dict) -> None:
+        """The request form of open_context: CTX-OPN-5, in order, with one reason for each affected value.
+        Only a store that declares the layer profile has the field `layer` (LYR-PRF-1, LYR-OPN-1)."""
+        fields = ('roots', 'heads', 'skew_policy', 'capabilities') + (('layer',) if LAYER_PROFILE in self.profiles else ())
+        unknown = [f for f in request if f not in fields]
         if unknown:
             raise fail(*['unknown_field'] * len(unknown))
         types = [f for f in ('roots', 'heads', 'capabilities') if f in request and not isinstance(request[f], list)]
@@ -672,10 +718,16 @@ class Store:
             types.append('skew_policy')
         tests = {'roots': is_digest, 'heads': is_str, 'capabilities': is_str}
         types += [v for f, test in tests.items() if isinstance(request.get(f), list) for v in request[f] if not test(v)]
+        layer = request.get('layer')
+        if 'layer' in request and not (isinstance(layer, dict) and set(layer) == {'ref', 'scope'} and is_digest(layer['ref'])
+                                       and is_text(layer['scope'])):
+            types.append('layer')  # LYR-OPN-1
         if types:
             raise fail(*['field_type'] * len(types))
         counts = [] if request.get('roots') or request.get('heads') else ['roots']
         repeats = sum(len(v) - len(set(v)) for v in (request.get('heads', []), request.get('capabilities', [])))
+        if 'layer' in request and not counts and len(request.get('roots', [])) + len(request.get('heads', [])) != 1:
+            counts.append('layer')  # LYR-OPN-1: a layered context has one root
         if counts or repeats:
             raise fail(*['field_count'] * (len(counts) + repeats))
 
@@ -698,6 +750,9 @@ class Store:
                 items.append(item(ref=root))
         items += [item(ref=found[n]) if found[n] else refused(['no_head']) for n in heads]  # CTX-VIW-2
         resolved = [i['ref'] for i in items if i['status'] == 'ok']
+        layer = request.get('layer')
+        if layer:
+            items.append(self.layer_item(layer, items[0]))  # LYR-OPN-2
         self.composed(items)
         if all(i['status'] == 'ok' for i in items) and request.get('skew_policy', 'reject') == 'reject':
             self.skewed(items)
@@ -705,10 +760,13 @@ class Store:
         if status != 'ok':
             return self.envelope('open_context', status, reasons, items)
         context = 'ctx:' + uuid.uuid4().hex
-        closure = self.closure(resolved)
+        view = [resolved[0], layer['ref']] if layer else None
+        closure = self.layered(*view) if layer else self.closure(resolved)  # LYR-OPN-3, CTX-OPN-2
         self.db.execute('BEGIN IMMEDIATE')
         try:
             self.db.execute('INSERT INTO contexts VALUES (?, ?, ?)', (context, json.dumps(resolved), json.dumps(sorted(capabilities))))
+            if view:
+                self.db.execute('INSERT INTO context_views VALUES (?, ?)', (context, json.dumps(view)))
             self.db.executemany('INSERT INTO context_members VALUES (?, ?)', ((context, r) for r in closure))
             self.db.execute('COMMIT')
         except BaseException:
@@ -763,7 +821,7 @@ class Store:
         out, batch = [], {}
         for text in texts:
             try:
-                desc = d.check(parse(text) if isinstance(text, str) else text)
+                desc = d.check(parse(text) if isinstance(text, str) else text, self.profiles)
                 batch[revision(desc)] = desc
                 out.append(desc)
             except (FormError, d.Refusal) as e:
@@ -826,7 +884,7 @@ class Store:
             parts = [whole[r['start']:r['end']] for r in desc['ranges'] if r['end'] <= len(whole)]
             if len(parts) != len(desc['ranges']) or b''.join(parts) != data_of(desc['payload']['digest']):
                 raise d.Refusal(['excerpt_mismatch'])
-        if desc['kind'] == 'snapshot':
+        if desc['kind'] in ('snapshot', 'layer'):  # IDN-NAT-3, LYR-DEF-4
             subjects: dict[tuple, set] = {}
             for m in desc.get('native_mappings', []):
                 mapping = lookup(m)
@@ -842,8 +900,9 @@ class Store:
             raise d.Refusal(['section_violation'] * len(found), found)
 
     def section_violations(self, desc, lookup) -> list[str]:
-        """The descriptors in the closure of a snapshot that its `serving` collection does not permit (PUB-SEC-3)."""
-        if desc['kind'] != 'snapshot' or self.section_of(desc['collection']) != 'serving':
+        """The descriptors in the closure of a snapshot, or of a layer, that its `serving` collection does not
+        permit (PUB-SEC-3, LYR-DEF-5)."""
+        if desc['kind'] not in COLLECTION_FIELD or self.section_of(desc[COLLECTION_FIELD[desc['kind']]]) != 'serving':
             return []
         seen, todo, found = set(), [r for _, r in d.references(desc)], []
         while todo:
@@ -1058,11 +1117,14 @@ class Store:
         if reasons:
             raise Failure('unsupported', reasons)
 
-    def lock(self, operation: str, request: dict, context: str, covered: list[str]) -> dict:
+    def lock(self, operation: str, request: dict, context: str, covered: list[str], view=None) -> dict:
         """Write the lock of the request and return the closure that it covers (LCK-EXE-4, LCK-BLD-3).
-        A device store writes the lock to its local output store (BUN-IMP-7)."""
+        A device store writes the lock to its local output store (BUN-IMP-7). In a layered context, the lock
+        has the base snapshot and the layer in `view` (LYR-LCK-1)."""
         fields = {k: v for k, v in request.items() if k != 'context'}
-        desc = d.check({'descriptor_profile': BASE_PROFILE, 'kind': LOCK_KINDS[operation], **fields})
+        if view:
+            fields['view'] = view
+        desc = d.check({'descriptor_profile': BASE_PROFILE, 'kind': LOCK_KINDS[operation], **fields}, self.profiles)
         ref = revision(desc)
         items = [item(ref=r) for r in sorted(self.closure(covered))]  # read before the write (STS-ENV-4)
         target = self.output or self
@@ -1070,7 +1132,7 @@ class Store:
             target.write({ref: desc}, {})
         return self.envelope(operation, 'ok', [], items, context, lock=ref)
 
-    def lock_context(self, request: dict, operation: str) -> tuple[str, set[str], list[str]]:
+    def lock_context(self, request: dict, operation: str) -> tuple[str, Members, list[str]]:
         """The read context of a lock request, with the capability of the operation (CTX-PRJ-4)."""
         context, members = self.members(request, operation)
         return context, members, self.context_of(request)[2]
@@ -1086,7 +1148,7 @@ class Store:
         self.checked_refs([(binding_set, ('binding-set',))] + [(r, permitted) for r in inputs], members)
         self.required(request, capabilities)
         self.bindings_problems(self.descriptor(binding_set))
-        return self.lock('execution_inputs', request, context, [binding_set, *inputs])
+        return self.lock('execution_inputs', request, context, [binding_set, *inputs], members.view)
 
     def op_build_inputs(self, request: dict) -> dict:
         form(request, {'context': (True, is_str), 'inputs': (True, lambda v: is_refs(v, empty=True)),
@@ -1097,7 +1159,7 @@ class Store:
         inputs = request['inputs']
         self.checked_refs([(r, d.targets('build-lock', 'inputs')) for r in inputs], members)
         self.required(request, capabilities)
-        return self.lock('build_inputs', request, context, inputs)
+        return self.lock('build_inputs', request, context, inputs, members.view)
 
     # Bundles (document 11)
 
@@ -1136,7 +1198,8 @@ class Store:
             return self.envelope('export', 'not_found', [reason(code, [r]) for r, code in located], [], context)
         flt = request.get('filter')
         if flt is not None:  # BUN-FLT-1 to BUN-FLT-3: the roots of the bundle are the units that match
-            checked = self.filtered(flt, sorted(r for r in self.closure(roots) if self.kind(r) == 'knowledge-unit'), members)
+            # LYR-EXP-2: a candidate is a member, so a replaced unit of a layered context is not a candidate
+            checked = self.filtered(flt, sorted(r for r in self.closure(roots) & members if self.kind(r) == 'knowledge-unit'), members)
             failed = [o for _, o in checked if isinstance(o, dict)]
             if failed:
                 return self.envelope('export', *first_status(failed), [], context)
@@ -1654,10 +1717,10 @@ class Store:
 
     # Lifecycle and discovery (documents 17 and 18)
 
-    @staticmethod
-    def known_kinds(request: dict) -> None:
-        """Step 4 of LIF-CHG-1 and step 5 of DSC-LST-1: one unknown_kind for each name that is not a base kind."""
-        unknown = [k for k in request.get('kinds', []) if k not in KINDS]
+    def known_kinds(self, request: dict) -> None:
+        """Step 4 of LIF-CHG-1 and step 5 of DSC-LST-1: one unknown_kind for each name that is not a registered kind.
+        A kind of a profile that the store does not declare is not registered (KND-REG-2, LYR-PRF-1)."""
+        unknown = [k for k in request.get('kinds', []) if not registered(k, self.profiles)]
         if unknown:
             raise Failure('unsupported', [reason('unknown_kind') for _ in unknown])
 

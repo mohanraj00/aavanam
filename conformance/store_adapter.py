@@ -14,15 +14,18 @@ class StoreAdapter:
     """The request forms of conformance/README.md are the JSON API of the store. Thus each call goes through.
     The writer store is a separate Store. The device store creates the local output store (BUN-IMP-5)."""
 
-    def __init__(self):
+    def __init__(self, profiles=()):
         debug = bool(os.environ.get("AAVANAM_DEBUG"))
-        device = Store(debug=debug, role='device')  # with its local output store (BUN-IMP-5)
-        self.stores = {'writer': Store(debug=debug), 'device': device, 'output': device.output}
+        device = Store(debug=debug, role='device', profiles=profiles)  # with its local output store (BUN-IMP-5)
+        self.stores = {'writer': Store(debug=debug, profiles=profiles), 'device': device, 'output': device.output}
 
-    def reset(self) -> None:
+    def reset(self, profiles=()) -> None:
         for store in ('writer', 'device'):  # the device store closes its output store
             self.stores[store].close()
-        self.__init__()
+        self.__init__(profiles)
+
+    def declare(self, profiles) -> None:
+        self.reset(profiles)  # the runner calls it after reset(), so each store is empty (LYR-PRF-1)
 
     def call(self, operation: str, request: dict, store: str = 'writer') -> dict:
         return self.stores[store].call(operation, request)

@@ -1,0 +1,205 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "One layer applies to a later base snapshot, and its references to base objects stay",
+  "clauses": [
+    "LYR-REF-1",
+    "LYR-DEF-1",
+    "LYR-PRE-2",
+    "LYR-OPN-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The snapshot base2 has only the unit seal. layer-north reaches t-base through b-pump-n and u-valve through its observation ob-n, so both are members."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-site-handbook",
+        "units": [
+          {
+            "$ref": "u-seal"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "base2"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base2"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n2"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "n2"
+        },
+        "refs": [
+          {
+            "$ref": "t-base"
+          },
+          {
+            "$ref": "b-pump-n"
+          },
+          {
+            "$ref": "u-valve"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-pump-n"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "n2"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-filter-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "filter"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-gauge-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "gauge"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

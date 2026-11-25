@@ -1,0 +1,40 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer of an open_context request with no scope gives field_type",
+  "clauses": [
+    "LYR-OPN-1",
+    "CTX-OPN-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          }
+        }
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ]
+}
