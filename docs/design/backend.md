@@ -76,7 +76,7 @@ Check order. Each check of the vectors runs in Go, and no vector plants a storag
   2. A query gives its words, and each word gives its token. The index reads the bit set of each text digest of the members of the context, in one statement. It returns each digest whose set has each bit of each query token.
   3. `core/text` scans the bytes of each such digest and gives the matches of CRD-TXT-4 in the order of CRD-ORD-1.
   4. A candidate with no bytes gives `payload_missing` (CRD-TXT-5). This comes from the members, not from the index. A member with a deferred record gets its deferred checks before the index applies (BUN-IMP-12), so a member whose bytes are in the store and whose check fails gives `payload_missing` too.
-  5. A digest with no `text_tokens` row is not in the index. The search scans its bytes, as with no index, and then writes its row.
+  5. A digest with no `text_tokens` row is not in the index. The search scans its bytes, as with no index, and then writes its row. It writes the rows of one group of payloads before it reads the next group, so it keeps the tokens of one group at most.
 
   Equal words give equal tokens and equal bits, so the index drops no digest that has a match. Two different tokens can set the same bits, and the set keeps no word order. Then step 3 removes the false candidate. Thus the result is exact on PostgreSQL, and a rebuild of the index gives the same items (CRD-ORD-3). The store never uses `tsvector`, a stemmer or a locale, and never sends the request text to an index query. The phrase match, the separator rule for byte 0, the bytes that are not UTF-8 and the ASCII case rule come from the scan in `core/text`. The tests of `core/text` and the vectors of document 20 check them.
 

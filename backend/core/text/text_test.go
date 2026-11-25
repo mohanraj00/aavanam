@@ -99,12 +99,16 @@ type index struct {
 	mu     sync.Mutex
 	tokens map[string][]string
 	none   bool
-	asked  []string // each digest of each TextCandidates call
+	asked  []string   // each digest of each TextCandidates call
+	writes [][]string // the digests of each update that put tokens
 }
 
 func (x *index) PutTextTokens(digest string, tokens []string) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
+	if n := len(x.writes); n > 0 {
+		x.writes[n-1] = append(x.writes[n-1], digest)
+	}
 	if _, ok := x.tokens[digest]; !ok {
 		x.tokens[digest] = tokens
 	}
@@ -168,6 +172,9 @@ func (s *indexed) Session(ctx context.Context) ops.Session {
 }
 
 func (s session) Update(fn func(t ops.Tx)) {
+	s.index.mu.Lock()
+	s.index.writes = append(s.index.writes, nil)
+	s.index.mu.Unlock()
 	s.Session.Update(func(t ops.Tx) { fn(tx{t, s.index}) })
 }
 
@@ -366,5 +373,59 @@ func TestSearchFillsTheIndex(t *testing.T) {
 	}
 	if again := call(t, store, "search_text", request); string(again.JSON()) != string(before.JSON()) {
 		t.Errorf("the search with the index: %s\nbefore: %s", again.JSON(), before.JSON())
+	}
+}
+
+// TestSearchFillsTheIndexInGroups checks that a search with no tokens writes the tokens of each group of
+// payloads before it reads the next group. Thus the search does not keep the tokens of all payloads.
+func TestSearchFillsTheIndexInGroups(t *testing.T) {
+	r := ops.NewRegistry()
+	read.Register(r)
+	text.Register(r)
+	mem := memstore.New()
+	storage := &indexed{mem: mem, index: &index{tokens: map[string][]string{}}}
+	store := ops.New(ops.Writer, storage, r)
+	// Three payloads of 5 MiB: two of them are more than one group of 8 MiB.
+	word := strings.Repeat("w", 1023)
+	var payloads [][]byte
+	var objects []ops.Object
+	narratives := ""
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		data := []byte(name + " " + strings.Repeat(word+" ", 5*1024))
+		payloads = append(payloads, data)
+		o := object(t, artifactOf(jsontext.Digest(data), len(data), name))
+		objects = append(objects, o)
+		narratives += `,"` + o.Ref + `"`
+	}
+	bindings := object(t, `{`+profile+`,"kind":"binding-set"}`)
+	refs := []string{bindings.Ref}
+	for _, o := range objects {
+		refs = append(refs, o.Ref)
+	}
+	unit := object(t, `{`+profile+`,"kind":"knowledge-unit","binding_set":"`+bindings.Ref+`","narratives":[`+narratives[1:]+`]}`, refs...)
+	storage.Session(context.Background()).Update(func(tx ops.Tx) { // no call of the indexer, as in the old store
+		for _, o := range append(objects, bindings, unit) {
+			tx.PutObject(o)
+		}
+		for _, data := range payloads {
+			tx.PutBlob(jsontext.Digest(data), data)
+		}
+	})
+	opened := call(t, store, "open_context", `{"roots":["`+unit.Ref+`"]}`)
+	storage.writes = nil
+	found := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"beta"}`)
+	if found.Status != "ok" || len(found.Items) != 1 {
+		t.Fatalf("search_text with no tokens: %d items, status %s", len(found.Items), found.Status)
+	}
+	if len(storage.writes) != 3 {
+		t.Fatalf("the search wrote the tokens in %d updates, want one for each of the 3 groups", len(storage.writes))
+	}
+	for n, digests := range storage.writes {
+		if len(digests) != 1 {
+			t.Errorf("update %d put the tokens of %d payloads, want 1", n, len(digests))
+		}
+	}
+	if len(storage.tokens) != 3 {
+		t.Errorf("the index has the tokens of %d payloads, want 3", len(storage.tokens))
 	}
 }

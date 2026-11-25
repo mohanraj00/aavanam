@@ -265,7 +265,7 @@ func SearchText(c *ops.Call) envelope.Envelope {
 			read = append(read, x)
 		}
 	}
-	fill := map[string][]string{}
+	filled := map[string]bool{}
 	var items []envelope.Item
 	for len(read) > 0 {
 		// One read gives the bytes of a group of members, up to readBytes of declared payload size.
@@ -277,6 +277,7 @@ func SearchText(c *ops.Call) envelope.Envelope {
 			n++
 		}
 		blobs := c.Blobs(group)
+		fill := map[string][]string{}
 		for _, x := range read[:n] {
 			data, ok := blobs[x.digest]
 			if ok {
@@ -290,8 +291,8 @@ func SearchText(c *ops.Call) envelope.Envelope {
 				continue // a member with a deferred record whose checks pass, and that the index skips
 			}
 			words := Words(data)
-			if indexed && unindexed[x.digest] {
-				fill[x.digest] = Tokens(words)
+			if indexed && unindexed[x.digest] && !filled[x.digest] {
+				fill[x.digest], filled[x.digest] = Tokens(words), true
 			}
 			var in []string
 			for n, match := range Matches(words, query) {
@@ -304,20 +305,22 @@ func SearchText(c *ops.Call) envelope.Envelope {
 					jsontext.M("selector", selector)))
 			}
 		}
-		read = read[n:]
-	}
-	if len(fill) > 0 {
-		// A store that got its text payloads before it had the index has no tokens for them. The scan of
-		// such a digest gives its tokens to the index, so the next search does not read its bytes.
-		c.S.Update(func(tx ops.Tx) {
-			if w, ok := tx.(ops.TextIndex); ok {
-				for _, digest := range digests {
-					if tokens, ok := fill[digest]; ok {
-						w.PutTextTokens(digest, tokens)
+		if len(fill) > 0 {
+			// A store that got its text payloads before it had the index has no tokens for them. The scan
+			// of such a digest gives its tokens to the index, so the next search does not read its bytes.
+			// Each group writes its tokens, so the search keeps the tokens of one group at most.
+			c.S.Update(func(tx ops.Tx) {
+				if w, ok := tx.(ops.TextIndex); ok {
+					for _, digest := range group {
+						if tokens, ok := fill[digest]; ok {
+							w.PutTextTokens(digest, tokens)
+							delete(fill, digest) // a group can have one digest two times
+						}
 					}
 				}
-			}
-		})
+			})
+		}
+		read = read[n:]
 	}
 	offset, limit := int64(0), int64(-1)
 	if v, ok := c.Request.Get("offset"); ok {
