@@ -22,11 +22,13 @@ check-go:
 	cd backend && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
 	cd reference && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
 
-# The listed vectors on the backend with the storage in memory. They need no database.
+# The listed vectors on the backend with the storage in memory, and the browse page of examples/browse_page/ on
+# the same storage. They need no database.
 .PHONY: check-backend-mem
 check-backend-mem:
 	$(BACKEND) AAVANAM_STORAGE=mem $(RUNNER) \
 		--expect backend/conformance/passing-mem-core.txt --expect backend/conformance/passing-mem-read.txt
+	AAVANAM_BROWSE_EXAMPLE=1 $(PYTHON) -B -m unittest discover -s tests -p test_browse_page.py
 
 # The listed vectors on PostgreSQL. Set AAVANAM_PG_DSN to a PostgreSQL 17 database, for example a local container.
 .PHONY: check-backend-pg

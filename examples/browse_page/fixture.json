@@ -1,0 +1,39 @@
+{
+  "format": "aavanam-browse-fixture/v1",
+  "policy": "sample/browse-policy",
+  "sections": {"sample-field-guide": "serving"},
+  "descriptors": [
+    {"as": "a-pump-1", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "artifact", "artifact_type": "sample/note/v1", "logical_id": "guide/pump",
+      "payload": {"$text": "# Pump\n\nGrease the bearing each week.\n", "media_type": "text/markdown"}}},
+    {"as": "a-pump-2", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "artifact", "artifact_type": "sample/note/v1", "logical_id": "guide/pump",
+      "payload": {"$text": "# Pump\n\nGrease the bearing every two weeks.\n", "media_type": "text/markdown"}}},
+    {"as": "a-valve", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "artifact", "artifact_type": "sample/note/v1", "logical_id": "guide/valve",
+      "payload": {"$text": "# Valve\n\nClose the valve before service.\n", "media_type": "text/markdown"}}},
+    {"as": "a-seal", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "artifact", "artifact_type": "sample/note/v1", "logical_id": "guide/seal",
+      "payload": {"$text": "# Seal\n\nReplace the seal each year.\n", "media_type": "text/markdown"}}},
+    {"as": "a-hours", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "artifact", "artifact_type": "sample/note/v1", "logical_id": "notes/hours",
+      "payload": {"$text": "The workshop opens at 08:00 and closes at 17:00.", "media_type": "text/plain"}}},
+    {"as": "b-empty", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "binding-set", "bindings": {}}},
+    {"as": "u-pump-1", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "knowledge-unit", "logical_id": "unit/pump",
+      "binding_set": {"$ref": "b-empty"}, "narratives": [{"$ref": "a-pump-1"}]}},
+    {"as": "u-pump-2", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "knowledge-unit", "logical_id": "unit/pump",
+      "binding_set": {"$ref": "b-empty"}, "narratives": [{"$ref": "a-pump-2"}]}},
+    {"as": "u-valve", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "knowledge-unit", "logical_id": "unit/valve",
+      "binding_set": {"$ref": "b-empty"}, "narratives": [{"$ref": "a-valve"}]}},
+    {"as": "u-seal", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "knowledge-unit", "logical_id": "unit/seal",
+      "binding_set": {"$ref": "b-empty"}, "narratives": [{"$ref": "a-seal"}]}},
+    {"as": "u-hours", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "knowledge-unit", "logical_id": "unit/hours",
+      "binding_set": {"$ref": "b-empty"}, "narratives": [{"$ref": "a-hours"}]}},
+    {"as": "r-1", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "receipt", "producer": "sample/reviewer",
+      "payload": {"$text": "Review 1: accepted.", "media_type": "text/plain"}}},
+    {"as": "r-2", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "receipt", "producer": "sample/reviewer",
+      "payload": {"$text": "Review 2: accepted.", "media_type": "text/plain"}}},
+    {"as": "r-3", "value": {"descriptor_profile": "aavanam/base/v1", "kind": "receipt", "producer": "sample/reviewer",
+      "payload": {"$text": "Review 3: accepted.", "media_type": "text/plain"}}}
+  ],
+  "publications": [
+    {"as": "s-guide-1", "receipt": "r-1", "snapshot": {"collection": "sample-field-guide", "units": [{"$ref": "u-pump-1"}, {"$ref": "u-valve"}]}},
+    {"as": "s-guide-2", "receipt": "r-2", "snapshot": {"collection": "sample-field-guide", "units": [{"$ref": "u-pump-2"}, {"$ref": "u-valve"}, {"$ref": "u-seal"}]}},
+    {"as": "s-notes-1", "receipt": "r-3", "snapshot": {"collection": "sample-site-notes", "units": [{"$ref": "u-hours"}]}}
+  ]
+}
