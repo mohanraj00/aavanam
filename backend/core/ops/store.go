@@ -127,6 +127,12 @@ type Validator func(ctx context.Context, candidate, receipt, activation string) 
 // cacheLimit is the number of parsed descriptors that a store keeps.
 const cacheLimit = 1 << 16
 
+// memoLimit is the number of references that the values of ReadContext.Memo keep, for all contexts.
+const memoLimit = 1 << 19
+
+// memoKey names one value of ReadContext.Memo.
+type memoKey struct{ context, name string }
+
 // Store is one store with one role and its operations.
 type Store struct {
 	Role    Role
@@ -144,12 +150,14 @@ type Store struct {
 	mu       sync.RWMutex
 	policies map[string]Validator
 	cache    map[string]jsontext.Value // descriptors do not change (IDN-CAN-1)
+	memo     map[memoKey]any           // the content of a context does not change (CTX-OPN-2)
+	memoCost int
 }
 
 // New returns a store. The registry does not change after this call.
 func New(role Role, storage Storage, registry *Registry) *Store {
 	return &Store{Role: role, Storage: storage, registry: registry, policies: map[string]Validator{},
-		cache: map[string]jsontext.Value{}}
+		cache: map[string]jsontext.Value{}, memo: map[memoKey]any{}}
 }
 
 // Accept registers the validator of an acceptance policy (PUB-RCP-1).

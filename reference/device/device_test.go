@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -99,15 +100,20 @@ func TestTextIndex(t *testing.T) {
 	})
 	for _, s := range []*Store{dev, out} {
 		index := s.Session(ctx).(ops.TextIndex)
-		if got := index.TextCandidates([]string{"ta", "tb"}); !reflect.DeepEqual(got, []string{ref(1)}) {
-			t.Errorf("%s: candidates of ta tb: %v", s.role, got)
+		all := []string{ref(1), ref(2), ref(3), ref(4)}
+		check := func(tokens, digests, candidates, unindexed []string) {
+			t.Helper()
+			can, not := index.TextCandidates(tokens, digests)
+			sort.Strings(can)
+			if !reflect.DeepEqual(can, candidates) || !reflect.DeepEqual(not, unindexed) {
+				t.Errorf("%s: %v in %d digests: candidates %v, not in the index %v", s.role, tokens, len(digests), can, not)
+			}
 		}
-		if got := index.TextCandidates([]string{"tb"}); !reflect.DeepEqual(got, []string{ref(1), ref(2)}) {
-			t.Errorf("%s: candidates of tb: %v", s.role, got)
-		}
-		if got := index.TextCandidates([]string{"tz"}); len(got) != 0 {
-			t.Errorf("%s: candidates of tz: %v", s.role, got)
-		}
+		check([]string{"ta", "tb"}, all, []string{ref(1)}, []string{ref(4)})
+		check([]string{"tb"}, all, []string{ref(1), ref(2)}, []string{ref(4)})
+		check([]string{"tb"}, []string{ref(2), ref(3)}, []string{ref(2)}, nil) // only the digests of the list
+		check([]string{"tz"}, all, nil, []string{ref(4)})
+		check([]string{"ta"}, nil, nil, nil)
 		if !index.TextIndexed(ref(3)) || index.TextIndexed(ref(4)) {
 			t.Errorf("%s: TextIndexed", s.role)
 		}

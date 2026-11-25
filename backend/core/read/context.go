@@ -142,9 +142,8 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 		ops.Raise(err)
 	}
 	id := "ctx-" + hex.EncodeToString(random)
-	members := ops.Sorted(c.Closure(resolved...))
-	c.S.Update(func(tx ops.Tx) {
-		tx.PutContext(id, ops.ContextRecord{Roots: resolved, Capabilities: capabilities}, members)
+	c.S.Update(func(tx ops.Tx) { // the storage reads the closure of each root one time (KND-DEP-3)
+		tx.PutContext(id, ops.ContextRecord{Roots: resolved, Capabilities: capabilities})
 	})
 	return c.Envelope("ok", nil, items).WithContext(id) // CTX-OPN-2
 }
@@ -193,6 +192,7 @@ func composed(c *ops.Call, items []envelope.Item) {
 // have the logical ID, in ascending order (CTX-SKW-1).
 func pins(c *ops.Call, snapshot string) map[string][]string {
 	closure := c.Closure(snapshot)
+	c.Preload(ops.Sorted(closure))
 	bound := map[string]struct{}{}
 	for ref := range closure {
 		desc, _ := c.Descriptor(ref)
@@ -225,6 +225,13 @@ func pins(c *ops.Call, snapshot string) map[string][]string {
 // `binding_skew` for each such logical ID (CTX-SKW-2, CTX-SKW-4).
 func skewed(c *ops.Call, items []envelope.Item) {
 	roots := snapshots(c, items)
+	different := map[string]struct{}{}
+	for _, r := range roots {
+		different[r.ref] = struct{}{}
+	}
+	if len(different) < 2 {
+		return // one snapshot root has one pin set for each logical ID, so it has no skew (CTX-SKW-2)
+	}
 	all := map[string]map[string][]string{}
 	for _, r := range roots {
 		if _, ok := all[r.ref]; !ok {

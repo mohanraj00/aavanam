@@ -2,7 +2,10 @@ package text_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -42,6 +45,19 @@ func TestToken(t *testing.T) {
 	}
 	if text.Token("alpha") == text.Token("beta") {
 		t.Fatal("two words with one token")
+	}
+}
+
+// TokensOf gives the tokens of Tokens(Words(data)), also for a word that is too large for its cache and
+// for a second call (DEV-FTS-3).
+func TestTokensOf(t *testing.T) {
+	long := strings.Repeat("Z", 100)
+	for _, data := range []string{"", " ;", "Alpha beta ALPHA\x00b\xc3\x89 9", long + " a " + long, "alpha"} {
+		for range 2 {
+			if got, want := text.TokensOf([]byte(data)), text.Tokens(text.Words([]byte(data))); !reflect.DeepEqual(got, want) {
+				t.Errorf("%q: %v, want %v", data, got, want)
+			}
+		}
 	}
 }
 
@@ -85,11 +101,16 @@ type index struct {
 	mu     sync.Mutex
 	tokens map[string][]string
 	none   bool
+	asked  []string   // each digest of each TextCandidates call
+	writes [][]string // the digests of each update that put tokens
 }
 
 func (x *index) PutTextTokens(digest string, tokens []string) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
+	if n := len(x.writes); n > 0 {
+		x.writes[n-1] = append(x.writes[n-1], digest)
+	}
 	if _, ok := x.tokens[digest]; !ok {
 		x.tokens[digest] = tokens
 	}
@@ -102,27 +123,45 @@ func (x *index) TextIndexed(digest string) bool {
 	return ok
 }
 
-func (x *index) TextCandidates(tokens []string) []string {
+func (x *index) TextCandidates(tokens, digests []string) (candidates, unindexed []string) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
-	var out []string
-	for digest, list := range x.tokens {
-		if !x.none && strings.Contains(" "+strings.Join(list, " ")+" ", " "+strings.Join(tokens, " ")+" ") {
-			out = append(out, digest)
+	x.asked = append(x.asked, digests...)
+	for _, digest := range digests {
+		list, ok := x.tokens[digest]
+		switch {
+		case !ok:
+			unindexed = append(unindexed, digest)
+		case !x.none && strings.Contains(" "+strings.Join(list, " ")+" ", " "+strings.Join(tokens, " ")+" "):
+			candidates = append(candidates, digest)
 		}
 	}
-	return out
+	return candidates, unindexed
 }
 
 // indexed is a storage in memory with a text index.
 type indexed struct {
 	mem *memstore.Store
 	*index
+	reads []string
+}
+
+// scan is the same storage with no text index: each search scans each text member.
+type scan struct{ mem *memstore.Store }
+
+func (s scan) Session(ctx context.Context) ops.Session {
+	return struct{ ops.Session }{s.mem.Session(ctx)}
 }
 
 type session struct {
 	ops.Session
 	*index
+	reads *[]string // each digest of each Blob call
+}
+
+func (s session) Blob(digest string) ([]byte, bool) {
+	*s.reads = append(*s.reads, digest)
+	return s.Session.Blob(digest)
 }
 
 type tx struct {
@@ -131,11 +170,33 @@ type tx struct {
 }
 
 func (s *indexed) Session(ctx context.Context) ops.Session {
-	return session{s.mem.Session(ctx), s.index}
+	return session{s.mem.Session(ctx), s.index, &s.reads}
 }
 
 func (s session) Update(fn func(t ops.Tx)) {
+	s.index.mu.Lock()
+	s.index.writes = append(s.index.writes, nil)
+	s.index.mu.Unlock()
 	s.Session.Update(func(t ops.Tx) { fn(tx{t, s.index}) })
+}
+
+// object returns the stored form of a descriptor for a write below the operations.
+func object(t *testing.T, desc string, targets ...string) ops.Object {
+	t.Helper()
+	value, err := jsontext.Parse([]byte(desc), jsontext.Strict)
+	if err != nil {
+		t.Fatal(err)
+	}
+	normal, refusal := check.Normal(value)
+	if refusal != nil {
+		t.Fatal(refusal)
+	}
+	return ops.Object{Ref: canon.Revision(normal), Kind: check.Kind(normal), Text: canon.Canonical(normal), Targets: targets}
+}
+
+func artifactOf(digest string, size int, kind string) string {
+	return `{` + profile + `,"kind":"artifact","artifact_type":"` + kind + `","payload":{"digest":"` + digest +
+		`","media_type":"text/plain","size":` + strconv.Itoa(size) + `}}`
 }
 
 const profile = `"descriptor_profile":"aavanam/base/v1"`
@@ -198,5 +259,260 @@ func TestSearchUsesIndex(t *testing.T) {
 	storage.none = true
 	if e := call(t, store, "search_text", search); e.Status != "ok" || len(e.Items) != 0 {
 		t.Fatalf("an indexed digest that the index does not give is not scanned: %s", e.JSON())
+	}
+}
+
+// A search with the index gives the same items as a full scan, also for a member with no usable bytes
+// (CRD-TXT-5, BUN-IMP-12): a member whose bytes are not in the store, and a member whose bytes are in the
+// store and whose deferred check fails. The index never reads the bytes of a member that it can skip.
+func TestSearchWithIndexIsAFullScan(t *testing.T) {
+	r := ops.NewRegistry()
+	read.Register(r)
+	text.Register(r)
+	mem := memstore.New()
+	storage := &indexed{mem: mem, index: &index{tokens: map[string][]string{}}}
+	store, plain := ops.New(ops.Writer, storage, r), ops.New(ops.Writer, scan{mem}, r)
+
+	hit, miss, absent := []byte("alpha beta gamma"), []byte("delta epsilon"), []byte("alpha beta not here")
+	hitDigest, missDigest, absentDigest := jsontext.Digest(hit), jsontext.Digest(miss), jsontext.Digest(absent)
+	good := object(t, artifactOf(hitDigest, len(hit), "good"))
+	other := object(t, artifactOf(missDigest, len(miss), "other"))
+	// The bytes of this member are in the store, but its declared size is wrong: its deferred check fails.
+	wrong := object(t, artifactOf(hitDigest, len(hit)+1, "wrong-size"))
+	wrongNoMatch := object(t, artifactOf(missDigest, len(miss)+1, "wrong-size"))
+	// This member has a deferred record, and its check passes.
+	late := object(t, artifactOf(missDigest, len(miss), "late"))
+	gone := object(t, artifactOf(absentDigest, len(absent), "gone"))
+	artifacts := []ops.Object{good, other, wrong, wrongNoMatch, late, gone}
+	bindings := object(t, `{`+profile+`,"kind":"binding-set"}`)
+	narratives, targets := "", []string{bindings.Ref}
+	for i, a := range artifacts {
+		if i > 0 {
+			narratives += ","
+		}
+		narratives += `"` + a.Ref + `"`
+		targets = append(targets, a.Ref)
+	}
+	unit := object(t, `{`+profile+`,"kind":"knowledge-unit","binding_set":"`+bindings.Ref+`","narratives":[`+narratives+`]}`, targets...)
+	snapshot := object(t, `{`+profile+`,"kind":"snapshot","collection":"c","units":["`+unit.Ref+`"]}`, unit.Ref)
+	storage.Session(context.Background()).Update(func(tx ops.Tx) {
+		for _, o := range append(artifacts, bindings, unit, snapshot) {
+			tx.PutObject(o)
+		}
+		tx.PutBlob(hitDigest, hit)
+		tx.PutBlob(missDigest, miss)
+		tx.PutDeferred(hitDigest, wrong.Ref)
+		tx.PutDeferred(missDigest, wrongNoMatch.Ref)
+		tx.PutDeferred(missDigest, late.Ref)
+		tx.(ops.TextIndex).PutTextTokens(hitDigest, text.Tokens(text.Words(hit)))
+		tx.(ops.TextIndex).PutTextTokens(missDigest, text.Tokens(text.Words(miss)))
+	})
+	opened := call(t, store, "open_context", `{"roots":["`+snapshot.Ref+`"]}`)
+	if opened.Status != "ok" {
+		t.Fatalf("open_context: %s", opened.JSON())
+	}
+	for query, items := range map[string]int{"Alpha BETA": 4, "epsilon": 5, "no such word": 3} {
+		request := `{"context":"` + opened.Context.Str + `","query":"` + query + `"}`
+		storage.reads, storage.asked = nil, nil
+		got, want := call(t, store, "search_text", request), call(t, plain, "search_text", request)
+		if string(got.JSON()) != string(want.JSON()) || len(got.Items) != items {
+			t.Errorf("%q with the index: %s\nwith a full scan: %s", query, got.JSON(), want.JSON())
+		}
+		for _, refused := range []string{wrong.Ref, wrongNoMatch.Ref, gone.Ref} {
+			if !strings.Contains(string(got.JSON()), `"refs":["`+refused+`"]`) {
+				t.Errorf("%q: the member %s has no `payload_missing` item: %s", query, refused, got.JSON())
+			}
+		}
+		if len(storage.asked) != 3 {
+			t.Errorf("%q: the index got %d digests, not the 3 digests of the members", query, len(storage.asked))
+		}
+		// The search reads the bytes of `good` and `other` only if they are candidates: the index has
+		// their digests, and they have no deferred record. Each member with a deferred record gives two
+		// reads (the bytes, and the deferred check), and `gone` gives one.
+		if query == "no such word" && len(storage.reads) != 7 {
+			t.Errorf("the search read the bytes of a member that the index skips: %d reads", len(storage.reads))
+		}
+	}
+}
+
+// A store that got its text payloads before it had the index has no tokens for them (a store of version
+// 0.4.0). A search scans each such digest, gives the same items, and gives the tokens to the index.
+func TestSearchFillsTheIndex(t *testing.T) {
+	r := ops.NewRegistry()
+	read.Register(r)
+	text.Register(r)
+	mem := memstore.New()
+	storage := &indexed{mem: mem, index: &index{tokens: map[string][]string{}}}
+	store := ops.New(ops.Writer, storage, r)
+	one, two := []byte("alpha beta"), []byte("gamma alpha")
+	first := object(t, artifactOf(jsontext.Digest(one), len(one), "a"))
+	second := object(t, artifactOf(jsontext.Digest(two), len(two), "b"))
+	bindings := object(t, `{`+profile+`,"kind":"binding-set"}`)
+	unit := object(t, `{`+profile+`,"kind":"knowledge-unit","binding_set":"`+bindings.Ref+`","narratives":["`+first.Ref+`","`+
+		second.Ref+`"]}`, bindings.Ref, first.Ref, second.Ref)
+	storage.Session(context.Background()).Update(func(tx ops.Tx) { // no call of the indexer, as in the old store
+		for _, o := range []ops.Object{first, second, bindings, unit} {
+			tx.PutObject(o)
+		}
+		tx.PutBlob(jsontext.Digest(one), one)
+		tx.PutBlob(jsontext.Digest(two), two)
+	})
+	opened := call(t, store, "open_context", `{"roots":["`+unit.Ref+`"]}`)
+	request := `{"context":"` + opened.Context.Str + `","query":"alpha"}`
+	before := call(t, store, "search_text", request)
+	if before.Status != "ok" || len(before.Items) != 2 {
+		t.Fatalf("search_text with no tokens: %s", before.JSON())
+	}
+	for _, data := range [][]byte{one, two} {
+		if got, want := storage.tokens[jsontext.Digest(data)], text.Tokens(text.Words(data)); !reflect.DeepEqual(got, want) {
+			t.Errorf("the tokens of %q after the search: %v, want %v", data, got, want)
+		}
+	}
+	storage.reads = nil
+	after := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"beta"}`)
+	if after.Status != "ok" || len(after.Items) != 1 || len(storage.reads) != 1 {
+		t.Errorf("the second search read %d payloads: %s", len(storage.reads), after.JSON())
+	}
+	if again := call(t, store, "search_text", request); string(again.JSON()) != string(before.JSON()) {
+		t.Errorf("the search with the index: %s\nbefore: %s", again.JSON(), before.JSON())
+	}
+}
+
+// TestSearchFillsTheIndexInGroups checks that a search with no tokens writes the tokens of each group of
+// payloads before it reads the next group. Thus the search does not keep the tokens of all payloads.
+func TestSearchFillsTheIndexInGroups(t *testing.T) {
+	r := ops.NewRegistry()
+	read.Register(r)
+	text.Register(r)
+	mem := memstore.New()
+	storage := &indexed{mem: mem, index: &index{tokens: map[string][]string{}}}
+	store := ops.New(ops.Writer, storage, r)
+	// Three payloads of 5 MiB: two of them are more than one group of 8 MiB.
+	word := strings.Repeat("w", 1023)
+	var payloads [][]byte
+	var objects []ops.Object
+	narratives := ""
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		data := []byte(name + " " + strings.Repeat(word+" ", 5*1024))
+		payloads = append(payloads, data)
+		o := object(t, artifactOf(jsontext.Digest(data), len(data), name))
+		objects = append(objects, o)
+		narratives += `,"` + o.Ref + `"`
+	}
+	bindings := object(t, `{`+profile+`,"kind":"binding-set"}`)
+	refs := []string{bindings.Ref}
+	for _, o := range objects {
+		refs = append(refs, o.Ref)
+	}
+	unit := object(t, `{`+profile+`,"kind":"knowledge-unit","binding_set":"`+bindings.Ref+`","narratives":[`+narratives[1:]+`]}`, refs...)
+	storage.Session(context.Background()).Update(func(tx ops.Tx) { // no call of the indexer, as in the old store
+		for _, o := range append(objects, bindings, unit) {
+			tx.PutObject(o)
+		}
+		for _, data := range payloads {
+			tx.PutBlob(jsontext.Digest(data), data)
+		}
+	})
+	opened := call(t, store, "open_context", `{"roots":["`+unit.Ref+`"]}`)
+	storage.writes = nil
+	found := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"beta"}`)
+	if found.Status != "ok" || len(found.Items) != 1 {
+		t.Fatalf("search_text with no tokens: %d items, status %s", len(found.Items), found.Status)
+	}
+	if len(storage.writes) != 3 {
+		t.Fatalf("the search wrote the tokens in %d updates, want one for each of the 3 groups", len(storage.writes))
+	}
+	for n, digests := range storage.writes {
+		if len(digests) != 1 {
+			t.Errorf("update %d put the tokens of %d payloads, want 1", n, len(digests))
+		}
+	}
+	if len(storage.tokens) != 3 {
+		t.Errorf("the index has the tokens of %d payloads, want 3", len(storage.tokens))
+	}
+}
+
+// wide is a storage whose closure of each root has more references than the store keeps for a context.
+type wide struct {
+	mem   *memstore.Store
+	pad   []string
+	reads int // the number of Closure calls
+	lists int // the number of Members calls
+}
+
+type wideSession struct {
+	ops.Session
+	storage *wide
+}
+
+func (w *wide) Session(ctx context.Context) ops.Session { return wideSession{w.mem.Session(ctx), w} }
+
+func (s wideSession) Members(context string) []string {
+	s.storage.lists++
+	return s.Session.Members(context)
+}
+
+func (s wideSession) Closure(root string) []string {
+	s.storage.reads++
+	var members []string
+	for member := range ops.ClosureIn(s.Session, []string{root}) {
+		members = append(members, member)
+	}
+	sort.Strings(members)
+	return append(members, s.storage.pad...) // each pad sorts after each reference
+}
+
+// A search reads the closure of each snapshot root one time, also if the store does not keep the closures
+// for the next call (CRD-TXT-6 rule 2). A value that the store does not keep does not remove the values
+// that it keeps: the next search does not read the member list again.
+func TestSearchReadsLargeClosuresOneTime(t *testing.T) {
+	r := ops.NewRegistry()
+	read.Register(r)
+	text.Register(r)
+	storage := &wide{mem: memstore.New()}
+	for n := 0; n <= 1<<18; n++ { // two closures of this size are more than the bound of the store
+		storage.pad = append(storage.pad, fmt.Sprintf("z%06d", n))
+	}
+	store := ops.New(ops.Writer, storage, r)
+	bindings := object(t, `{`+profile+`,"kind":"binding-set"}`)
+	objects := []ops.Object{bindings}
+	var payloads [][]byte
+	var snapshots []string
+	for _, name := range []string{"alpha", "beta"} {
+		data := []byte("common " + name)
+		payloads = append(payloads, data)
+		artifact := object(t, artifactOf(jsontext.Digest(data), len(data), name))
+		unit := object(t, `{`+profile+`,"kind":"knowledge-unit","binding_set":"`+bindings.Ref+`","narratives":["`+artifact.Ref+`"]}`,
+			bindings.Ref, artifact.Ref)
+		snapshot := object(t, `{`+profile+`,"kind":"snapshot","collection":"`+name+`","units":["`+unit.Ref+`"]}`, unit.Ref)
+		objects = append(objects, artifact, unit, snapshot)
+		snapshots = append(snapshots, snapshot.Ref)
+	}
+	storage.Session(context.Background()).Update(func(tx ops.Tx) {
+		for _, o := range objects {
+			tx.PutObject(o)
+		}
+		for _, data := range payloads {
+			tx.PutBlob(jsontext.Digest(data), data)
+		}
+	})
+	opened := call(t, store, "open_context", `{"roots":["`+snapshots[0]+`","`+snapshots[1]+`"]}`)
+	if opened.Status != "ok" {
+		t.Fatalf("open_context: %s", opened.JSON())
+	}
+	storage.reads = 0
+	found := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"common"}`)
+	if found.Status != "ok" || len(found.Items) != 2 {
+		t.Fatalf("search_text: %d items, status %s", len(found.Items), found.Status)
+	}
+	if storage.reads != 2 {
+		t.Errorf("the search of 2 items read %d closures, want one for each of the 2 snapshot roots", storage.reads)
+	}
+	storage.lists = 0
+	if again := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"common"}`); len(again.Items) != 2 {
+		t.Fatalf("the second search_text: %d items, status %s", len(again.Items), again.Status)
+	}
+	if storage.lists != 0 {
+		t.Errorf("the second search read the member list %d times, want 0", storage.lists)
 	}
 }
