@@ -191,8 +191,10 @@ class BackendAdapterTest(unittest.TestCase):
         self.assertEqual(set(mixed.local), {'writer'})
         self.assertEqual(mixed.call('get', {}, store='device')['via'], 'line')
         self.assertEqual(mixed.call('no_such_operation', {})['status'], 'unsupported')
-        vid = 'publication/publish-ok'  # a writer vector passes on the Python writer with a Go device driver
-        self.assertEqual(runner.run_vector(mixed, vid, vectors[vid]), [], vid)
+        # A writer vector passes on the Python writer with a Go device driver. The writer declares no profile (RSV-LST-4).
+        for vid in ('publication/publish-ok', 'reserved/semantic-search'):
+            self.assertEqual(runner.run_vector(mixed, vid, vectors[vid]), [], vid)
+        self.assertEqual({store.profiles for store in (*adapter.local.values(), *mixed.local.values())}, {()})
 
 
 if __name__ == '__main__':
