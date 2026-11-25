@@ -31,7 +31,7 @@ The generator makes the store from a shape and a seed. The bytes of each payload
 
 The data is neutral: pseudo-words of two or three syllables from a fixed set, numbers and random bytes.
 
-Each collection is a `serving` collection with a head. A knowledge unit binds 20 artifacts, and an overlay gives it the metadata key `region`. The main collection, `c000`, has the measured read context:
+Each collection is a `serving` collection with a head. A knowledge unit binds 20 artifacts, and an overlay gives it the metadata keys `region` and `band`. The key `band` has the value `b0` for the first 500 units of the store, in the order of the collections, and `b1` for each other unit. Issue #128 added this key, so the store of a later run has different overlay descriptors than the store of the first run. The shape and the payload bytes are the same. The main collection, `c000`, has the measured read context:
 
 - 2 000 text artifacts (`text/plain`). The phrase `amber harbor` is in each 100th text artifact. The syllable set cannot make these two words.
 - An artifact of exactly 64 KiB at each 50th artifact.
@@ -70,7 +70,8 @@ The device bench also measures the device bundle on `S0`:
 - the time of the first import;
 - the time of a bundle update that changes 1% of the artifacts (each changed unit gets a new binding set, a new knowledge unit with the same logical ID and a new overlay);
 - the size of the device file after the import and after the update. The bench closes the store before it reads a size, so the write-ahead log is in the file;
-- `open_context` and `search_text` on a filtered bundle (BUN-FLT-3): the export of `c000` with the filter `region = r0`, whose roots are 25 knowledge units.
+- `open_context` and `search_text` on a filtered bundle (BUN-FLT-3): the export of `c000` with the filter `region = r0`, whose roots are 25 knowledge units;
+- each read measure on a second filtered bundle: the export of each head with the filter `band = b0`, whose roots are 500 knowledge units (`band:<measure>`). Its context has 10 000 text artifacts, the largest table and the 64 KiB artifacts of `c000`.
 
 With `-clients 16`, each read measure also runs with 16 concurrent clients. Each client makes its next call when its last call ends.
 
@@ -82,7 +83,7 @@ A shared CI runner is slow, and its time varies. Thus `make check-bench` fails o
 
 1. A clear miss is a p95 that is more than 3 times its target (`BENCH_FACTOR`).
 2. The `S0` column of the design is the target of each `S0` run: on the storage in memory, on PostgreSQL and on the device store.
-3. A known miss does not fail the job. `BENCH_KNOWN` in the [Makefile](../Makefile) lists each target that the first run missed, with the issue of its cause. The job still prints each value and marks each known miss.
+3. A known miss does not fail the job. `BENCH_KNOWN` in the [Makefile](../Makefile) lists each target that a recorded run missed, with the issue of its cause. The list is empty after #128. The job still prints each value and marks each known miss.
 4. A failed call is a clear miss. A known miss does not excuse it.
 5. Each read measure stops after 10 s (`BENCH_MAX_TIME`), but it makes 20 calls or more. Thus a slow measure has a smaller count in CI. The count is in the output.
 
@@ -111,7 +112,7 @@ Each number in this section is for this machine only. Each measure of `S0` made 
 | `search_text` | 100 | 103 | **144** | 1 414 | **1 962** | 133 | **145** |
 | `query_data_where` | none | 10.3 | 12.2 | 22.1 | 31.6 | 10.9 | 12.1 |
 
-A value in bold misses its target. Each miss is in `BENCH_KNOWN`, with #128. On PostgreSQL, `open_context` is 62 times its target and `search_text` is 20 times its target.
+A value in bold misses its target. At the time of the first run, each miss was in `BENCH_KNOWN`, with #128. On PostgreSQL, `open_context` is 62 times its target and `search_text` is 20 times its target.
 
 ### `S0`, the publication of 1 000 descriptors
 

@@ -55,7 +55,7 @@ func TestContentAndCatalog(t *testing.T) {
 		tx.Publish(ops.Publication{Candidate: "c1", Receipt: "r", Collection: "col", Head: "s"})
 		tx.Publish(ops.Publication{Candidate: "c2", Receipt: "r", Collection: "other", Head: "x"})
 		tx.Publish(ops.Publication{Candidate: "c3", Receipt: "r", Collection: "col", PreviousHead: "s", Head: "s2"})
-		tx.PutContext("ctx", ops.ContextRecord{Roots: []string{"s"}, Capabilities: []string{"x"}}, []string{"s", "a"})
+		tx.PutContext("ctx", ops.ContextRecord{Roots: []string{"s"}, Capabilities: []string{"x"}})
 	})
 	r := s.Session(context.Background())
 	if kind, text, _ := r.Object("a"); kind != "source" || string(text) != "A" {
@@ -83,14 +83,14 @@ func TestContentAndCatalog(t *testing.T) {
 	if c, ok := r.Candidate("c1"); !ok || c.Policy != "p" {
 		t.Errorf("candidate: %+v", c)
 	}
-	if record, ok := r.Context("ctx"); !ok || record.Roots[0] != "s" || !r.IsMember("ctx", "a") || r.IsMember("ctx", "b") ||
-		!reflect.DeepEqual(r.Members("ctx"), []string{"a", "s"}) {
+	if record, ok := r.Context("ctx"); !ok || record.Roots[0] != "s" || !r.IsMember("ctx", "a") || r.IsMember("ctx", "d") ||
+		!reflect.DeepEqual(r.Members("ctx"), []string{"a", "b", "s"}) { // the closure of the root (CTX-OPN-2)
 		t.Errorf("context: %+v", record)
 	}
 	before := s.Fingerprint()
 	update(s, func(tx ops.Tx) {
 		tx.ClearDeferred("w")
-		tx.PutContext("ctx2", ops.ContextRecord{}, nil)
+		tx.PutContext("ctx2", ops.ContextRecord{})
 		tx.DeclareGate("col")
 	})
 	if r.HasDeferred("s") || len(r.DeferredRefs("w")) != 0 {
@@ -100,7 +100,7 @@ func TestContentAndCatalog(t *testing.T) {
 		t.Error("a removed deferred record did not change the fingerprint")
 	}
 	before = s.Fingerprint()
-	update(s, func(tx ops.Tx) { tx.PutContext("ctx3", ops.ContextRecord{}, []string{"a"}) })
+	update(s, func(tx ops.Tx) { tx.PutContext("ctx3", ops.ContextRecord{Roots: []string{"a"}}) })
 	if s.Fingerprint() != before {
 		t.Error("a read context changed the fingerprint")
 	}

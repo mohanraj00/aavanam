@@ -126,11 +126,51 @@ CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON producer_entries FOR EACH
 CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON producer_removals FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
 `, `
 CREATE INDEX contexts_opened ON contexts (opened);
+`, `
+-- The derived tables of the read path (docs/design/backend.md, sections 2 and 4). Each one is a function
+-- of objects, edges and payloads. They are not source content, so they have no inserts_only trigger.
+--
+-- closures: the closure of a root (KND-DEP-3), written at the first use of the root in a read context.
+-- The content of a context is the closures of its roots, so the list of each context goes away. The
+-- closures of the roots of each context that the store keeps give the same members (CTX-OPN-2).
+CREATE TABLE closures (
+    root bytea NOT NULL,
+    member bytea NOT NULL,
+    PRIMARY KEY (root, member)
+);
+INSERT INTO closures (root, member)
+WITH RECURSIVE walk(root, member) AS (
+    SELECT DISTINCT r.root, r.root FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
+    UNION
+    SELECT w.root, e.dst FROM walk w JOIN edges e ON e.src = w.member
+) SELECT root, member FROM walk;
+DROP TABLE context_members;
+-- text_tokens: the set of the word tokens of a text payload (CRD-TXT-3), as a bit set. It gives the
+-- candidates of search_text only. A digest with no row is not in the index, and a search scans its bytes.
+CREATE TABLE text_tokens (
+    digest bytea PRIMARY KEY CHECK (octet_length(digest) = 32),
+    bits bytea NOT NULL
+);
+ALTER TABLE text_tokens ALTER COLUMN bits SET STORAGE MAIN;
+-- table_heads and table_rows: the declared columns and the rows of a table payload (DAT-TBL-1), written
+-- at the first parse of the payload (DAT-TBL-3). A table with no row has a head and no row.
+CREATE TABLE table_heads (
+    digest bytea PRIMARY KEY CHECK (octet_length(digest) = 32),
+    columns bytea NOT NULL,
+    count integer NOT NULL
+);
+CREATE TABLE table_rows (
+    digest bytea NOT NULL,
+    idx integer NOT NULL,
+    cells bytea NOT NULL,
+    PRIMARY KEY (digest, idx)
+);
 `}
 
 // tables has each table of the schema, for the reset of the conformance driver.
 var tables = []string{"objects", "edges", "payloads", "deferred", "candidates", "heads", "publications", "gates", "sections",
-	"collection_locks", "contexts", "context_members", "producer_objects", "producer_entries", "producer_removals"}
+	"collection_locks", "contexts", "closures", "text_tokens", "table_heads", "table_rows", "producer_objects",
+	"producer_entries", "producer_removals"}
 
 // migrationLock is the key of the advisory lock that one migration run has.
 const migrationLock = 0x61617661_6e616d00

@@ -7,7 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/mohanraj00/aavanam/backend/core/ops"
@@ -40,6 +42,14 @@ type state struct {
 	producer   map[producerKey][]byte
 	removals   map[string][]ops.Removal
 	entries    map[logKey][]ops.Entry
+	tokens     map[string][]uint64 // derived: the different word tokens of a text digest, in ascending order
+	tables     map[string]*table   // derived: the columns and the rows of a table digest
+}
+
+// table is one entry of the row cache (ops.RowCache).
+type table struct {
+	columns []string
+	rows    [][]byte
 }
 
 func newState() *state {
@@ -49,7 +59,7 @@ func newState() *state {
 		heads: map[string]string{}, sections: map[string]string{}, gates: map[string]struct{}{},
 		candidates: map[string]ops.Candidate{}, published: map[string]struct{}{}, contexts: map[string]ops.ContextRecord{},
 		members: map[string]map[string]struct{}{}, producer: map[producerKey][]byte{}, removals: map[string][]ops.Removal{},
-		entries: map[logKey][]ops.Entry{},
+		entries: map[logKey][]ops.Entry{}, tokens: map[string][]uint64{}, tables: map[string]*table{},
 	}
 }
 
@@ -108,7 +118,7 @@ func (st *state) clone() *state {
 		heads: copyMap(st.heads), sections: copyMap(st.sections), gates: copyMap(st.gates),
 		candidates: copyMap(st.candidates), published: copyMap(st.published), log: st.log[:len(st.log):len(st.log)],
 		contexts: copyMap(st.contexts), members: copyMap(st.members), producer: copyMap(st.producer),
-		removals: copyMap(st.removals), entries: copyMap(st.entries),
+		removals: copyMap(st.removals), entries: copyMap(st.entries), tokens: copyMap(st.tokens), tables: copyMap(st.tables),
 	}
 }
 
@@ -166,13 +176,47 @@ func (t tx) Publish(p ops.Publication) {
 	t.st.log = append(t.st.log, p)
 }
 
-func (t tx) PutContext(id string, record ops.ContextRecord, members []string) {
-	set := make(map[string]struct{}, len(members))
-	for _, m := range members {
-		set[m] = struct{}{}
-	}
+// PutContext adds a read context with the closure of its roots as its content (CTX-OPN-2).
+func (t tx) PutContext(id string, record ops.ContextRecord) {
 	t.st.contexts[id] = record
-	t.st.members[id] = set
+	t.st.members[id] = ops.ClosureIn(t, record.Roots)
+}
+
+// tokenValue returns the number of a token of package text: the letter `t` and 16 hexadecimal digits.
+func tokenValue(token string) uint64 {
+	if len(token) != 17 {
+		ops.Raise(fmt.Errorf("the token %q does not have 17 characters", token))
+	}
+	value, err := strconv.ParseUint(token[1:], 16, 64)
+	if err != nil {
+		ops.Raise(err)
+	}
+	return value
+}
+
+// PutTextTokens records the different tokens of a digest (ops.TextIndex).
+func (t tx) PutTextTokens(digest string, tokens []string) {
+	if t.TextIndexed(digest) {
+		return
+	}
+	set := make([]uint64, 0, len(tokens))
+	for _, token := range tokens {
+		set = append(set, tokenValue(token))
+	}
+	slices.Sort(set)
+	t.st.tokens[digest] = slices.Clip(slices.Compact(set))
+}
+
+// PutTable records the columns and the rows of a table (ops.RowCache).
+func (t tx) PutTable(digest string, columns []string, rows [][]byte) {
+	if _, _, ok := t.TableHead(digest); ok {
+		return
+	}
+	entry := &table{columns: append([]string(nil), columns...), rows: make([][]byte, len(rows))}
+	for i, row := range rows {
+		entry.rows[i] = append([]byte(nil), row...)
+	}
+	t.st.tables[digest] = entry
 }
 
 func (t tx) PutProducerObject(producer, key string, data []byte) {
@@ -348,6 +392,86 @@ func (v view) IsMember(context, ref string) bool {
 
 func (v view) Members(context string) []string { return keys(v.st.members[context]) }
 
+// TextIndexed tells if the store, or its device store, has the tokens of a digest.
+func (v view) TextIndexed(digest string) bool {
+	if _, ok := v.st.tokens[digest]; ok {
+		return true
+	}
+	d, ok := v.below()
+	return ok && d.TextIndexed(digest)
+}
+
+func (v view) tokensOf(digest string) ([]uint64, bool) {
+	if set, ok := v.st.tokens[digest]; ok {
+		return set, true
+	}
+	if d, ok := v.below(); ok {
+		return d.tokensOf(digest)
+	}
+	return nil, false
+}
+
+// TextCandidates gives each indexed digest of the list that has each token (ops.TextIndex). The index
+// keeps no word order, so a digest with the words in a different order is a candidate too.
+func (v view) TextCandidates(tokens, digests []string) (candidates, unindexed []string) {
+	want := make([]uint64, len(tokens))
+	for i, token := range tokens {
+		want[i] = tokenValue(token)
+	}
+	for _, digest := range digests {
+		set, ok := v.tokensOf(digest)
+		if !ok {
+			unindexed = append(unindexed, digest)
+			continue
+		}
+		all := true
+		for _, token := range want {
+			if _, found := slices.BinarySearch(set, token); !found {
+				all = false
+				break
+			}
+		}
+		if all {
+			candidates = append(candidates, digest)
+		}
+	}
+	return candidates, unindexed
+}
+
+func (v view) tableOf(digest string) (*table, bool) {
+	if entry, ok := v.st.tables[digest]; ok {
+		return entry, true
+	}
+	if d, ok := v.below(); ok {
+		return d.tableOf(digest)
+	}
+	return nil, false
+}
+
+func (v view) TableHead(digest string) ([]string, int, bool) {
+	entry, ok := v.tableOf(digest)
+	if !ok {
+		return nil, 0, false
+	}
+	return append([]string(nil), entry.columns...), len(entry.rows), true
+}
+
+func (v view) TableRow(digest string, index int) ([]byte, bool) {
+	entry, ok := v.tableOf(digest)
+	if !ok || index < 0 || index >= len(entry.rows) {
+		return nil, false
+	}
+	return entry.rows[index], true
+}
+
+func (v view) TableRows(digest string) [][]byte {
+	entry, _ := v.tableOf(digest)
+	if entry == nil {
+		return nil
+	}
+	return entry.rows[:len(entry.rows):len(entry.rows)]
+}
+
 func (v view) ProducerObject(producer, key string) ([]byte, bool) {
 	data, ok := v.st.producer[producerKey{producer, key}]
 	return data, ok
@@ -467,6 +591,42 @@ func (v session) Members(context string) []string {
 	defer done()
 	return r.Members(context)
 }
+
+func (v session) TextIndexed(digest string) bool {
+	r, done := v.read()
+	defer done()
+	return r.TextIndexed(digest)
+}
+
+func (v session) TextCandidates(tokens, digests []string) (candidates, unindexed []string) {
+	r, done := v.read()
+	defer done()
+	return r.TextCandidates(tokens, digests)
+}
+
+// PutTextTokens has an effect only in an update.
+func (v session) PutTextTokens(string, []string) {}
+
+func (v session) TableHead(digest string) ([]string, int, bool) {
+	r, done := v.read()
+	defer done()
+	return r.TableHead(digest)
+}
+
+func (v session) TableRow(digest string, index int) ([]byte, bool) {
+	r, done := v.read()
+	defer done()
+	return r.TableRow(digest, index)
+}
+
+func (v session) TableRows(digest string) [][]byte {
+	r, done := v.read()
+	defer done()
+	return r.TableRows(digest)
+}
+
+// PutTable has an effect only in an update.
+func (v session) PutTable(string, []string, [][]byte) {}
 
 func (v session) ProducerObject(producer, key string) ([]byte, bool) {
 	r, done := v.read()

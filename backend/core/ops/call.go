@@ -77,13 +77,78 @@ func (c *Call) Env() check.Env {
 	return check.Env{Lookup: c.Descriptor, Data: c.S.Blob}
 }
 
+// Preload reads the descriptors of a list that the store did not parse before, in one read, if the storage
+// has BatchReader. A later Descriptor call for a reference of the list then makes no read.
+func (c *Call) Preload(refs []string) {
+	batch, ok := c.S.(BatchReader)
+	if !ok {
+		return
+	}
+	s := c.Store
+	var absent []string
+	s.mu.RLock()
+	for _, ref := range refs {
+		if _, ok := s.cache[ref]; !ok {
+			absent = append(absent, ref)
+		}
+	}
+	s.mu.RUnlock()
+	if len(absent) == 0 || len(absent) >= cacheLimit {
+		return
+	}
+	texts := batch.Objects(absent)
+	values := make(map[string]jsontext.Value, len(texts))
+	for ref, text := range texts {
+		values[ref] = parse(text)
+	}
+	s.mu.Lock()
+	if len(s.cache)+len(values) >= cacheLimit {
+		s.cache = map[string]jsontext.Value{}
+	}
+	for ref, value := range values {
+		s.cache[ref] = value
+	}
+	s.mu.Unlock()
+}
+
+// Deferred returns each descriptor of a list that a deferred record names (BUN-IMP-12).
+func (c *Call) Deferred(refs []string) map[string]bool {
+	if batch, ok := c.S.(BatchReader); ok {
+		return batch.Deferred(refs)
+	}
+	out := map[string]bool{}
+	for _, ref := range refs {
+		if c.S.HasDeferred(ref) {
+			out[ref] = true
+		}
+	}
+	return out
+}
+
 // Blob returns the bytes of a payload of a descriptor. If the descriptor has a deferred record, the bytes
 // are available only after its deferred checks pass (BUN-IMP-12). Bytes that fail a check, or whose check
 // is not complete, use the read rules of absent bytes.
 func (c *Call) Blob(digest, ref string) ([]byte, bool) {
 	data, ok := c.S.Blob(digest)
-	if !ok || !c.S.HasDeferred(ref) {
-		return data, ok
+	if !ok {
+		return nil, false
+	}
+	return c.checked(data, ref, c.S.HasDeferred(ref))
+}
+
+// BlobOf is Blob for a caller that knows if the descriptor has a deferred record, for example from Deferred.
+func (c *Call) BlobOf(digest, ref string, deferred bool) ([]byte, bool) {
+	data, ok := c.S.Blob(digest)
+	if !ok {
+		return nil, false
+	}
+	return c.checked(data, ref, deferred)
+}
+
+// checked applies the deferred checks of a descriptor to bytes that the store has (BUN-IMP-12).
+func (c *Call) checked(data []byte, ref string, deferred bool) ([]byte, bool) {
+	if !deferred {
+		return data, true
 	}
 	desc, _ := c.Descriptor(ref)
 	env := c.Env()
@@ -113,8 +178,24 @@ func ClosureIn(r Reader, roots []string) map[string]struct{} {
 	return seen
 }
 
-// Closure returns the roots and each object that their references reach (KND-DEP-3).
-func (c *Call) Closure(roots ...string) map[string]struct{} { return ClosureIn(c.S, roots) }
+// Closure returns the roots and each object that their references reach (KND-DEP-3). A storage with
+// ClosureIndex gives the closure of each root in one read.
+func (c *Call) Closure(roots ...string) map[string]struct{} {
+	index, ok := c.S.(ClosureIndex)
+	if !ok {
+		return ClosureIn(c.S, roots)
+	}
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		if _, done := seen[root]; done {
+			continue // the root is in the closure of an earlier root, and its closure is too
+		}
+		for _, member := range index.Closure(root) {
+			seen[member] = struct{}{}
+		}
+	}
+	return seen
+}
 
 // Sorted returns the members of a set in ascending order.
 func Sorted(set map[string]struct{}) []string {

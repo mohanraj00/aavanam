@@ -186,7 +186,7 @@ func TestCapabilityOfTheContext(t *testing.T) {
 	}
 	s := store(ops.Writer, map[string]ops.Handler{"get": read, "search": read, "query_data": read})
 	s.Storage.Session(context.Background()).Update(func(tx ops.Tx) {
-		tx.PutContext("ctx-1", ops.ContextRecord{Capabilities: []string{"aavanam/lexical/v1"}}, []string{"m"})
+		tx.PutContext("ctx-1", ops.ContextRecord{Capabilities: []string{"aavanam/lexical/v1"}})
 	})
 	for operation, want := range map[string]string{
 		`"get"`:        "ok  context=ctx-1",

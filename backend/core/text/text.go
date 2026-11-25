@@ -135,26 +135,46 @@ func SearchText(c *ops.Call) envelope.Envelope {
 	rc := c.Context() // steps 4 and 5
 	queryValue, _ := c.Request.Get("query")
 	query := Words([]byte(queryValue.Str))
-	snapshots := map[string]map[string]struct{}{} // CRD-TXT-6 rule 2
+	// CRD-TXT-6 rule 2: the snapshot roots of the context, and the closure of each one. The call reads a
+	// closure only for an item. The closure of the only root of a context is the content of the context.
 	var roots []string
 	for _, root := range rc.Roots {
-		if _, seen := snapshots[root]; !seen && c.Kind(root) == "snapshot" {
-			snapshots[root] = c.Closure(root)
+		if c.Kind(root) == "snapshot" && !contains(roots, root) {
 			roots = append(roots, root)
 		}
 	}
 	sort.Strings(roots)
-	// The index only selects the digests to scan (CRD-TXT-3, DEV-FTS-5). The candidates come from the members.
-	var candidates map[string]bool
-	index, indexed := c.S.(ops.TextIndex)
-	if indexed {
-		candidates = map[string]bool{}
-		for _, digest := range index.TextCandidates(Tokens(query)) {
-			candidates[digest] = true
+	members := rc.Members() // CRD-TXT-2, CRD-ORD-1: ascending ref
+	var closures map[string]map[string]struct{}
+	inSnapshots := func(ref string) []string {
+		if closures == nil {
+			closures = map[string]map[string]struct{}{}
+			for _, root := range roots {
+				if len(rc.Roots) == 1 {
+					closures[root] = make(map[string]struct{}, len(members))
+					for _, member := range members {
+						closures[root][member] = struct{}{}
+					}
+				} else {
+					closures[root] = c.Closure(root)
+				}
+			}
 		}
+		var in []string
+		for _, root := range roots {
+			if _, ok := closures[root][ref]; ok {
+				in = append(in, root)
+			}
+		}
+		return in
 	}
-	var items []envelope.Item
-	for _, ref := range rc.Members() { // CRD-TXT-2, CRD-ORD-1: ascending ref
+	// The candidates come from the members of the context, not from the index (CRD-TXT-5, DEV-FTS-5).
+	type candidate struct{ ref, digest string }
+	var candidates []candidate
+	var refs, digests []string
+	seen := map[string]bool{}
+	c.Preload(members)
+	for _, ref := range members {
 		desc, ok := c.Descriptor(ref)
 		if !ok {
 			continue
@@ -163,26 +183,71 @@ func SearchText(c *ops.Call) envelope.Envelope {
 		if !ok {
 			continue
 		}
-		data, ok := c.Blob(payload.Digest, ref) // BUN-IMP-12 before the index
-		if !ok {
-			items = append(items, envelope.Refused([]string{"payload_missing"}, ref)) // CRD-TXT-5
+		candidates = append(candidates, candidate{ref, payload.Digest})
+		refs = append(refs, ref)
+		if !seen[payload.Digest] {
+			seen[payload.Digest] = true
+			digests = append(digests, payload.Digest)
+		}
+	}
+	// The index only selects the digests to scan (CRD-TXT-3, DEV-FTS-5). A digest that the index does not
+	// have is scanned, as with no index (DEV-OUT-3).
+	index, indexed := c.S.(ops.TextIndex)
+	possible, unindexed := map[string]bool{}, map[string]bool{}
+	if indexed && len(digests) > 0 {
+		can, not := index.TextCandidates(Tokens(query), digests)
+		for _, digest := range can {
+			possible[digest] = true
+		}
+		for _, digest := range not {
+			unindexed[digest] = true
+		}
+	}
+	deferred := c.Deferred(refs)
+	fill := map[string][]string{}
+	var items []envelope.Item
+	for _, x := range candidates {
+		scan := !indexed || unindexed[x.digest] || possible[x.digest]
+		if !scan && !deferred[x.ref] {
+			// The index has the digest, so the store has its bytes. The descriptor has no deferred record.
+			// Thus the bytes are available (BUN-IMP-12), and they have no match.
 			continue
 		}
-		if indexed && !candidates[payload.Digest] && index.TextIndexed(payload.Digest) {
+		data, ok := c.BlobOf(x.digest, x.ref, deferred[x.ref]) // BUN-IMP-12 before the index
+		if !ok {
+			items = append(items, envelope.Refused([]string{"payload_missing"}, x.ref)) // CRD-TXT-5
 			continue
+		}
+		if !scan {
+			continue
+		}
+		words := Words(data)
+		if indexed && unindexed[x.digest] {
+			fill[x.digest] = Tokens(words)
 		}
 		var in []string
-		for _, root := range roots {
-			if _, ok := snapshots[root][ref]; ok {
-				in = append(in, root)
+		for n, match := range Matches(words, query) {
+			if n == 0 {
+				in = inSnapshots(x.ref)
 			}
-		}
-		for _, match := range Matches(Words(data), query) {
 			selector := jsontext.O(jsontext.M("selector_profile", jsontext.S(check.Bytes)),
 				jsontext.M("start", jsontext.N(float64(match[0]))), jsontext.M("end", jsontext.N(float64(match[1]))))
-			items = append(items, envelope.OK(jsontext.M("ref", jsontext.S(ref)), jsontext.M("snapshots", jsontext.Strings(in)),
+			items = append(items, envelope.OK(jsontext.M("ref", jsontext.S(x.ref)), jsontext.M("snapshots", jsontext.Strings(in)),
 				jsontext.M("selector", selector)))
 		}
+	}
+	if len(fill) > 0 {
+		// A store that got its text payloads before it had the index has no tokens for them. The scan of
+		// such a digest gives its tokens to the index, so the next search does not read its bytes.
+		c.S.Update(func(tx ops.Tx) {
+			if w, ok := tx.(ops.TextIndex); ok {
+				for _, digest := range digests {
+					if tokens, ok := fill[digest]; ok {
+						w.PutTextTokens(digest, tokens)
+					}
+				}
+			}
+		})
 	}
 	offset, limit := int64(0), int64(-1)
 	if v, ok := c.Request.Get("offset"); ok {
@@ -199,6 +264,15 @@ func SearchText(c *ops.Call) envelope.Envelope {
 		return c.Bounded(rest[:limit]).WithContext(rc.ID)
 	}
 	return c.Result(rest).WithContext(rc.ID)
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 // Matches returns the start and the end of each match of the query words in the words: each word start

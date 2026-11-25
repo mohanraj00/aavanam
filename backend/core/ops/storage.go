@@ -138,7 +138,10 @@ type Tx interface {
 	// Publish sets the head of the collection of the record and adds the record (PUB-HED-3 step 5).
 	Publish(p Publication)
 
-	PutContext(id string, record ContextRecord, members []string)
+	// PutContext adds a read context. Its content is the closure of the roots of the record (CTX-OPN-2,
+	// KND-DEP-3). Each root is a stored object, and each target of a stored object is a stored object. Thus
+	// the closure of a root does not change, and a storage can keep it from the first use of the root.
+	PutContext(id string, record ContextRecord)
 
 	PutProducerObject(producer, key string, data []byte)
 	// DeleteProducerObject removes the bytes of a key so that no copy stays in the store (PRD-RMV-3).
@@ -178,15 +181,36 @@ type ProducerCounts interface {
 	ProducerRemovalCount(producer string) int64
 }
 
+// ClosureIndex is an optional part of a Reader: the closure of one root in one read (KND-DEP-3). Without
+// it, an operation walks the `refs` with Targets.
+type ClosureIndex interface {
+	// Closure returns the root and each object that its references reach, in ascending order. The storage
+	// reads the stored closure of the root, or it makes the closure from the `refs` in one read.
+	Closure(root string) []string
+}
+
+// BatchReader is an optional part of a Reader: reads for a list in one read. Without it, an operation
+// makes one read for each entry.
+type BatchReader interface {
+	// Objects returns the canonical text of each descriptor of the list that the store has.
+	Objects(refs []string) map[string][]byte
+	// Deferred returns each descriptor of the list that a deferred record names (BUN-IMP-12).
+	Deferred(refs []string) map[string]bool
+}
+
 // TextIndex is an optional part of a Tx and of a Reader: an index of the words of text payloads
 // (CRD-TXT-3). The index gives candidates only. The matches always come from the bytes.
+//
+// The store has the bytes of each digest that the index has: PutTextTokens comes only with the bytes, and
+// a store does not remove the bytes of a digest.
 type TextIndex interface {
 	// PutTextTokens records the word tokens of the bytes of a digest, in the order of the words.
 	// A second call for one digest has no effect.
 	PutTextTokens(digest string, tokens []string)
-	// TextCandidates returns each indexed digest that can have the tokens as consecutive words. The
-	// result has each digest that has them. It can have more digests.
-	TextCandidates(tokens []string) []string
+	// TextCandidates reads the index for the digests of a list. `candidates` has each digest of the list
+	// that the index has and that can have the tokens as consecutive words. It can have more digests of
+	// the list. `unindexed` has each digest of the list that the index does not have.
+	TextCandidates(tokens, digests []string) (candidates, unindexed []string)
 	// TextIndexed tells if the index has the tokens of the digest.
 	TextIndexed(digest string) bool
 }
@@ -198,10 +222,20 @@ type ImportLog interface {
 	PutImport(roots []string)
 }
 
-// RowCache is an optional part of a Tx and of a Reader: the rows of a table payload (DAT-TBL-3), so that a
-// read of one row does not parse the payload again. A row is the canonical text of its value.
+// RowCache is an optional part of a Tx and of a Reader: the declared columns and the rows of a table
+// payload that agrees with DAT-TBL-1 (DAT-TBL-3), so that a read of one row does not parse the payload
+// again. A row is the canonical text of the list of its values (RFC 8785), in the order of the columns.
+//
+// The store has the bytes of each digest that the cache has: PutTable comes only with the bytes.
 type RowCache interface {
-	PutTableRows(digest string, rows [][]byte)
-	TableRows(digest string) (count int, ok bool)
+	// PutTable records the columns and the rows of a table, also of a table with no row. A second call
+	// for one digest has no effect.
+	PutTable(digest string, columns []string, rows [][]byte)
+	// TableHead returns the declared columns and the number of rows of a table. A digest that the cache
+	// does not have gives false.
+	TableHead(digest string) (columns []string, count int, ok bool)
+	// TableRow returns one row of a table.
 	TableRow(digest string, index int) ([]byte, bool)
+	// TableRows returns each row of a table, in the table order.
+	TableRows(digest string) [][]byte
 }

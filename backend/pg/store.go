@@ -29,19 +29,18 @@ type Store struct {
 // store configuration: set it before the first call.
 func (s *Store) SetContextLife(life time.Duration) { s.life.Store(int64(life)) }
 
-// ExpireContexts removes each read context that is older than its life plus `grace`, with its content
-// list. It returns the number of contexts. A context is not content of the store, so the removal changes no
-// descriptor and no bytes (CTX-OPN-2). A call that started before the end of the life of its context still
-// reads the content list, so `grace` must be longer than the deadline of one call. With no life, the
-// method removes nothing.
+// ExpireContexts removes each read context that is older than its life plus `grace`. It returns the number
+// of contexts. A context is not content of the store, so the removal changes no descriptor and no bytes
+// (CTX-OPN-2). The closures of its roots stay: they are a function of the content. A call that started
+// before the end of the life of its context still reads the context, so `grace` must be longer than the
+// deadline of one call. With no life, the method removes nothing.
 func (s *Store) ExpireContexts(ctx context.Context, grace time.Duration) (int64, error) {
 	life := time.Duration(s.life.Load())
 	if life <= 0 {
 		return 0, nil
 	}
 	var count int64
-	err := s.pool.QueryRow(ctx, `WITH gone AS (DELETE FROM contexts WHERE opened < now() - make_interval(secs => $1) RETURNING id),
-		members AS (DELETE FROM context_members m USING gone WHERE m.context = gone.id)
+	err := s.pool.QueryRow(ctx, `WITH gone AS (DELETE FROM contexts WHERE opened < now() - make_interval(secs => $1) RETURNING id)
 		SELECT count(*) FROM gone`, (life + grace).Seconds()).Scan(&count)
 	return count, err
 }
@@ -320,13 +319,70 @@ func (v view) Context(id string) (ops.ContextRecord, bool) {
 	return record, true
 }
 
+// The content of a read context is the closures of its roots (CTX-OPN-2, KND-DEP-3).
+
 func (v view) IsMember(context, ref string) bool {
 	key, ok := raw(ref)
-	return ok && v.exists(`SELECT 1 FROM context_members WHERE context = $1 AND ref = $2`, []byte(context), key)
+	return ok && v.exists(`SELECT 1 FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
+		JOIN closures c ON c.root = r.root WHERE x.id = $1 AND c.member = $2`, []byte(context), key)
 }
 
 func (v view) Members(context string) []string {
-	return v.refs(`SELECT ref FROM context_members WHERE context = $1 ORDER BY ref`, []byte(context))
+	return v.refs(`SELECT DISTINCT c.member FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
+		JOIN closures c ON c.root = r.root WHERE x.id = $1 ORDER BY c.member`, []byte(context))
+}
+
+// Closure returns the closure of a root in one statement (ops.ClosureIndex): the stored closure, or, for a
+// root with no stored closure, a recursive read of the edges.
+func (v view) Closure(root string) []string {
+	key, ok := raw(root)
+	if !ok {
+		return []string{root}
+	}
+	return v.refs(`WITH RECURSIVE stored AS (SELECT member FROM closures WHERE root = $1),
+		walk(ref) AS (SELECT $1::bytea WHERE NOT EXISTS (SELECT 1 FROM stored)
+			UNION SELECT e.dst FROM walk w JOIN edges e ON e.src = w.ref)
+		SELECT member FROM stored UNION ALL SELECT ref FROM walk ORDER BY 1`, key)
+}
+
+// keys returns the bytes of each entry of a list that has the form of a reference.
+func keys(refs []string) [][]byte {
+	out := make([][]byte, 0, len(refs))
+	for _, ref := range refs {
+		if key, ok := raw(ref); ok {
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
+// Objects returns the canonical text of each descriptor of a list, in one statement (ops.BatchReader).
+func (v view) Objects(refs []string) map[string][]byte {
+	out := map[string][]byte{}
+	if len(refs) == 0 {
+		return out
+	}
+	v.each(func(rows pgx.Rows) error {
+		var ref, text []byte
+		if err := rows.Scan(&ref, &text); err != nil {
+			return err
+		}
+		out[name(ref)] = text
+		return nil
+	}, `SELECT ref, canonical FROM objects WHERE ref = ANY($1::bytea[])`, keys(refs))
+	return out
+}
+
+// Deferred returns each descriptor of a list that a deferred record names (ops.BatchReader).
+func (v view) Deferred(refs []string) map[string]bool {
+	out := map[string]bool{}
+	if len(refs) == 0 {
+		return out
+	}
+	for _, ref := range v.refs(`SELECT DISTINCT ref FROM deferred WHERE ref = ANY($1::bytea[])`, keys(refs)) {
+		out[ref] = true
+	}
+	return out
 }
 
 func (v view) ProducerObject(producer, key string) ([]byte, bool) {
@@ -500,15 +556,25 @@ func (t tx) Publish(p ops.Publication) {
 		[]byte(p.Collection), must(p.Candidate), must(p.Receipt), optional(p.Activation), optional(p.PreviousHead), must(p.Head))
 }
 
-func (t tx) PutContext(id string, record ops.ContextRecord, members []string) {
+// PutContext adds a read context. It writes the closure of each root that has no stored closure, in one
+// recursive statement (KND-DEP-3). A stored closure is complete: one statement writes it, and the closure
+// of a stored root does not change. Two updates that write one closure write the same rows.
+func (t tx) PutContext(id string, record ops.ContextRecord) {
 	capabilities := record.Capabilities
 	if capabilities == nil {
 		capabilities = []string{}
 	}
-	t.exec(`INSERT INTO contexts (id, roots, capabilities) VALUES ($1, $2, $3)`, []byte(id), raws(record.Roots), capabilities)
-	if len(members) > 0 {
-		t.exec(`INSERT INTO context_members (context, ref) SELECT $1, unnest($2::bytea[]) ON CONFLICT DO NOTHING`, []byte(id), raws(members))
+	roots := raws(record.Roots)
+	if len(roots) > 0 {
+		t.exec(`INSERT INTO closures (root, member)
+			WITH RECURSIVE walk(root, ref) AS (
+				SELECT r.root, r.root FROM unnest($1::bytea[]) AS r(root)
+					WHERE NOT EXISTS (SELECT 1 FROM closures c WHERE c.root = r.root)
+				UNION
+				SELECT w.root, e.dst FROM walk w JOIN edges e ON e.src = w.ref)
+			SELECT root, ref FROM walk ON CONFLICT DO NOTHING`, roots)
 	}
+	t.exec(`INSERT INTO contexts (id, roots, capabilities) VALUES ($1, $2, $3)`, []byte(id), roots, capabilities)
 }
 
 func (t tx) PutProducerObject(producer, key string, data []byte) {

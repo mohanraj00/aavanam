@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"modernc.org/sqlite"
 
@@ -96,6 +97,16 @@ type Store struct {
 	db      *sql.DB
 	role    string
 	schemas []string // the schemas that a read uses: "main", and "device" for the local output store
+	// heads has the declared columns and the number of rows of each table that this open of the store
+	// parsed (ops.RowCache). The layout has no column for them (DEV-LAY-3), so a new open parses the
+	// payload of a table one time, and reads its rows from `table_rows` after that.
+	heads sync.Map // digest, then tableHead
+}
+
+// tableHead is the head of one table of the row cache.
+type tableHead struct {
+	columns []string
+	count   int
 }
 
 // Open opens the device store and the local output store of a directory. It checks the `meta` rows
@@ -211,6 +222,8 @@ type view struct {
 	s   *Store
 	ctx context.Context
 	q   querier
+	// pending has the table heads of an update. The store keeps them after the commit.
+	pending map[string]tableHead
 }
 
 // in returns the query for one schema: `{s}` is the schema.
@@ -373,37 +386,116 @@ func (v view) Members(context string) []string {
 	return out
 }
 
+// hexList returns the JSON list of the hexadecimal digits of each reference, for `json_each`.
+func hexList(refs []string) string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, ref := range refs {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteByte('"')
+		b.WriteString(hex.EncodeToString(key(ref)))
+		b.WriteByte('"')
+	}
+	b.WriteByte(']')
+	return b.String()
+}
+
+// Closure returns the closure of a root (ops.ClosureIndex): the rows of `closures` in each file, or, for a
+// root with no row, a walk of the references (KND-DEP-3).
+func (v view) Closure(root string) []string {
+	if out := v.keys(`SELECT member AS k FROM {s}.closures WHERE root = ?1`, key(root)); len(out) > 0 {
+		return out
+	}
+	return ops.Sorted(ops.ClosureIn(v, []string{root}))
+}
+
+// Objects returns the canonical text of each descriptor of a list (ops.BatchReader).
+func (v view) Objects(refs []string) map[string][]byte {
+	out := make(map[string][]byte, len(refs))
+	if len(refs) == 0 {
+		return out
+	}
+	list := hexList(refs)
+	for _, schema := range v.s.schemas {
+		rows, err := v.q.QueryContext(v.ctx, in(`SELECT ref, canonical FROM {s}.objects
+			WHERE ref IN (SELECT unhex(value) FROM json_each(?))`, schema), list)
+		if err != nil {
+			ops.Raise(err)
+		}
+		for rows.Next() {
+			var ref, text []byte
+			if err := rows.Scan(&ref, &text); err != nil {
+				rows.Close()
+				ops.Raise(err)
+			}
+			if _, has := out[refOf(ref)]; !has {
+				out[refOf(ref)] = text
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			ops.Raise(err)
+		}
+	}
+	return out
+}
+
+// Deferred returns each descriptor of a list that a deferred record names (ops.BatchReader).
+func (v view) Deferred(refs []string) map[string]bool {
+	out := map[string]bool{}
+	if len(refs) == 0 {
+		return out
+	}
+	for _, ref := range v.keys(`SELECT ref AS k FROM {s}.deferred WHERE ref IN (SELECT unhex(value) FROM json_each(?1))`, hexList(refs)) {
+		out[ref] = true
+	}
+	return out
+}
+
 // TextIndexed tells if the device file has the tokens of a digest (DEV-FTS-2, DEV-OUT-3).
 func (v view) TextIndexed(digest string) bool {
 	var n int
 	return v.textOne(`SELECT 1 FROM {d}.text_docs WHERE digest = ?`, &n, key(digest))
 }
 
-// TextCandidates returns each indexed digest whose document has the tokens as one phrase (DEV-FTS-4). The
-// FTS5 query has only the tokens, and no text of the request.
-func (v view) TextCandidates(tokens []string) []string {
-	if len(tokens) == 0 {
-		return nil
+// TextCandidates reads the index for the digests of a list (ops.TextIndex). A candidate is an indexed
+// digest whose document has the tokens as one phrase (DEV-FTS-4). A digest with no row in `text_docs` is
+// not in the index (DEV-OUT-3). The FTS5 query has only the tokens, and no text of the request.
+func (v view) TextCandidates(tokens, digests []string) (candidates, unindexed []string) {
+	if len(tokens) == 0 || len(digests) == 0 {
+		return nil, digests
 	}
-	query := strings.ReplaceAll(`SELECT digest FROM {d}.text_docs WHERE id IN
-		(SELECT rowid FROM {d}.text_index WHERE text_index MATCH ?) ORDER BY digest`, "{d}", v.deviceSchema())
-	rows, err := v.q.QueryContext(v.ctx, query, `"`+strings.Join(tokens, " ")+`"`)
+	query := strings.ReplaceAll(`SELECT digest, id IN (SELECT rowid FROM {d}.text_index WHERE text_index MATCH ?1)
+		FROM {d}.text_docs WHERE digest IN (SELECT unhex(value) FROM json_each(?2))`, "{d}", v.deviceSchema())
+	rows, err := v.q.QueryContext(v.ctx, query, `"`+strings.Join(tokens, " ")+`"`, hexList(digests))
 	if err != nil {
 		ops.Raise(err)
 	}
 	defer rows.Close()
-	var out []string
+	indexed := make(map[string]bool, len(digests))
 	for rows.Next() {
 		var b []byte
-		if err := rows.Scan(&b); err != nil {
+		var possible bool
+		if err := rows.Scan(&b, &possible); err != nil {
 			ops.Raise(err)
 		}
-		out = append(out, refOf(b))
+		indexed[refOf(b)] = true
+		if possible {
+			candidates = append(candidates, refOf(b))
+		}
 	}
 	if err := rows.Err(); err != nil {
 		ops.Raise(err)
 	}
-	return out
+	for _, digest := range digests {
+		if !indexed[digest] {
+			unindexed = append(unindexed, digest)
+		}
+	}
+	return candidates, unindexed
 }
 
 // PutTextTokens adds the document of a digest to the text index of the device file (DEV-FTS-2, DEV-FTS-3).
@@ -427,6 +519,75 @@ func (v view) PutTextTokens(digest string, tokens []string) {
 	}
 }
 
+// The row cache (ops.RowCache). The rows of a table are in `table_rows` of the file of the store
+// (DEV-LAY-3, DEV-OUT-1), from the first use of the table (DEV-LAY-4). The declared columns are in the
+// memory of this open of the store. A value of the cache always comes with the payload bytes in the store.
+
+// TableHead returns the head of a table that this open of the store parsed.
+func (v view) TableHead(digest string) ([]string, int, bool) {
+	if head, ok := v.pending[digest]; ok {
+		return head.columns, head.count, true
+	}
+	if head, ok := v.s.heads.Load(digest); ok {
+		return head.(tableHead).columns, head.(tableHead).count, true
+	}
+	return nil, 0, false
+}
+
+// PutTable adds the rows of a table, if the file does not have them, and keeps the head after the commit.
+// A read with no update has no effect.
+func (v view) PutTable(digest string, columns []string, rows [][]byte) {
+	if _, _, ok := v.TableHead(digest); ok || v.pending == nil {
+		return
+	}
+	var n int
+	err := v.q.QueryRowContext(v.ctx, `SELECT 1 FROM main.table_rows WHERE digest = ? LIMIT 1`, key(digest)).Scan(&n)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		ops.Raise(err)
+	}
+	if err != nil { // the file has no row of the table
+		for idx, row := range rows {
+			if _, err := v.q.ExecContext(v.ctx, `INSERT INTO main.table_rows (digest, idx, row) VALUES (?, ?, ?)`,
+				key(digest), idx, row); err != nil {
+				ops.Raise(err)
+			}
+		}
+	}
+	v.pending[digest] = tableHead{append([]string(nil), columns...), len(rows)}
+}
+
+func (v view) TableRow(digest string, index int) ([]byte, bool) {
+	var row []byte
+	err := v.q.QueryRowContext(v.ctx, `SELECT row FROM main.table_rows WHERE digest = ? AND idx = ?`, key(digest), index).Scan(&row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false
+	}
+	if err != nil {
+		ops.Raise(err)
+	}
+	return row, true
+}
+
+func (v view) TableRows(digest string) [][]byte {
+	rows, err := v.q.QueryContext(v.ctx, `SELECT row FROM main.table_rows WHERE digest = ? ORDER BY idx`, key(digest))
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out [][]byte
+	for rows.Next() {
+		var row []byte
+		if err := rows.Scan(&row); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
 // deviceSchema returns the schema of the device file in a connection of the store.
 func (v view) deviceSchema() string { return v.s.schemas[len(v.s.schemas)-1] }
 
@@ -439,7 +600,9 @@ func (v view) textOne(query string, dst any, args ...any) bool {
 }
 
 // Session returns the store for one call. The context gives the deadline of each query.
-func (s *Store) Session(ctx context.Context) ops.Session { return session{view{s, ctx, s.db}} }
+func (s *Store) Session(ctx context.Context) ops.Session {
+	return session{view{s: s, ctx: ctx, q: s.db}}
+}
 
 type session struct{ view }
 
@@ -456,7 +619,7 @@ func (v session) Update(fn func(tx ops.Tx)) {
 			t.Rollback()
 		}
 	}()
-	work := view{v.s, v.ctx, t}
+	work := view{s: v.s, ctx: v.ctx, q: t, pending: map[string]tableHead{}}
 	if v.s.role == "device" {
 		fn(deviceTx{tx{work}})
 	} else {
@@ -466,6 +629,9 @@ func (v session) Update(fn func(tx ops.Tx)) {
 		ops.Raise(err)
 	}
 	done = true
+	for digest, head := range work.pending {
+		v.s.heads.Store(digest, head)
+	}
 }
 
 // tx is one update of a store.
@@ -545,16 +711,28 @@ func (t tx) PutProducerEntry(string, string, ops.Entry) { ops.Raise(errNoCatalog
 // PutContext adds a read context, and the closure of each root that the file does not have (DEV-UPD-3).
 // The closure of a stored root does not change, because each target of a stored descriptor is in the
 // store (BUN-IMP-2). Thus a root with closure rows has all of them.
-func (t tx) PutContext(id string, record ops.ContextRecord, _ []string) {
-	for _, root := range record.Roots {
-		var n int
-		err := t.q.QueryRowContext(t.ctx, `SELECT 1 FROM main.closures WHERE root = ? LIMIT 1`, key(root)).Scan(&n)
-		if err == nil {
-			continue
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
+func (t tx) PutContext(id string, record ops.ContextRecord) {
+	// One query gives the roots with no closure row, so a context with many roots makes one read.
+	rows, err := t.q.QueryContext(t.ctx, `SELECT DISTINCT value FROM json_each(?)
+		WHERE NOT EXISTS (SELECT 1 FROM main.closures WHERE root = unhex(value))`, hexList(record.Roots))
+	if err != nil {
+		ops.Raise(err)
+	}
+	var absent []string
+	for rows.Next() {
+		var digits string
+		if err := rows.Scan(&digits); err != nil {
+			rows.Close()
 			ops.Raise(err)
 		}
+		absent = append(absent, "sha256:"+digits)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		ops.Raise(err)
+	}
+	for _, root := range absent {
 		for member := range ops.ClosureIn(t, []string{root}) {
 			t.exec(`INSERT OR IGNORE INTO main.closures (root, member) VALUES (?, ?)`, key(root), key(member))
 		}

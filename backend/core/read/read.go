@@ -144,13 +144,6 @@ func readItem(c *ops.Call, rc *ops.ReadContext, ref string, selector jsontext.Va
 		return envelope.Refused([]string{"unsupported_profile"}, ref) // CRD-SEL-5, DAT-PRF-2
 	}
 	payload, hasPayload := check.PayloadOf(desc, "payload")
-	var data []byte
-	if hasPayload {
-		var ok bool
-		if data, ok = c.Blob(payload.Digest, ref); !ok {
-			return envelope.Refused([]string{"payload_missing"}, ref)
-		}
-	}
 	sel := jsontext.Value{}
 	if hasSelector {
 		sel = selector
@@ -160,15 +153,25 @@ func readItem(c *ops.Call, rc *ops.ReadContext, ref string, selector jsontext.Va
 			m("data", data), m("row", row))
 	}
 	if hasSelector && profile == Row {
-		table, ok := ParseTable(data)
-		if !ok {
+		if !hasPayload {
 			return envelope.Refused([]string{"payload_form"}, ref) // DAT-TBL-3
 		}
+		table, code := loadTable(c, ref, payload) // `payload_missing`, then `payload_form` (DAT-TBL-3)
+		if code != "" {
+			return envelope.Refused([]string{code}, ref)
+		}
 		index := count(field(selector, "index")) // an index beyond int64 is beyond each table
-		if index >= int64(len(table.Rows)) {
+		if index >= int64(table.Count) {
 			return envelope.Refused([]string{"selector_range"}, ref)
 		}
 		return fields(jsontext.Value{}, table.Row(int(index))) // CRD-SEL-5
+	}
+	var data []byte
+	if hasPayload {
+		var ok bool
+		if data, ok = c.Blob(payload.Digest, ref); !ok {
+			return envelope.Refused([]string{"payload_missing"}, ref)
+		}
 	}
 	if hasSelector {
 		selected, failed := Select(c, ref, selector) // CRD-SEL-3, CRD-SEL-4

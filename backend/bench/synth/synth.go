@@ -72,6 +72,10 @@ const (
 	Group = "g007"
 	// Region is the value of the export filter. It selects one unit in four.
 	Region = "r0"
+	// Band is the value of the overlay key `band` of the first BandUnits units of the store, in the order
+	// of the collections. A filtered export with this value has that number of knowledge-unit roots.
+	Band      = "b0"
+	BandUnits = 500
 	// Policy is the acceptance policy of each candidate. The bench accepts each candidate.
 	Policy = "sample/accept/v1"
 )
@@ -93,6 +97,7 @@ type Store struct {
 	TextArtifacts int    // the text artifacts of the main context
 	GroupRows     int    // the rows with the value Group
 	RegionUnits   int    // the units of the main collection with the value Region
+	BandUnits     int    // the units of the store with the value Band
 	Digest        string // the SHA-256 digest of the requests, in order
 
 	units   [][]*unit // the units of each collection
@@ -101,6 +106,7 @@ type Store struct {
 	digest  hash.Hash
 	vocab   []string
 	nextArt int // the index of the next new artifact
+	made    int // the units that the store made, for the value of `band`
 }
 
 type unit struct {
@@ -108,6 +114,7 @@ type unit struct {
 	artifacts []int    // the global index of each artifact
 	refs      []string // the reference of each artifact
 	table     bool     // the binding set of the unit binds the table
+	band      string   // the value of the overlay key `band`
 	bs, ku    string
 	overlay   string
 }
@@ -126,14 +133,25 @@ type Summary struct {
 	Matches       int    `json:"search_matches"`
 	GroupRows     int    `json:"query_data_rows"`
 	RegionUnits   int    `json:"filtered_units"`
+	BandUnits     int    `json:"band_units"`
 	Digest        string `json:"request_digest"`
+}
+
+// band returns the value of the overlay key `band` of the next new unit.
+func (s *Store) band() string {
+	s.made++
+	if s.made <= BandUnits {
+		s.BandUnits++
+		return Band
+	}
+	return "b1"
 }
 
 // Summary returns the record of the store.
 func (s *Store) Summary() Summary {
 	return Summary{s.Shape.Name, s.Seed, len(s.Collections), s.Descriptors, s.PayloadBytes, s.Members,
 		s.TextArtifacts, s.Shape.TableRows, s.Shape.TableBytes, s.Matches, s.GroupRows, s.RegionUnits,
-		hex.EncodeToString(s.digest.Sum(nil))}
+		s.BandUnits, hex.EncodeToString(s.digest.Sum(nil))}
 }
 
 // Main returns the main collection.
@@ -201,7 +219,7 @@ func Build(ctx context.Context, store *ops.Store, shape Shape, seed uint64) (*St
 	for c, n := range units {
 		var list []*unit
 		for u := range n {
-			x := &unit{id: fmt.Sprintf("%s-u%04d", s.Collections[c], u), table: c == 0 && u == 0}
+			x := &unit{id: fmt.Sprintf("%s-u%04d", s.Collections[c], u), table: c == 0 && u == 0, band: s.band()}
 			count := UnitArtifacts
 			if c == len(units)-1 && u == n-1 {
 				count += extra
@@ -318,7 +336,7 @@ func AddUnits(ctx context.Context, store *ops.Store, s *Store) (Timing, error) {
 	var fresh []*unit
 	var arts []desc
 	for u := range newUnits {
-		x := &unit{id: fmt.Sprintf("%s-n%02d-%02d", s.Main(), s.version, u)}
+		x := &unit{id: fmt.Sprintf("%s-n%02d-%02d", s.Main(), s.version, u), band: s.band()}
 		for range perUnit {
 			x.artifacts = append(x.artifacts, s.nextArt)
 			arts = append(arts, s.artifact(0, s.nextArt, size, s.version))
@@ -472,7 +490,7 @@ func (w *writer) publish(c int, list []*unit, expected string, touched []*unit) 
 	for _, x := range touched {
 		u := indexOf(list, x)
 		overlays = append(overlays, desc{value: map[string]any{"kind": "overlay", "subject": x.ku,
-			"origin": "sample-producer", "values": map[string]any{"region": "r" + strconv.Itoa(u%regions)}}})
+			"origin": "sample-producer", "values": map[string]any{"region": "r" + strconv.Itoa(u%regions), "band": x.band}}})
 	}
 	for i, ref := range w.put(overlays) {
 		touched[i].overlay = ref

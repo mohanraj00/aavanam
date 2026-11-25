@@ -53,25 +53,24 @@ func queryItem(c *ops.Call, rc *ops.ReadContext, ref string, about map[string][]
 	case str(desc, "data_profile") != Table:
 		return refuse("unsupported_profile", 1)
 	}
-	payload, _ := check.PayloadOf(desc, "payload")
-	data, ok := c.Blob(payload.Digest, ref)
-	if !ok {
+	payload, hasPayload := check.PayloadOf(desc, "payload")
+	if !hasPayload {
 		return refuse("payload_missing", 1)
 	}
-	table, ok := ParseTable(data)
-	if !ok {
-		return refuse("payload_form", 1)
+	head, code := loadTable(c, ref, payload)
+	if code != "" {
+		return refuse(code, 1)
 	}
 	where, ranges := field(c.Request, "where"), field(c.Request, "ranges")
 	unknown := 0
 	for _, mem := range where.Obj {
-		if !table.HasColumn(mem.Key) {
+		if !head.HasColumn(mem.Key) {
 			unknown++
 		}
 	}
 	for _, clause := range ranges.Arr {
 		for _, name := range []string{"lower", "upper"} {
-			if !table.HasColumn(str(clause, name)) {
+			if !head.HasColumn(str(clause, name)) {
 				unknown++
 			}
 		}
@@ -89,6 +88,7 @@ func queryItem(c *ops.Call, rc *ops.ReadContext, ref string, about map[string][]
 			values = []jsontext.Member{}
 		}
 	}
+	table := head.All() // after the checks of the columns, so a refused item reads no row
 	var rows []int
 	for n := range table.Rows {
 		match := true
