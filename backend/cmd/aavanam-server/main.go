@@ -2,6 +2,7 @@
 //
 // The read listener has the network read binding `aavanam-read/v1` (document 22): the operations that do
 // not write content. It uses the loopback address unless --read-addr gives a different one (NET-TRN-5).
+// The --read-socket option serves the same read API on a Unix socket in place of TCP.
 //
 // The write listener has each operation of the operation table, with the same paths. It is not a part of
 // the binding. It is a Unix socket that only the user of the service can open, and the service has it only
@@ -31,7 +32,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -71,6 +72,8 @@ func (p *pairs) Set(text string) error {
 // options is the configuration of the service.
 type options struct {
 	readAddr          string
+	readSocket        string
+	readSocketMode    os.FileMode
 	writeSocket       string
 	maxBody, writeMax int64
 	deadline          time.Duration
@@ -86,6 +89,8 @@ func parse(args []string, output io.Writer) (*options, error) {
 	flags := flag.NewFlagSet("aavanam-server", flag.ContinueOnError)
 	flags.SetOutput(output)
 	flags.StringVar(&o.readAddr, "read-addr", "127.0.0.1:8437", "the address of the read listener (NET-TRN-5)")
+	flags.StringVar(&o.readSocket, "read-socket", "", "the absolute path of the Unix socket in place of the TCP read listener")
+	readSocketMode := flags.String("read-socket-mode", "0600", "the octal file mode of the read socket")
 	flags.StringVar(&o.writeSocket, "write-socket", "", "the path of the Unix socket of the write listener (default: no write listener)")
 	flags.Int64Var(&o.maxBody, "max-body-bytes", api.DefaultMaxBodyBytes, "the limit of a request body of the read listener (NET-LIM-1)")
 	flags.Int64Var(&o.writeMax, "write-max-body-bytes", 256<<20, "the limit of a request body of the write listener")
@@ -101,6 +106,31 @@ func parse(args []string, output io.Writer) (*options, error) {
 	if flags.NArg() > 0 {
 		return nil, fmt.Errorf("an argument that is not a flag: %q", flags.Arg(0))
 	}
+	var hasReadAddr, hasReadSocket, hasReadSocketMode bool
+	flags.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "read-addr":
+			hasReadAddr = true
+		case "read-socket":
+			hasReadSocket = true
+		case "read-socket-mode":
+			hasReadSocketMode = true
+		}
+	})
+	if hasReadSocket && o.readSocket == "" {
+		return nil, errors.New("--read-socket needs a path")
+	}
+	if hasReadSocket && hasReadAddr {
+		return nil, errors.New("use only one of --read-socket and --read-addr")
+	}
+	if hasReadSocketMode && !hasReadSocket {
+		return nil, errors.New("--read-socket-mode needs --read-socket")
+	}
+	mode, err := strconv.ParseUint(*readSocketMode, 8, 9)
+	if err != nil {
+		return nil, errors.New("--read-socket-mode needs an octal mode from 0000 to 0777")
+	}
+	o.readSocketMode = os.FileMode(mode)
 	if o.maxBody <= 0 || o.writeMax <= 0 || o.deadline <= 0 || o.validatorDeadline <= 0 {
 		return nil, errors.New("a limit and a deadline are more than zero")
 	}
@@ -181,20 +211,27 @@ func start(ctx context.Context, o *options, storage ops.Storage) (*service, erro
 			}
 		}()
 	}
-	// The two listeners open before one of them runs: the file mode of the socket needs the mask of the
-	// process. The TCP address comes first, so a start that cannot have it does not touch the socket path.
-	readListener, err := net.Listen("tcp", o.readAddr)
+	// Open both listeners before either server starts. Socket creation changes the process file mode mask.
+	var readListener net.Listener
+	var err error
+	if o.readSocket == "" {
+		readListener, err = net.Listen("tcp", o.readAddr)
+	} else {
+		readListener, err = listenSocket(o.readSocket, o.readSocketMode)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("the read listener: %w", err)
 	}
 	var writeListener net.Listener
 	if o.writeSocket != "" {
-		if writeListener, err = listenSocket(o.writeSocket); err != nil {
+		if writeListener, err = listenSocket(o.writeSocket, 0o600); err != nil {
 			_ = readListener.Close()
 			return nil, fmt.Errorf("the write listener: %w", err)
 		}
 	}
-	s.ReadURL = "http://" + readListener.Addr().String()
+	if o.readSocket == "" {
+		s.ReadURL = "http://" + readListener.Addr().String()
+	}
 	serve(readListener, api.Read(api.Config{Store: current, MaxBodyBytes: o.maxBody, Deadline: o.deadline}))
 	if writeListener != nil {
 		serve(writeListener, api.Write(api.Config{Store: current, MaxBodyBytes: o.writeMax, Deadline: o.deadline}))
@@ -215,46 +252,12 @@ func (s *service) stop() {
 	close(s.stopped)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	for _, server := range s.servers {
+	for i, server := range s.servers {
 		if err := server.Shutdown(ctx); err != nil {
 			_ = server.Close()
 		}
+		_ = s.listeners[i].Close()
 	}
-}
-
-// socketListener opens the socket of a path. It removes a socket that an earlier run left at the path. It
-// does not remove a file of a different type, and it does not remove the socket of a service that runs.
-func socketListener(path string, listen func(path string) (net.Listener, error)) (net.Listener, error) {
-	// The file mode protects only a socket that is a file. On Linux a name that starts with `@` or with a
-	// zero byte is an abstract socket: it has no file and no mode, and each local user can connect to it.
-	if !filepath.IsAbs(path) || strings.ContainsRune(path, 0) {
-		return nil, errors.New("the path of the socket is an absolute file path")
-	}
-	if info, err := os.Lstat(path); err == nil {
-		if info.Mode()&os.ModeSocket == 0 {
-			return nil, errors.New("the path has a file that is not a socket")
-		}
-		// A socket that accepts a connection has a service. Only a socket with no listener is removed.
-		if conn, err := net.DialTimeout("unix", path, time.Second); err == nil {
-			_ = conn.Close()
-			return nil, errors.New("a service that runs has the socket")
-		}
-		if err := os.Remove(path); err != nil {
-			return nil, err
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-	listener, err := listen(path)
-	if err != nil {
-		return nil, err
-	}
-	// A check of the result: the listener is a socket file that only its user can open.
-	if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSocket == 0 || info.Mode().Perm() != 0o600 {
-		_ = listener.Close()
-		return nil, errors.New("the socket is not a file that only its user can open")
-	}
-	return listener, nil
 }
 
 func run(args []string) error {
@@ -276,7 +279,11 @@ func run(args []string) error {
 		return err
 	}
 	defer s.stop()
-	fmt.Fprintln(os.Stderr, "aavanam-server: the read listener is at", s.ReadURL)
+	if o.readSocket == "" {
+		fmt.Fprintln(os.Stderr, "aavanam-server: the read listener is at", s.ReadURL)
+	} else {
+		fmt.Fprintln(os.Stderr, "aavanam-server: the read listener is on Unix socket", o.readSocket)
+	}
 	select {
 	case <-ctx.Done():
 		return nil

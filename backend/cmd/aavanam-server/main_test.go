@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -99,8 +100,11 @@ func TestService(t *testing.T) {
 	}
 	defer s.stop()
 	info, err := os.Lstat(socket)
-	if err != nil || info.Mode()&os.ModeSocket == 0 || info.Mode().Perm() != 0o600 {
-		t.Fatalf("the socket of the write listener: %v %v", info.Mode(), err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode() != os.ModeSocket|0o600 {
+		t.Fatalf("the write socket must have mode 0600: %v", info.Mode())
 	}
 	write, base := over(socket), "http://socket/v1/op/"
 
@@ -165,7 +169,8 @@ func TestService(t *testing.T) {
 	}
 }
 
-// A socket of an earlier run does not stop a start. A file of a different type does, and it stays.
+// A system with a socket lock can replace a socket from an earlier run.
+// A system with no socket lock asks the operator to remove the file.
 func TestSocketPath(t *testing.T) {
 	dir := folder(t)
 	socket := filepath.Join(dir, "w.sock")
@@ -175,15 +180,43 @@ func TestSocketPath(t *testing.T) {
 	}
 	old.(*net.UnixListener).SetUnlinkOnClose(false)
 	old.Close()
-	s, err := start(context.Background(), options1(t, "--write-socket", socket), memstore.New())
-	if err != nil {
-		t.Fatalf("a start with a socket of an earlier run: %v", err)
+	o := options1(t, "--write-socket", socket)
+	if runtime.GOOS == "aix" || runtime.GOOS == "solaris" {
+		s, err := start(context.Background(), o, memstore.New())
+		if err == nil {
+			s.stop()
+			t.Fatal("the service started with an existing socket and no socket lock")
+		}
+		if !strings.Contains(err.Error(), "Make sure that no service uses the socket. Then remove the file") {
+			t.Fatalf("the error must tell the operator how to remove the socket: %v", err)
+		}
+		if err := os.Remove(socket); err != nil {
+			t.Fatalf("remove the socket from the earlier run: %v", err)
+		}
 	}
-	// A second start with the socket of the service that runs is refused, and the first service keeps it.
-	if second, err := start(context.Background(), options1(t, "--write-socket", socket), memstore.New()); err == nil {
-		second.stop()
-		t.Error("a second start took the socket of a service that runs")
+	type result struct {
+		service *service
+		err     error
 	}
+	started := make(chan result, 2)
+	for range 2 {
+		go func() {
+			s, err := start(context.Background(), o, memstore.New())
+			started <- result{s, err}
+		}()
+	}
+	first, second := <-started, <-started
+	if first.err != nil {
+		first, second = second, first
+	}
+	if first.err != nil {
+		t.Fatalf("the two starts failed: %v and %v", first.err, second.err)
+	}
+	if second.err == nil {
+		second.service.stop()
+		t.Error("two starts took the same socket")
+	}
+	s := first.service
 	if status, body := post(t, over(socket), "http://socket/v1/op/publications", `{"collection":"c"}`); status != 200 || !strings.Contains(body, `"status":"ok"`) {
 		t.Errorf("the first service after the second start: HTTP %d %s", status, body)
 	}
@@ -199,11 +232,6 @@ func TestSocketPath(t *testing.T) {
 			t.Errorf("a start with the socket name %q", name)
 		}
 	}
-	open := func(path string) (net.Listener, error) { return net.Listen("tcp", "127.0.0.1:0") }
-	if listener, err := socketListener(filepath.Join(dir, "none.sock"), open); err == nil {
-		listener.Close()
-		t.Error("a listener with no socket file at the path")
-	}
 	file := filepath.Join(dir, "data")
 	if err := os.WriteFile(file, []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
@@ -214,11 +242,24 @@ func TestSocketPath(t *testing.T) {
 	if data, _ := os.ReadFile(file); string(data) != "keep" {
 		t.Error("the start removed a file that is not a socket")
 	}
+	if err := os.Symlink(file, socket); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := start(context.Background(), o, memstore.New()); err == nil {
+		s.stop()
+		t.Error("a start followed a symbolic link at the socket path")
+	}
+	if target, err := os.Readlink(socket); err != nil || target != file {
+		t.Errorf("the start changed the symbolic link: %q %v", target, err)
+	}
 }
 
 func TestConfigurationThatIsNotCorrect(t *testing.T) {
 	for _, args := range [][]string{{"--section", "c"}, {"--section", "=serving"}, {"--policy", "pol"}, {"--policy", "pol="},
-		{"--deadline", "0s"}, {"--max-body-bytes", "0"}, {"--context-life", "-1s"}, {"--unknown"}, {"extra"}} {
+		{"--deadline", "0s"}, {"--max-body-bytes", "0"}, {"--context-life", "-1s"}, {"--unknown"}, {"extra"},
+		{"--read-socket", ""}, {"--read-socket-mode", "0660"}, {"--read-socket", "/read.sock", "--read-addr", "127.0.0.1:0"},
+		{"--read-socket", "/read.sock", "--read-socket-mode", "0880"}, {"--read-socket", "/read.sock", "--read-socket-mode", "1660"},
+		{"--read-socket", "/read.sock", "--read-socket-mode", "-660"}} {
 		if _, err := parse(args, io.Discard); err == nil {
 			t.Errorf("the arguments %v are not correct", args)
 		}
@@ -241,7 +282,8 @@ func TestConfigurationThatIsNotCorrect(t *testing.T) {
 			t.Errorf("the error has a part of the address: %v", err)
 		}
 	}
-	if o, err := parse(nil, io.Discard); err != nil || o.readAddr != "127.0.0.1:8437" || o.writeSocket != "" {
+	if o, err := parse(nil, io.Discard); err != nil || o.readAddr != "127.0.0.1:8437" || o.readSocket != "" ||
+		o.readSocketMode != 0o600 || o.writeSocket != "" {
 		t.Errorf("the default configuration: %+v %v", o, err)
 	}
 }
