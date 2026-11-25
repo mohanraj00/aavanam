@@ -5,9 +5,9 @@ package main
 import (
 	"errors"
 	"net"
+	"os"
 )
 
-// listenSocket refuses the write listener: this system has no file mode that keeps a socket for one user.
-func listenSocket(string) (net.Listener, error) {
-	return nil, errors.New("the write listener needs a Unix system")
+func listenSocket(string, os.FileMode) (net.Listener, error) {
+	return nil, errors.New("a socket listener with a file mode needs a Unix system")
 }
