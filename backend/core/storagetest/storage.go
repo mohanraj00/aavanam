@@ -6,8 +6,10 @@ package storagetest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 
@@ -53,6 +55,93 @@ func Storage(t *testing.T, open Open) {
 	t.Run("LongNames", func(t *testing.T) { longNames(t, open(t)) })
 	t.Run("UpdateIsAtomic", func(t *testing.T) { updateIsAtomic(t, open(t)) })
 	t.Run("ConcurrentWritesOfOneBatch", func(t *testing.T) { concurrentWrites(t, open(t)) })
+	t.Run("DerivedData", func(t *testing.T) { derivedData(t, open(t)) })
+}
+
+// derivedData checks the optional parts of a storage that keep derived data: the text index
+// (ops.TextIndex) and the row cache (ops.RowCache). A storage with no such part passes.
+func derivedData(t *testing.T, s Backing) {
+	token := func(n int) string { return fmt.Sprintf("t%016x", uint64(n)*0x9e3779b97f4a7c15) }
+	// A column name is a string of a JSON text in UTF-8 (DAT-TBL-1). It can have U+0000.
+	column := "a\x00b\u00e9"
+	rows := [][]byte{[]byte(`["k0",1]`), []byte(`["k1",null]`), []byte(`["k2","\u0000"]`)}
+	update(s, func(tx ops.Tx) {
+		tx.PutBlob(refA, []byte("one two two"))
+		tx.PutBlob(refB, []byte("three"))
+		tx.PutBlob(refC, []byte(""))
+		if index, ok := tx.(ops.TextIndex); ok {
+			index.PutTextTokens(refA, []string{token(1), token(2), token(2)})
+			index.PutTextTokens(refA, []string{token(9)}) // a second call has no effect
+			index.PutTextTokens(refC, nil)                // bytes with no word
+			var many []string
+			for n := 100; n < 5100; n++ {
+				many = append(many, token(n))
+			}
+			index.PutTextTokens(refB, many)
+			if !index.TextIndexed(refA) {
+				t.Error("an update does not read its own tokens")
+			}
+		}
+		if cache, ok := tx.(ops.RowCache); ok {
+			cache.PutTable(refA, []string{"key", column}, rows)
+			cache.PutTable(refA, []string{"other"}, nil) // a second call has no effect
+			cache.PutTable(refB, []string{"only"}, nil)  // a table with no row keeps its columns
+		}
+	})
+	r := s.Session(context.Background())
+	if index, ok := r.(ops.TextIndex); ok {
+		all := []string{refA, refB, refC, refD}
+		check := func(name string, tokens, digests, candidates, unindexed []string) {
+			t.Helper()
+			can, not := index.TextCandidates(tokens, digests)
+			sort.Strings(can)
+			sort.Strings(not)
+			if !reflect.DeepEqual(can, candidates) || !reflect.DeepEqual(not, unindexed) {
+				t.Errorf("%s: candidates %v, not in the index %v", name, can, not)
+			}
+		}
+		// A candidate set can have more digests, but these tokens are far apart in each implementation.
+		check("one token", []string{token(2)}, all, []string{refA}, []string{refD})
+		check("two tokens", []string{token(2), token(1)}, all, []string{refA}, []string{refD})
+		check("a token of a different digest", []string{token(1), token(100)}, all, nil, []string{refD})
+		check("a token of a large digest", []string{token(5099), token(100)}, all, []string{refB}, []string{refD})
+		check("the token of the second call", []string{token(9)}, all, nil, []string{refD})
+		check("a part of the list", []string{token(1)}, []string{refB, refC}, nil, nil)
+		check("an empty list", []string{token(1)}, nil, nil, nil)
+		if !index.TextIndexed(refA) || !index.TextIndexed(refC) || index.TextIndexed(refD) {
+			t.Error("the indexed digests")
+		}
+	}
+	if cache, ok := r.(ops.RowCache); ok {
+		columns, count, has := cache.TableHead(refA)
+		if !has || count != 3 || !reflect.DeepEqual(columns, []string{"key", column}) {
+			t.Errorf("the head of a table: %q %d %v", columns, count, has)
+		}
+		if columns, count, has := cache.TableHead(refB); !has || count != 0 || !reflect.DeepEqual(columns, []string{"only"}) {
+			t.Errorf("the head of a table with no row: %q %d %v", columns, count, has)
+		}
+		if _, _, has := cache.TableHead(refC); has {
+			t.Error("a digest that the cache does not have")
+		}
+		for n, want := range rows {
+			if got, ok := cache.TableRow(refA, n); !ok || string(got) != string(want) {
+				t.Errorf("row %d: %q %v", n, got, ok)
+			}
+		}
+		if _, ok := cache.TableRow(refA, 3); ok {
+			t.Error("a row after the last row")
+		}
+		if _, ok := cache.TableRow(refB, 0); ok {
+			t.Error("a row of a table with no row")
+		}
+		got := cache.TableRows(refA)
+		if len(got) != 3 || string(got[0]) != string(rows[0]) || string(got[2]) != string(rows[2]) {
+			t.Errorf("the rows of a table: %q", got)
+		}
+		if len(cache.TableRows(refB)) != 0 {
+			t.Error("the rows of a table with no row")
+		}
+	}
 }
 
 func contentAndCatalog(t *testing.T, s Backing) {
@@ -71,8 +160,8 @@ func contentAndCatalog(t *testing.T, s Backing) {
 		tx.Publish(ops.Publication{Candidate: refA, Receipt: refB, Collection: odd, Head: refC})
 		tx.Publish(ops.Publication{Candidate: refB, Receipt: refB, Collection: "other", Head: refA})
 		tx.Publish(ops.Publication{Candidate: refC, Receipt: refB, Activation: refD, Collection: odd, PreviousHead: refC, Head: refD})
-		tx.PutContext(odd, ops.ContextRecord{Roots: []string{refC, refA}, Capabilities: []string{"x"}}, []string{refC, refA})
-		tx.PutContext("empty", ops.ContextRecord{}, nil)
+		tx.PutContext(odd, ops.ContextRecord{Roots: []string{refC, refA}, Capabilities: []string{"x"}})
+		tx.PutContext("empty", ops.ContextRecord{})
 		tx.DeclareGate(odd)
 		tx.DeclareGate(odd)
 		tx.DeclareSection(odd, "serving")
@@ -125,8 +214,34 @@ func contentAndCatalog(t *testing.T, s Backing) {
 	if !ok || !reflect.DeepEqual(record, ops.ContextRecord{Roots: []string{refC, refA}, Capabilities: []string{"x"}}) {
 		t.Errorf("context: %+v", record)
 	}
-	if !r.IsMember(odd, refA) || r.IsMember(odd, refB) || r.IsMember("empty", refA) || !reflect.DeepEqual(r.Members(odd), []string{refA, refC}) {
-		t.Error("the members of a context")
+	// The content of a context is the closure of its roots (CTX-OPN-2, KND-DEP-3): refC has refA and refB.
+	if !r.IsMember(odd, refA) || !r.IsMember(odd, refB) || r.IsMember(odd, refD) || r.IsMember("empty", refA) ||
+		!reflect.DeepEqual(r.Members(odd), []string{refA, refB, refC}) {
+		t.Errorf("the members of a context: %v", r.Members(odd))
+	}
+	if index, ok := r.(ops.ClosureIndex); ok {
+		if got := index.Closure(refC); !reflect.DeepEqual(got, []string{refA, refB, refC}) {
+			t.Errorf("the closure of a root with a stored closure: %v", got)
+		}
+		if got := index.Closure(refD); !reflect.DeepEqual(got, []string{refD}) {
+			t.Errorf("the closure of a root with no object: %v", got)
+		}
+	}
+	if batch, ok := r.(ops.BatchReader); ok {
+		texts := batch.Objects([]string{refA, refB, refC, "not a reference"})
+		if len(texts) != 2 || string(texts[refA]) != "A" || string(texts[refC]) != "S" {
+			t.Errorf("the descriptors of a list: %q", texts)
+		}
+		if got := batch.Deferred([]string{refA, refB, refC}); !reflect.DeepEqual(got, map[string]bool{refA: true, refC: true}) {
+			t.Errorf("the deferred descriptors of a list: %v", got)
+		}
+		blobs := batch.Blobs([]string{refD, refB, refC, "not a digest"})
+		if data, ok := blobs[refB]; len(blobs) != 2 || string(blobs[refD]) != "one" || !ok || len(data) != 0 {
+			t.Errorf("the bytes of a list: %q", blobs)
+		}
+		if len(batch.Objects(nil)) != 0 || len(batch.Deferred(nil)) != 0 || len(batch.Blobs(nil)) != 0 {
+			t.Error("a batch read of an empty list")
+		}
 	}
 	if record, ok := r.Context("empty"); !ok || len(record.Roots) != 0 || len(r.Members("empty")) != 0 {
 		t.Errorf("a context with no member: %+v", record)
@@ -142,7 +257,8 @@ func contentAndCatalog(t *testing.T, s Backing) {
 		t.Error("the content did not change the fingerprint")
 	}
 	update(s, func(tx ops.Tx) {
-		tx.PutContext("later", ops.ContextRecord{Roots: []string{refA}}, []string{refA})
+		tx.PutContext("later", ops.ContextRecord{Roots: []string{refA}})
+		tx.PutContext("again", ops.ContextRecord{Roots: []string{refC}}) // a second use of a root
 		tx.LockCollections([]string{"b", "a", odd})
 		tx.LockDigests([]string{refB, refA})
 	})

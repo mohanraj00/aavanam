@@ -77,13 +77,91 @@ func (c *Call) Env() check.Env {
 	return check.Env{Lookup: c.Descriptor, Data: c.S.Blob}
 }
 
+// Preload reads the descriptors of a list that the store did not parse before, in one read, if the storage
+// has BatchReader. A later Descriptor call for a reference of the list then makes no read.
+func (c *Call) Preload(refs []string) {
+	batch, ok := c.S.(BatchReader)
+	if !ok {
+		return
+	}
+	s := c.Store
+	var absent []string
+	s.mu.RLock()
+	for _, ref := range refs {
+		if _, ok := s.cache[ref]; !ok {
+			absent = append(absent, ref)
+		}
+	}
+	s.mu.RUnlock()
+	if len(absent) == 0 || len(absent) >= cacheLimit {
+		return
+	}
+	texts := batch.Objects(absent)
+	values := make(map[string]jsontext.Value, len(texts))
+	for ref, text := range texts {
+		values[ref] = parse(text)
+	}
+	s.mu.Lock()
+	if len(s.cache)+len(values) >= cacheLimit {
+		s.cache = map[string]jsontext.Value{}
+	}
+	for ref, value := range values {
+		s.cache[ref] = value
+	}
+	s.mu.Unlock()
+}
+
+// Deferred returns each descriptor of a list that a deferred record names (BUN-IMP-12).
+func (c *Call) Deferred(refs []string) map[string]bool {
+	if batch, ok := c.S.(BatchReader); ok {
+		return batch.Deferred(refs)
+	}
+	out := map[string]bool{}
+	for _, ref := range refs {
+		if c.S.HasDeferred(ref) {
+			out[ref] = true
+		}
+	}
+	return out
+}
+
 // Blob returns the bytes of a payload of a descriptor. If the descriptor has a deferred record, the bytes
 // are available only after its deferred checks pass (BUN-IMP-12). Bytes that fail a check, or whose check
 // is not complete, use the read rules of absent bytes.
 func (c *Call) Blob(digest, ref string) ([]byte, bool) {
 	data, ok := c.S.Blob(digest)
-	if !ok || !c.S.HasDeferred(ref) {
-		return data, ok
+	if !ok {
+		return nil, false
+	}
+	return c.checked(data, ref, c.S.HasDeferred(ref))
+}
+
+// Blobs returns the bytes of each digest of a list that the store has, with no deferred check. A storage
+// with BatchReader gives them in one read. The caller applies Checked to the bytes of a descriptor.
+func (c *Call) Blobs(digests []string) map[string][]byte {
+	if batch, ok := c.S.(BatchReader); ok {
+		return batch.Blobs(digests)
+	}
+	out := make(map[string][]byte, len(digests))
+	for _, digest := range digests {
+		if data, ok := c.S.Blob(digest); ok {
+			out[digest] = data
+		}
+	}
+	return out
+}
+
+// Checked is the second part of Blob, for bytes that the caller read with Blobs: it applies the deferred
+// checks of a descriptor to bytes that the store has (BUN-IMP-12). `deferred` tells if the descriptor has
+// a deferred record, for example from Deferred.
+func (c *Call) Checked(data []byte, ref string, deferred bool) ([]byte, bool) {
+	return c.checked(data, ref, deferred)
+}
+
+// checked applies the deferred checks of a descriptor to bytes that the store has (BUN-IMP-12).
+func (c *Call) checked(data []byte, ref string, deferred bool) ([]byte, bool) {
+	if !deferred {
+		return data, true
 	}
 	desc, _ := c.Descriptor(ref)
 	env := c.Env()
@@ -113,8 +191,24 @@ func ClosureIn(r Reader, roots []string) map[string]struct{} {
 	return seen
 }
 
-// Closure returns the roots and each object that their references reach (KND-DEP-3).
-func (c *Call) Closure(roots ...string) map[string]struct{} { return ClosureIn(c.S, roots) }
+// Closure returns the roots and each object that their references reach (KND-DEP-3). A storage with
+// ClosureIndex gives the closure of each root in one read.
+func (c *Call) Closure(roots ...string) map[string]struct{} {
+	index, ok := c.S.(ClosureIndex)
+	if !ok {
+		return ClosureIn(c.S, roots)
+	}
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		if _, done := seen[root]; done {
+			continue // the root is in the closure of an earlier root, and its closure is too
+		}
+		for _, member := range index.Closure(root) {
+			seen[member] = struct{}{}
+		}
+	}
+	return seen
+}
 
 // Sorted returns the members of a set in ascending order.
 func Sorted(set map[string]struct{}) []string {
@@ -137,8 +231,42 @@ type ReadContext struct {
 // Has tells if an object is in the content of the read context.
 func (rc *ReadContext) Has(ref string) bool { return rc.call.S.IsMember(rc.ID, ref) }
 
-// Members returns the content of the read context, in ascending order.
-func (rc *ReadContext) Members() []string { return rc.call.S.Members(rc.ID) }
+// Members returns the content of the read context, in ascending order. The caller does not change it.
+func (rc *ReadContext) Members() []string {
+	return rc.Memo("members", func() (any, int) {
+		members := rc.call.S.Members(rc.ID)
+		return members, len(members)
+	}).([]string)
+}
+
+// Memo returns a value that is a function of the content of the read context, for example a list of its
+// members. The content of a context does not change (CTX-OPN-2), and a descriptor does not change
+// (IDN-CAN-1). Thus the store keeps the value for the next call with the context, and `build` runs only
+// if the store does not have the value. `build` returns the value and its cost: the number of references
+// that the value keeps. The caller does not change the value.
+func (rc *ReadContext) Memo(name string, build func() (value any, cost int)) any {
+	s := rc.call.Store
+	key := memoKey{rc.ID, name}
+	s.mu.RLock()
+	value, ok := s.memo[key]
+	s.mu.RUnlock()
+	if ok {
+		return value
+	}
+	value, cost := build()
+	s.mu.Lock()
+	if _, ok := s.memo[key]; !ok {
+		if cost <= memoLimit { // a larger value is not kept, and it does not remove the kept values
+			if s.memoCost+cost > memoLimit {
+				s.memo, s.memoCost = map[memoKey]any{}, 0
+			}
+			s.memo[key] = value
+			s.memoCost += cost
+		}
+	}
+	s.mu.Unlock()
+	return value
+}
 
 // Locate returns the reason code of a reference that is not in the read context, or "" (QRY-GET-2, CTX-OPN-4).
 func (rc *ReadContext) Locate(ref string) string {

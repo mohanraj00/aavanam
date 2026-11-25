@@ -1,0 +1,166 @@
+{
+  "format": "aavanam-bench/v1",
+  "date": "2026-11-25T09:38:02Z",
+  "note": "Each value is for the machine of this run only. It is not a claim for a different machine.",
+  "machine": {
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "memory_bytes": 25769803776,
+    "os": "Darwin 27.0.0 arm64",
+    "go": "go1.27.2",
+    "sqlite": "3.54.1"
+  },
+  "shape": "S0",
+  "calls": 1000,
+  "check_factor": 3,
+  "runs": [
+    {
+      "storage": "device",
+      "store": {
+        "shape": "S0",
+        "seed": 1,
+        "collections": 10,
+        "descriptors": 20000,
+        "payload_bytes": 209715200,
+        "main_context_members": 2304,
+        "main_context_text_artifacts": 2000,
+        "table_rows": 10000,
+        "table_bytes": 2097152,
+        "search_matches": 20,
+        "query_data_rows": 100,
+        "filtered_units": 25,
+        "band_units": 500,
+        "request_digest": "87b7a25eba79ec082f8eb76f1358bbe25a5a554b846cb614ebdb4428fb2cf62d"
+      },
+      "measures": [
+        {
+          "name": "open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.058,
+          "p95_ms": 0.092,
+          "max_ms": 0.577,
+          "target_ms": 25
+        },
+        {
+          "name": "read_row",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.043,
+          "p95_ms": 0.05,
+          "max_ms": 53.145,
+          "target_ms": 5
+        },
+        {
+          "name": "read_artifact_64k",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.264,
+          "p95_ms": 0.311,
+          "max_ms": 5.05,
+          "target_ms": 5
+        },
+        {
+          "name": "search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 11.214,
+          "p95_ms": 13.063,
+          "max_ms": 25.861,
+          "target_ms": 100
+        },
+        {
+          "name": "query_data_where",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 11.569,
+          "p95_ms": 13.75,
+          "max_ms": 31.809
+        },
+        {
+          "name": "filtered:open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.103,
+          "p95_ms": 0.152,
+          "max_ms": 5.339
+        },
+        {
+          "name": "filtered:search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 2.533,
+          "p95_ms": 3.328,
+          "max_ms": 53.18
+        },
+        {
+          "name": "band:open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 1.064,
+          "p95_ms": 1.516,
+          "max_ms": 10.91,
+          "target_ms": 25
+        },
+        {
+          "name": "band:read_row",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.467,
+          "p95_ms": 0.653,
+          "max_ms": 58.463,
+          "target_ms": 5
+        },
+        {
+          "name": "band:read_artifact_64k",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.51,
+          "p95_ms": 0.77,
+          "max_ms": 2.038,
+          "target_ms": 5
+        },
+        {
+          "name": "band:search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 32.231,
+          "p95_ms": 36.684,
+          "max_ms": 94.721,
+          "target_ms": 100
+        },
+        {
+          "name": "band:query_data_where",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 10.987,
+          "p95_ms": 11.983,
+          "max_ms": 94.417
+        }
+      ],
+      "values": {
+        "after_import:device_file_bytes": 382730240,
+        "after_import:device_wal_bytes": 0,
+        "after_update:device_file_bytes": 392482816,
+        "after_update:device_wal_bytes": 0,
+        "band_bundle_bytes": 166566216,
+        "band_bundle_roots": 500,
+        "bundle_bytes": 287493078,
+        "bundle_payload_bytes": 209714930,
+        "bundle_ratio_permille": 1370,
+        "filtered_bundle_bytes": 10985668,
+        "filtered_bundle_roots": 25,
+        "update_bundle_bytes": 287493078,
+        "update_new_descriptors": 726
+      },
+      "times_ms": {
+        "band_import": 6943.579,
+        "export": 1277.39,
+        "filtered_import": 281.763,
+        "first_import": 13966.717,
+        "update_import": 4854.834,
+        "writer_build": 5659.683
+      }
+    }
+  ]
+}

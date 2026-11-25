@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/mohanraj00/aavanam/backend/core/check"
@@ -60,6 +61,56 @@ func Tokens(words []Word) []string {
 	out := make([]string, len(words))
 	for i, w := range words {
 		out[i] = Token(w.Folded)
+	}
+	return out
+}
+
+// tokenCache has the token of each folded word that TokensOf met, up to tokenCacheWords words. A token is
+// a function of the word, and a collection repeats its words, so most words of a payload need no digest.
+var tokenCache = struct {
+	sync.RWMutex
+	tokens map[string]string
+}{tokens: map[string]string{}}
+
+const (
+	tokenCacheWords = 1 << 16 // the largest number of words of the cache
+	tokenCacheBytes = 64      // the largest size of a word of the cache
+)
+
+// TokensOf returns the token of each word of the bytes, in the word order. The result is the result of
+// Tokens(Words(data)).
+func TokensOf(data []byte) []string {
+	out := []string{}
+	var folded []byte
+	for i := 0; i < len(data); {
+		if !isWordByte(data[i]) {
+			i++
+			continue
+		}
+		folded = folded[:0]
+		for ; i < len(data) && isWordByte(data[i]); i++ {
+			b := data[i]
+			if 'A' <= b && b <= 'Z' {
+				b += 'a' - 'A'
+			}
+			folded = append(folded, b)
+		}
+		if len(folded) > tokenCacheBytes {
+			out = append(out, Token(string(folded)))
+			continue
+		}
+		tokenCache.RLock()
+		token, ok := tokenCache.tokens[string(folded)]
+		tokenCache.RUnlock()
+		if !ok {
+			token = Token(string(folded))
+			tokenCache.Lock()
+			if len(tokenCache.tokens) < tokenCacheWords {
+				tokenCache.tokens[string(folded)] = token
+			}
+			tokenCache.Unlock()
+		}
+		out = append(out, token)
 	}
 	return out
 }
@@ -123,8 +174,9 @@ func Index(tx ops.Tx, desc jsontext.Value, digest string, data []byte) {
 	if !ok {
 		return
 	}
-	if payload, ok := textPayload(desc); ok && payload.Digest == digest && !index.TextIndexed(digest) {
-		index.PutTextTokens(digest, Tokens(Words(data)))
+	// A second PutTextTokens call for one digest has no effect, so the indexer does not read the index first.
+	if payload, ok := textPayload(desc); ok && payload.Digest == digest {
+		index.PutTextTokens(digest, TokensOf(data))
 	}
 }
 
@@ -135,54 +187,144 @@ func SearchText(c *ops.Call) envelope.Envelope {
 	rc := c.Context() // steps 4 and 5
 	queryValue, _ := c.Request.Get("query")
 	query := Words([]byte(queryValue.Str))
-	snapshots := map[string]map[string]struct{}{} // CRD-TXT-6 rule 2
+	// CRD-TXT-6 rule 2: the snapshot roots of the context, and the closure of each one. The call reads a
+	// closure only for an item. The closure of the only root of a context is the content of the context,
+	// so each candidate is in it.
 	var roots []string
 	for _, root := range rc.Roots {
-		if _, seen := snapshots[root]; !seen && c.Kind(root) == "snapshot" {
-			snapshots[root] = c.Closure(root)
+		if c.Kind(root) == "snapshot" && !contains(roots, root) {
 			roots = append(roots, root)
 		}
 	}
 	sort.Strings(roots)
-	// The index only selects the digests to scan (CRD-TXT-3, DEV-FTS-5). The candidates come from the members.
-	var candidates map[string]bool
-	index, indexed := c.S.(ops.TextIndex)
-	if indexed {
-		candidates = map[string]bool{}
-		for _, digest := range index.TextCandidates(Tokens(query)) {
-			candidates[digest] = true
+	members := rc.Members() // CRD-TXT-2, CRD-ORD-1: ascending ref
+	// The store does not keep closures that are larger than its bound, so the call keeps them for its items.
+	var closures map[string]map[string]struct{}
+	inSnapshots := func(ref string) []string {
+		if len(rc.Roots) == 1 {
+			return roots
 		}
-	}
-	var items []envelope.Item
-	for _, ref := range rc.Members() { // CRD-TXT-2, CRD-ORD-1: ascending ref
-		desc, ok := c.Descriptor(ref)
-		if !ok {
-			continue
-		}
-		payload, ok := textPayload(desc)
-		if !ok {
-			continue
-		}
-		data, ok := c.Blob(payload.Digest, ref) // BUN-IMP-12 before the index
-		if !ok {
-			items = append(items, envelope.Refused([]string{"payload_missing"}, ref)) // CRD-TXT-5
-			continue
-		}
-		if indexed && !candidates[payload.Digest] && index.TextIndexed(payload.Digest) {
-			continue
+		if closures == nil {
+			closures = rc.Memo("snapshot-closures", func() (any, int) {
+				out, cost := map[string]map[string]struct{}{}, 0
+				for _, root := range roots {
+					out[root] = c.Closure(root)
+					cost += len(out[root])
+				}
+				return out, cost
+			}).(map[string]map[string]struct{})
 		}
 		var in []string
 		for _, root := range roots {
-			if _, ok := snapshots[root][ref]; ok {
+			if _, ok := closures[root][ref]; ok {
 				in = append(in, root)
 			}
 		}
-		for _, match := range Matches(Words(data), query) {
-			selector := jsontext.O(jsontext.M("selector_profile", jsontext.S(check.Bytes)),
-				jsontext.M("start", jsontext.N(float64(match[0]))), jsontext.M("end", jsontext.N(float64(match[1]))))
-			items = append(items, envelope.OK(jsontext.M("ref", jsontext.S(ref)), jsontext.M("snapshots", jsontext.Strings(in)),
-				jsontext.M("selector", selector)))
+		return in
+	}
+	// The candidates come from the members of the context, not from the index (CRD-TXT-5, DEV-FTS-5).
+	found := rc.Memo("text", func() (any, int) {
+		out := textMembers{}
+		seen := map[string]bool{}
+		c.Preload(members)
+		for _, ref := range members {
+			desc, ok := c.Descriptor(ref)
+			if !ok {
+				continue
+			}
+			payload, ok := textPayload(desc)
+			if !ok {
+				continue
+			}
+			out.candidates = append(out.candidates, candidate{ref, payload.Digest, payload.Size})
+			out.refs = append(out.refs, ref)
+			if !seen[payload.Digest] {
+				seen[payload.Digest] = true
+				out.digests = append(out.digests, payload.Digest)
+			}
 		}
+		return out, 2 * len(out.candidates)
+	}).(textMembers)
+	candidates, refs, digests := found.candidates, found.refs, found.digests
+	// The index only selects the digests to scan (CRD-TXT-3, DEV-FTS-5). A digest that the index does not
+	// have is scanned, as with no index (DEV-OUT-3).
+	index, indexed := c.S.(ops.TextIndex)
+	possible, unindexed := map[string]bool{}, map[string]bool{}
+	if indexed && len(digests) > 0 {
+		can, not := index.TextCandidates(Tokens(query), digests)
+		for _, digest := range can {
+			possible[digest] = true
+		}
+		for _, digest := range not {
+			unindexed[digest] = true
+		}
+	}
+	deferred := c.Deferred(refs)
+	// A member is read if the index gives its digest, if the index does not have its digest, or if it has
+	// a deferred record. For each other member, the index has the digest, so the store has its bytes, and
+	// the descriptor has no deferred record. Thus its bytes are available (BUN-IMP-12), and they have no match.
+	var read []candidate
+	for _, x := range candidates {
+		if !indexed || unindexed[x.digest] || possible[x.digest] || deferred[x.ref] {
+			read = append(read, x)
+		}
+	}
+	filled := map[string]bool{}
+	var items []envelope.Item
+	for len(read) > 0 {
+		// One read gives the bytes of a group of members, up to readBytes of declared payload size.
+		n, size := 0, int64(0)
+		var group []string
+		for n < len(read) && (n == 0 || size+read[n].size <= readBytes) {
+			size += read[n].size
+			group = append(group, read[n].digest)
+			n++
+		}
+		blobs := c.Blobs(group)
+		fill := map[string][]string{}
+		for _, x := range read[:n] {
+			data, ok := blobs[x.digest]
+			if ok {
+				data, ok = c.Checked(data, x.ref, deferred[x.ref]) // BUN-IMP-12 before the index
+			}
+			if !ok {
+				items = append(items, envelope.Refused([]string{"payload_missing"}, x.ref)) // CRD-TXT-5
+				continue
+			}
+			if indexed && !unindexed[x.digest] && !possible[x.digest] {
+				continue // a member with a deferred record whose checks pass, and that the index skips
+			}
+			words := Words(data)
+			if indexed && unindexed[x.digest] && !filled[x.digest] {
+				fill[x.digest], filled[x.digest] = Tokens(words), true
+			}
+			var in []string
+			for m, match := range Matches(words, query) {
+				if m == 0 {
+					in = inSnapshots(x.ref)
+				}
+				selector := jsontext.O(jsontext.M("selector_profile", jsontext.S(check.Bytes)),
+					jsontext.M("start", jsontext.N(float64(match[0]))), jsontext.M("end", jsontext.N(float64(match[1]))))
+				items = append(items, envelope.OK(jsontext.M("ref", jsontext.S(x.ref)), jsontext.M("snapshots", jsontext.Strings(in)),
+					jsontext.M("selector", selector)))
+			}
+		}
+		if len(fill) > 0 {
+			// A store that got its text payloads before it had the index has no tokens for them. The scan
+			// of such a digest gives its tokens to the index, so the next search does not read its bytes.
+			// Each group writes its tokens, so the search keeps the tokens of one group at most.
+			c.S.Update(func(tx ops.Tx) {
+				if w, ok := tx.(ops.TextIndex); ok {
+					for _, digest := range group {
+						if tokens, ok := fill[digest]; ok {
+							w.PutTextTokens(digest, tokens)
+							delete(fill, digest) // a group can have one digest two times
+						}
+					}
+				}
+			})
+		}
+		read = read[n:]
 	}
 	offset, limit := int64(0), int64(-1)
 	if v, ok := c.Request.Get("offset"); ok {
@@ -199,6 +341,31 @@ func SearchText(c *ops.Call) envelope.Envelope {
 		return c.Bounded(rest[:limit]).WithContext(rc.ID)
 	}
 	return c.Result(rest).WithContext(rc.ID)
+}
+
+// candidate is one member of a read context that is an artifact with a text media type (CRD-TXT-2).
+type candidate struct {
+	ref, digest string
+	size        int64 // the declared size of the payload
+}
+
+// readBytes is the largest sum of declared payload sizes of one read of a group of members.
+const readBytes = 8 << 20
+
+// textMembers has the candidates of a read context in ascending order of the reference, their references,
+// and their different digests. It is a function of the content of the context.
+type textMembers struct {
+	candidates    []candidate
+	refs, digests []string
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 // Matches returns the start and the end of each match of the query words in the words: each word start

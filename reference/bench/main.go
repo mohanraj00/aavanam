@@ -319,6 +319,37 @@ func runDevice(ctx context.Context, o options, dir string) (measure.StorageRun, 
 	result, err = measure.Run("filtered:search_text", o.calls, o.limit,
 		func(int) ([]byte, error) { return read("search_text", search) }, func(b []byte) error { _, err := suite.Decode(b); return err })
 	run.Measures = append(run.Measures, result)
+	if err != nil {
+		return run, err
+	}
+
+	// A filtered bundle of each head, with BandUnits knowledge-unit roots (BUN-FLT-3). Its context has the
+	// table and the wide artifacts of the main collection, so the device runs each read measure on it.
+	opened, err = suite.Do(write, "open_context", map[string]any{"heads": built.Collections})
+	if err != nil {
+		return run, err
+	}
+	band, err := export(write, map[string]any{"context": opened.Context, "roots": built.Heads,
+		"filter": map[string]any{"equals": map[string]any{"band": synth.Band}}})
+	if err != nil {
+		return run, err
+	}
+	run.Values["band_bundle_roots"] = int64(len(band.roots))
+	run.Values["band_bundle_bytes"] = int64(len(band.text))
+	large, err := newDevice(filepath.Join(dir, "band"), registry)
+	if err != nil {
+		return run, err
+	}
+	defer large.close()
+	elapsed, err = large.load(ctx, band)
+	if err != nil {
+		return run, fmt.Errorf("band import: %w", err)
+	}
+	run.Times["band_import"] = measure.Ms(elapsed)
+	spec = suite.Spec{Shape: o.shape.Name, Open: map[string]any{"roots": band.roots}, Store: built, Calls: o.calls,
+		Clients: 1, Matches: built.Matches, Limit: o.limit, Prefix: "band:"}
+	measures, err = suite.Reads(caller(ctx, large.store), spec)
+	run.Measures = append(run.Measures, measures...)
 	return run, err
 }
 

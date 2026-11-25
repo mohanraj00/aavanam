@@ -53,13 +53,14 @@ check-device:
 # The budget bench (docs/bench.md). It runs S0 on the storage in memory, on PostgreSQL if AAVANAM_PG_DSN
 # is set, and on the device store, and prints each measured value. It fails only on a clear miss: a p95 that
 # is more than BENCH_FACTOR times its target and is not in BENCH_KNOWN. Reason: the time of a shared CI
-# runner varies. Each entry of BENCH_KNOWN is a miss of the first run, with the issue of its cause. Remove
-# an entry when its measure meets its target. BENCH_MAX_TIME limits each read measure, so the CI job ends
-# in its time limit. The PostgreSQL run removes each row of the database of AAVANAM_PG_DSN.
+# runner varies. An entry of BENCH_KNOWN is `storage/measure=issue`: a miss of a recorded run, with the
+# issue of its cause. The list is empty, because each measure met its target after #128. Remove an entry
+# when its measure meets its target. BENCH_MAX_TIME limits each read measure, so the CI job ends in its
+# time limit. The PostgreSQL run removes each row of the database of AAVANAM_PG_DSN.
 BENCH_CALLS ?= 1000
 BENCH_FACTOR ?= 3
 BENCH_MAX_TIME ?= 10s
-BENCH_KNOWN ?= mem/read_row=\#128,mem/search_text=\#128,pg/open_context=\#128,pg/read_row=\#128,pg/search_text=\#128,device/open_context=\#128,device/read_row=\#128,device/search_text=\#128
+BENCH_KNOWN ?=
 BENCH_CHECK = -calls $(BENCH_CALLS) -max-time $(BENCH_MAX_TIME) -check -factor $(BENCH_FACTOR) -known '$(BENCH_KNOWN)'
 .PHONY: check-bench
 check-bench:
