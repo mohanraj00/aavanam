@@ -1,4 +1,5 @@
-"""The kind table of the base profile (document 02). tests/test_kinds.py checks it against document 02.
+"""The kind table of the base profile (document 02) and of the layer profile (document 23). tests/test_tables.py
+checks it against the documents.
 
 Each field has its value type, its count and its target kinds (KND-SCH-1, KND-REF-3). The groups of the
 targets column are expanded.
@@ -138,12 +139,14 @@ KINDS = {
         'binding_set': ('ref', '1', ('binding-set',)),
         'context_inputs': ('ref', '0..n', ('artifact', 'binding-set', 'check', 'data-resource', 'derivation', 'evidence', 'excerpt', 'knowledge-unit', 'observation', 'overlay', 'overlay-set', 'reading', 'receipt', 'relation-set', 'retraction', 'runtime-profile', 'schema', 'source', 'supersession')),
         'requires': ('string', '0..n', ()),
+        'view': ('ref', '0..n', ('layer', 'snapshot')),  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-LCK-1)
         'consumer': ('string', '1', ()),
         'completeness': ('string', '1', ()),
     },
     'build-lock': {
         'inputs': ('ref', '1..n', ('artifact', 'binding-set', 'check', 'data-resource', 'derivation', 'evidence', 'excerpt', 'knowledge-unit', 'observation', 'overlay', 'overlay-set', 'reading', 'receipt', 'relation-set', 'retraction', 'runtime-profile', 'schema', 'snapshot', 'source', 'supersession')),
         'requires': ('string', '0..n', ()),
+        'view': ('ref', '0..n', ('layer', 'snapshot')),  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-LCK-1)
         'consumer': ('string', '1', ()),
         'completeness': ('string', '1', ()),
     },
@@ -161,6 +164,16 @@ KINDS = {
         'runner': ('string', '1', ()),
         'approver': ('string', '1', ()),
         'removed': ('ref', '0..n', ('knowledge-unit', 'native-mapping', 'observation', 'overlay-set', 'relation-set', 'schema')),
+    },
+    'layer': {  # the profile aavanam/layer/v1 (LYR-PRF-2, LYR-DEF-1)
+        'base': ('string', '1', ()),
+        'scope': ('string', '1', ()),
+        'units': ('ref', '0..n', ('knowledge-unit',)),
+        'schemas': ('ref', '0..n', ('schema',)),
+        'relation_sets': ('ref', '0..n', ('relation-set',)),
+        'overlay_sets': ('ref', '0..n', ('overlay-set',)),
+        'observations': ('ref', '0..n', ('observation',)),
+        'native_mappings': ('ref', '0..n', ('native-mapping',)),
     },
 }
 

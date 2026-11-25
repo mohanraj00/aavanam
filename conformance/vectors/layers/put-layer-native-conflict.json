@@ -1,0 +1,111 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer with one native identity for two subjects gives native_id_conflict",
+  "clauses": [
+    "LYR-DEF-4",
+    "IDN-NAT-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/put-layer-native-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "m1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "native-mapping",
+              "subject": {
+                "$ref": "u-fan-s"
+              },
+              "native_scheme": "sample-scheme",
+              "native_id": "doc-1",
+              "checked": {
+                "by": "a"
+              }
+            }
+          },
+          {
+            "as": "m2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "native-mapping",
+              "subject": {
+                "$ref": "u-valve"
+              },
+              "native_scheme": "sample-scheme",
+              "native_id": "doc-1",
+              "checked": {
+                "by": "a"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "layer",
+              "base": "sample-site-handbook",
+              "scope": "site-west",
+              "units": [
+                {
+                  "$ref": "u-fan-s"
+                }
+              ],
+              "native_mappings": [
+                {
+                  "$ref": "m1"
+                },
+                {
+                  "$ref": "m2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "native_id_conflict"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "native_id_conflict"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

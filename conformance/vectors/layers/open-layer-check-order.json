@@ -1,0 +1,78 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer with a different scope and a different base gives only layer_scope_mismatch",
+  "clauses": [
+    "LYR-OPN-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses. The request has two faults: the scope and the base. The scope check is step 3 and the base check is step 4."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-site-glossary",
+        "schemas": [
+          {
+            "$ref": "sch"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "gloss"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "gloss"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "layer_scope_mismatch"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "gloss"
+              }
+            }
+          },
+          {
+            "status": "incompatible",
+            "reasons": [
+              "layer_scope_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

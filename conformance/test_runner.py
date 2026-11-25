@@ -551,6 +551,7 @@ def echo(vector: dict) -> list[dict]:
     vector = runner.check_spec.with_fixture(vector)
     expander = runner.Expander('echo', vector)
     results, stored, sent, fields = [], {}, {}, runner.check_spec.schemas()
+    views = {}  # the base snapshot and the layer of each layered context (LYR-LCK-1)
     for n, step in enumerate(vector['steps']):
         if step.get('fresh_store'):
             expander.contexts.clear()
@@ -587,6 +588,8 @@ def echo(vector: dict) -> list[dict]:
             result['context'] = f'context-{n}'  # CTX-OPN-2
             if 'as_context' in step:
                 expander.contexts[step['as_context']] = result['context']
+            if 'layer' in request:  # LYR-LCK-1: the view of a layered context
+                views[result['context']] = [request['roots'][0] if request.get('roots') else items[0]['ref'], request['layer']['ref']]
         if op == 'export' and e['status'] == 'ok':
             texts = [stored[i['ref']] for i in items]
             digests = {p['digest'] for t in texts for p in runner.payload_objects(json.loads(t), fields)}
@@ -605,7 +608,7 @@ def echo(vector: dict) -> list[dict]:
             result['document'] = runner.render_document(request, items) if ok else None
             result['document_id'] = runner.digest(runner.canonical(result['document']).encode()) if ok else None
         if op in runner.LOCK_OPERATIONS and e['status'] == 'ok':
-            result['lock'] = runner.revision(runner.lock_descriptor(op, request), fields)
+            result['lock'] = runner.revision(runner.lock_descriptor(op, request, views.get(request.get('context'))), fields)
         if op != 'put' and op not in runner.STORE_READS and 'as_context' not in step and 'context' in request:  # LIF-ITM-4
             result['context'] = request['context']
         results.append(result)

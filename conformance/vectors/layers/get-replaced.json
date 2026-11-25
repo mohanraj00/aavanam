@@ -1,0 +1,106 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A replaced member and an object that only it reaches are not members of a layered context",
+  "clauses": [
+    "LYR-PRE-2",
+    "LYR-ISO-2",
+    "QRY-GET-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The unit u-pump-n of layer-north replaces u-pump. Only u-pump reaches b-pump and a-pump. The kept observation ob-base names u-pump, and a path through a replaced member does not count."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/get-members-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "refs": [
+          {
+            "$ref": "u-pump"
+          },
+          {
+            "$ref": "b-pump"
+          },
+          {
+            "$ref": "a-pump"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref",
+          "unknown_ref",
+          "unknown_ref"
+        ],
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          },
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          },
+          {
+            "status": "not_found",
+            "reasons": [
+              "unknown_ref"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An overlay of a layer about a base table gives a metadata value in a layered context with that layer",
+  "clauses": [
+    "LYR-ISO-3",
+    "LYR-REF-2",
+    "BND-OVL-2",
+    "QRY-DAT-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "query_data",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "resources": [
+          {
+            "$ref": "t-base"
+          }
+        ],
+        "where": {
+          "part": "pump"
+        },
+        "metadata": [
+          "region"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              },
+              "rows": [
+                {
+                  "part": "pump",
+                  "limit": 40
+                }
+              ],
+              "next": null,
+              "metadata": {
+                "region": "north"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -23,7 +23,7 @@ This document defines logical IDs, payload digests, descriptor revisions and the
 
 **IDN-LOG-2.** A logical ID is not a reference (KND-REF-1). Two descriptors with the same logical ID and different canonical forms are two objects, with two revisions. A `put` of the second descriptor MUST NOT change or remove the first.
 
-**IDN-LOG-3.** Only a head in a read context selects one revision for a logical ID (document 13). The store MUST NOT select a revision for a logical ID by write order, by time or by a comparison of revisions. A namespace is the part of a logical ID that the producer controls. The base profile does not give a namespace syntax.
+**IDN-LOG-3.** Only a head in a read context selects one revision for a logical ID (document 13). The store MUST NOT select a revision for a logical ID by write order, by time or by a comparison of revisions. In a layered context, a layer member replaces the base members with its kind and its logical ID (LYR-PRE-1). This is the declared precedence of the layer that the request names, not a selection by the store. A namespace is the part of a logical ID that the producer controls. The base profile does not give a namespace syntax.
 
 ### Payload digests
 

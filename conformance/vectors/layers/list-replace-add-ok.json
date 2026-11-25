@@ -1,0 +1,161 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A layer that replaces one unit and adds two gives five units for a base of three",
+  "clauses": [
+    "LYR-PRE-1",
+    "LYR-PRE-2",
+    "LYR-PRE-4",
+    "LYR-ISO-4",
+    "DSC-LST-2",
+    "DSC-LST-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The base has the units pump, seal and valve. The layer layer-north replaces pump and adds filter and gauge. The item order is LIF-ITM-3."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-filter-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "filter"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-gauge-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "gauge"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump-n"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "kinds": [
+          "layer"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              },
+              "kind": "layer",
+              "logical_id": null
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

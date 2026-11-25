@@ -1,0 +1,57 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A scope that differs only in case gives layer_scope_mismatch",
+  "clauses": [
+    "LYR-DEF-2",
+    "LYR-OPN-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "Site-North"
+        }
+      },
+      "expect": {
+        "status": "incompatible",
+        "reasons": [
+          "layer_scope_mismatch"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "incompatible",
+            "reasons": [
+              "layer_scope_mismatch"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

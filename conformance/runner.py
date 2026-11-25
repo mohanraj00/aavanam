@@ -315,11 +315,13 @@ def revision(descriptor, schemas: dict) -> str:
     return digest(canonical(normal(descriptor, schemas)).encode('utf-8'))
 
 
-def lock_descriptor(operation: str, request: dict) -> dict:
-    """Return the lock that an ok lock operation writes for a request (LCK-EXE-4, LCK-BLD-3)."""
+def lock_descriptor(operation: str, request: dict, view=None) -> dict:
+    """Return the lock that an ok lock operation writes for a request (LCK-EXE-4, LCK-BLD-3). `view` is the
+    base snapshot and the layer of a layered context, or None (LYR-LCK-1)."""
     kind, fields = {'execution_inputs': ('execution-lock', ('binding_set', 'context_inputs', 'requires', 'consumer', 'completeness')),
                     'build_inputs': ('build-lock', ('inputs', 'requires', 'consumer', 'completeness'))}[operation]
-    return {'descriptor_profile': BASE_PROFILE, 'kind': kind, **{f: request[f] for f in fields if f in request}}
+    return {'descriptor_profile': BASE_PROFILE, 'kind': kind, **{f: request[f] for f in fields if f in request},
+            **({'view': view} if view else {})}
 
 
 def snapshot_descriptor(request: dict) -> dict:
@@ -591,22 +593,22 @@ def value_problems(operation: str, actual: dict) -> list[str]:
             for f in VALUE_FIELDS.get(operation, ()) if f in i]
 
 
-def lock_problems(operation: str, request: dict, expect: dict, actual: dict) -> list[str]:
+def lock_problems(operation: str, request: dict, expect: dict, actual: dict, view=None) -> list[str]:
     """An ok lock result has the reference of the lock. Any other result has no lock (LCK-EXE-4, LCK-EXE-6, LCK-BLD-3, LCK-BLD-5)."""
     if operation not in LOCK_OPERATIONS or NOT_READ & set(expect['reasons']):
         return []
     lock = actual.get('lock')
-    if expect['status'] == 'ok' and lock != revision(lock_descriptor(operation, request), check_spec.schemas()):
+    if expect['status'] == 'ok' and lock != revision(lock_descriptor(operation, request, view), check_spec.schemas()):
         return [f'lock is {lock!r}, not the revision of the lock of the request (LCK-EXE-4, LCK-BLD-3, IDN-CAN-2)']
     if expect['status'] != 'ok' and lock is not None:
         return [f'lock is {lock!r}, but a result that is not ok has no lock (LCK-EXE-6, LCK-BLD-5)']
     return []
 
 
-def stored_lock_problems(adapter, operation: str, request: dict, lock: str, store: str = 'writer') -> list[str]:
+def stored_lock_problems(adapter, operation: str, request: dict, lock: str, store: str = 'writer', view=None) -> list[str]:
     """Read the lock in the store that keeps it: a put of a descriptor that the store has gives its ref and does
     not change the store (IDN-CAN-3). Thus the store has the lock (LCK-EXE-4, LCK-BLD-3)."""
-    text = canonical(normal(lock_descriptor(operation, request), check_spec.schemas()))
+    text = canonical(normal(lock_descriptor(operation, request, view), check_spec.schemas()))
     before = adapter.fingerprint(store=store)
     try:
         result = adapter.call('put', {'descriptors': [text], 'payloads': {}}, store=store)
@@ -740,6 +742,7 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
             return [f'the adapter did not declare the section of {collection}: {e!r} (PUB-SEC-1)']
     kept = {s: set() for s in check_spec.STORES}  # the revisions that each store has, for the lock check (LCK-EXE-4, LCK-BLD-3)
     known = {s: set() for s in check_spec.STORES}  # the candidate identities that each store has (PUB-CND-4)
+    views: dict[tuple, list] = {}  # the base snapshot and the layer of each layered context (LYR-LCK-1)
     for n, step in enumerate(vector['steps'], 1):
         if step.get('fresh_store'):
             adapter.reset()
@@ -747,6 +750,7 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
             for s in check_spec.STORES:
                 kept[s].clear()
                 known[s].clear()
+            views.clear()
         operation = step['operation']
         store = step.get('store', 'writer')
         lock_store = step.get('lock_store', store)
@@ -764,7 +768,8 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
         if isinstance(actual, dict):
             problems += context_problems(operation, step, request, expect, actual)
             problems += bundle_problems(operation, request, expect, actual, expander.stored)
-            problems += lock_problems(operation, request, expect, actual)
+            view = views.get((store, request.get('context')))  # LYR-LCK-1
+            problems += lock_problems(operation, request, expect, actual, view)
             problems += value_problems(operation, actual)
             problems += revision_problems(operation, request, expect, actual)
             problems += created_problems(operation, request, expect, actual)
@@ -772,6 +777,9 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
             problems += complete_problems(operation, actual, complete)
             problems += render_problems(operation, request, actual)
         problems += validator_problems(operation, request, expect, calls)
+        if operation == 'open_context' and isinstance(request.get('layer'), dict) and expect['status'] == 'ok' and not problems:
+            root = request['roots'][0] if request.get('roots') else actual['items'][0]['ref']  # the head snapshot (CTX-VIW-2)
+            views[(store, actual['context'])] = [root, request['layer']['ref']]
         if expect.get('store_unchanged'):
             problems += [f'the {s} store changed (STS-MAL-2)' for s in check_spec.STORES if adapter.fingerprint(store=s) != prints[s]]
         if operation in LOCK_OPERATIONS and expect['status'] == 'ok' and not problems:
@@ -779,7 +787,7 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
                 problems.append(f'the {store} store changed, but the lock goes to the {lock_store} store (BUN-IMP-7)')
             if actual['lock'] not in kept[lock_store] and adapter.fingerprint(store=lock_store) == prints[lock_store]:
                 problems.append(f'the {lock_store} store did not change, so it has no lock (LCK-EXE-4, LCK-BLD-3)')
-            problems += stored_lock_problems(adapter, operation, request, actual['lock'], lock_store)
+            problems += stored_lock_problems(adapter, operation, request, actual['lock'], lock_store, view)
             kept[lock_store].add(actual['lock'])
         published = expected_item(operation, expect).get('fields', {}).get('disposition') == 'published'
         if published and not problems and adapter.fingerprint(store=store) == before:

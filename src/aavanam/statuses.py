@@ -27,6 +27,8 @@ REASON_STATUS = {
     'value_type': 'incompatible',  # DAT-RNG-5
     'unmatched_dependency': 'incompatible',  # BUN-FLT-2
     'binding_skew': 'incompatible',
+    'layer_scope_mismatch': 'incompatible',  # LYR-PRF-3, LYR-OPN-2
+    'layer_base_mismatch': 'incompatible',  # LYR-PRF-3, LYR-OPN-2
     'head_moved': 'incompatible',
     'check_outside_snapshot': 'incompatible',
     'receipt_rejected': 'incompatible',
