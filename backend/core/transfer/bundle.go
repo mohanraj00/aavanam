@@ -7,6 +7,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/check"
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/read"
 	"github.com/mohanraj00/aavanam/backend/core/write"
@@ -109,9 +110,11 @@ func Export(c *ops.Call) envelope.Envelope {
 	roots := requested
 	filter, hasFilter := c.Request.Get("filter")
 	if hasFilter { // BUN-FLT-1 to BUN-FLT-3: the roots of the bundle are the units that match
+		// A candidate is a member of the context, so a replaced unit of a layered context is not a
+		// candidate (LYR-EXP-2). In a read context with no layer, each object of the closure is a member.
 		var units []string
 		for _, r := range ops.Sorted(c.Closure(requested...)) {
-			if c.Kind(r) == "knowledge-unit" {
+			if c.Kind(r) == "knowledge-unit" && (rc.Layer == "" || rc.Has(r)) {
 				units = append(units, r)
 			}
 		}
@@ -280,14 +283,14 @@ func isBundle(b jsontext.Value) bool {
 
 // revisions returns the revision of each descriptor text: of its normal form, or of its JSON value if a
 // check fails (BUN-IMP-2).
-func revisions(texts []jsontext.Value) map[string]bool {
+func revisions(texts []jsontext.Value, declared kinds.Profiles) map[string]bool {
 	out := map[string]bool{}
 	for _, text := range texts {
 		value, formError := jsontext.ParseInner([]byte(text.Str), jsontext.Strict)
 		if formError != nil {
 			continue
 		}
-		if normal, refusal := check.Normal(value); refusal == nil {
+		if normal, refusal := check.NormalIn(value, declared); refusal == nil {
 			out[canon.Revision(normal)] = true
 		} else {
 			out[canon.Revision(value)] = true
@@ -311,7 +314,7 @@ func Import(c *ops.Call) envelope.Envelope {
 	}
 	texts := field(bundle, "descriptors").Arr
 	checked := batch.Check(c, texts, true)
-	present := revisions(texts) // a root with a failed check is present (BUN-IMP-2)
+	present := revisions(texts, c.Store.Profiles) // a root with a failed check is present (BUN-IMP-2)
 	var absent []envelope.Item
 	roots := ops.Strings(field(bundle, "roots"))
 	for _, r := range roots {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/read"
 	"github.com/mohanraj00/aavanam/backend/core/text"
@@ -48,8 +49,20 @@ type Core struct {
 	failure  error    // a failure of the validator connection in the call in progress
 }
 
-// Reset makes each store empty, with no policy, gate or section.
-func (c *Core) Reset() error {
+// Reset makes each store empty, with no policy, gate or section. Each store declares no profile.
+func (c *Core) Reset() error { return c.open(nil) }
+
+// Declare makes each store empty, and each store declares the profiles (LYR-PRF-1, IDX-PRF-1). A store
+// declares its profiles before its first call, so the driver makes new stores.
+func (c *Core) Declare(profiles []string) error {
+	declared, ok := kinds.DeclaredProfiles(profiles...)
+	if !ok {
+		return fmt.Errorf("this driver does not have each profile of %v", profiles)
+	}
+	return c.open(declared)
+}
+
+func (c *Core) open(declared kinds.Profiles) error {
 	backings, err := c.Open()
 	if err != nil {
 		return err
@@ -59,6 +72,7 @@ func (c *Core) Reset() error {
 	for name, backing := range backings {
 		store := ops.New(ops.Role(name), backing, registry)
 		store.Debug = c.Debug
+		store.Profiles = declared
 		stores[name] = store
 	}
 	if device, ok := stores["device"]; ok {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 )
 
 // Role is the role of a store (BUN-IMP-5).
@@ -40,12 +41,19 @@ var writes = map[string]bool{"put": true, "create_snapshot": true, "create_candi
 // storeReads has the operations that read the store and its catalog, not a read context (LIF-ITM-4).
 var storeReads = map[string]bool{"snapshot_changes": true, "item_history": true}
 
-// needs has the capability that an operation needs (CTX-PRJ-1).
+// needs has the capability that an operation needs (CTX-PRJ-1, IDX-PRF-4). An operation of a profile is
+// available only in a store that declares the profile.
 var needs = func() map[string]string {
 	out := map[string]string{}
-	for capability, operations := range Capabilities {
-		for _, operation := range operations {
-			out[operation] = capability
+	tables := []map[string][]string{Capabilities}
+	for _, table := range ProfileCapabilities {
+		tables = append(tables, table)
+	}
+	for _, table := range tables {
+		for capability, operations := range table {
+			for _, operation := range operations {
+				out[operation] = capability
+			}
 		}
 	}
 	return out
@@ -60,8 +68,14 @@ func Known(operation string) bool {
 // InReadBinding tells if the operation is an operation of the network read binding (NET-SCP-1).
 func InReadBinding(operation string) bool { return readBinding[operation] }
 
-// Permits tells if the row of the operation has the status `partial` (STS-ENV-3).
-func Permits(operation string) bool { return table[operation].partial }
+// Permits tells if the row of the operation has the status `partial` (STS-ENV-3). The row can be a row of
+// a profile (IDX-PRF-4).
+func Permits(operation string) bool {
+	if r, ok := profileTable[operation]; ok {
+		return r.partial
+	}
+	return table[operation].partial
+}
 
 // Writes tells if a device store refuses the operation with `read_only_store` (BUN-IMP-6).
 func Writes(operation string) bool { return writes[operation] }
@@ -92,9 +106,11 @@ type Registry struct {
 // NewRegistry returns a registry with no operation.
 func NewRegistry() *Registry { return &Registry{handlers: map[string]Handler{}} }
 
-// Handle adds an operation. The operation has a row in the operation table, and only one handler.
+// Handle adds an operation. The operation has a row in the operation table or in the operation table of a
+// profile, and only one handler. A store runs an operation of a profile only if it declares the profile.
 func (r *Registry) Handle(operation string, h Handler) {
-	if _, ok := table[operation]; !ok {
+	_, base := table[operation]
+	if _, profile := profileTable[operation]; !base && !profile {
 		panic("ops: the operation table has no operation " + operation)
 	}
 	if _, ok := r.handlers[operation]; ok {
@@ -144,6 +160,10 @@ type Store struct {
 	Debug bool
 	// Clock is the store clock, for the time of a removal record (PRD-RMV-1). Nil is the system clock.
 	Clock func() time.Time
+	// Profiles has the profiles that the store declares separately from the base profile (LYR-PRF-1,
+	// IDX-PRF-1). The application sets it before the first call, and it does not change after that. A nil
+	// set is a store of the base profile only.
+	Profiles kinds.Profiles
 
 	registry *Registry
 	called   atomic.Bool // a gate or a section is declared before the first call (PUB-GAT-1, PUB-SEC-1)
@@ -182,6 +202,33 @@ func (s *Store) Now() string {
 		now = s.Clock
 	}
 	return now().UTC().Format("2006-01-02T15:04:05Z")
+}
+
+// Supports tells if the operation has a row with more than `unsupported` for this store: a row of the
+// operation table of document 03, or a row of a profile that the store declares (IDX-PRF-4, RSV-LST-4).
+func (s *Store) Supports(operation string) bool {
+	if r, ok := profileTable[operation]; ok && s.Profiles[r.profile] {
+		return true
+	}
+	return Known(operation)
+}
+
+// Capabilities returns the capability table of the store: the table of CTX-PRJ-1 and the rows of each
+// profile that the store declares (IDX-PRF-4). The caller does not change the result.
+func (s *Store) Capabilities() map[string][]string {
+	if len(s.Profiles) == 0 {
+		return Capabilities
+	}
+	out := make(map[string][]string, len(Capabilities)+1)
+	for capability, operations := range Capabilities {
+		out[capability] = operations
+	}
+	for profile := range s.Profiles {
+		for capability, operations := range ProfileCapabilities[profile] {
+			out[capability] = operations
+		}
+	}
+	return out
 }
 
 // Handles tells if the store has the operation.
@@ -261,7 +308,7 @@ func (s *Store) Gate(ctx context.Context, collection string) error {
 
 // Section declares the storage section of a collection (PUB-SEC-1). The store keeps it for its life. The
 // declaration fails, and the store does not change, if the collection has a different section or a
-// snapshot (PUB-SEC-2).
+// snapshot (PUB-SEC-2), or if it is the base collection of a layer (LYR-DEF-5).
 func (s *Store) Section(ctx context.Context, collection, section string) error {
 	switch {
 	case section != Sections[0] && section != Sections[1]:
@@ -281,6 +328,8 @@ func (s *Store) Section(ctx context.Context, collection, section string) error {
 			return nil
 		case tx.HasSnapshot(collection):
 			return errors.New("the collection already has a snapshot (PUB-SEC-2)")
+		case tx.HasLayer(collection):
+			return errors.New("the collection is already the base of a layer (LYR-DEF-5)")
 		}
 		tx.DeclareSection(collection, section)
 		return nil
@@ -302,11 +351,11 @@ func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []by
 	if !isName {
 		return envelope.New(jsontext.Value{}, "unsupported", envelope.R("unsupported_operation"))
 	}
-	if profile, reserved := Reserved[name]; reserved { // RSV-RSP-1
+	if profile, reserved := Reserved[name]; reserved && !s.Supports(name) { // RSV-RSP-1, RSV-LST-4
 		return envelope.New(operation, "unsupported", envelope.Reason{Code: "reserved_profile", Capabilities: []string{profile}})
 	}
 	handler := s.registry.handlers[name]
-	if !Known(name) {
+	if !s.Supports(name) {
 		return envelope.New(operation, "unsupported", envelope.R("unsupported_operation"))
 	}
 	s.called.Store(true)

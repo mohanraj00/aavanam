@@ -1,5 +1,6 @@
 // Package kinds has the kind registry of the base profile (document 02): the schema of each kind, with the
-// value type, the count and the target kinds of each field (KND-SCH-1, KND-REF-3).
+// value type, the count and the target kinds of each field (KND-SCH-1, KND-REF-3). It also has the kinds
+// and the fields of the profiles that a store declares separately (documents 23 and 24).
 package kinds
 
 import "sort"
@@ -16,6 +17,7 @@ type Field struct {
 	Type    string   // ref, ref-map, payload, string, json or selector
 	Count   string   // 1, 0..1, 0..n, 1..n, 0..n list or 1..n list
 	Targets []string // the kinds that a ref or ref-map field can name
+	Profile string   // the profile that adds the field, or "" for the base profile (KND-REG-2)
 }
 
 // IsRef tells if the field has references. Only these fields give dependencies (KND-DEP-1).
@@ -40,10 +42,22 @@ func (f Field) Permits(kind string) bool {
 	return false
 }
 
+// schemas has the fields of each kind of each profile. A descriptor in the store has only the fields that
+// its store accepted, so a reader of a stored descriptor uses this schema.
 var schemas = func() map[string][]Field {
 	out := make(map[string][]Field, len(own))
 	for kind, fields := range own {
 		out[kind] = append(append([]Field(nil), common...), fields...)
+	}
+	for _, profile := range []string{LayerProfile, IndexProfile} {
+		for kind, fields := range added[profile].kinds {
+			out[kind] = append(append([]Field(nil), common...), tagged(fields, profile)...)
+		}
+	}
+	for _, profile := range []string{LayerProfile, IndexProfile} {
+		for kind, fields := range added[profile].fields {
+			out[kind] = append(out[kind], tagged(fields, profile)...)
+		}
 	}
 	return out
 }()
@@ -55,10 +69,11 @@ func Known(kind string) bool {
 }
 
 // Schema returns the fields of a kind: the common fields, then the fields of the kind, in the order of the
-// document. The caller does not change the result. An unknown kind gives nil.
+// document, then the fields that a profile adds. The kind can be a kind of a profile. The caller does not
+// change the result. An unknown kind gives nil.
 func Schema(kind string) []Field { return schemas[kind] }
 
-// Find returns one field of a kind.
+// Find returns one field of a kind, of the base profile or of a profile.
 func Find(kind, name string) (Field, bool) {
 	for _, f := range schemas[kind] {
 		if f.Name == name {

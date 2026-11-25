@@ -94,7 +94,7 @@ func (e Env) Payloads(desc jsontext.Value) *Refusal {
 }
 
 // Content applies the checks of step 6 of STS-MAL-3 that need no section: the bytes of an excerpt
-// (BUN-EXC-3, BUN-EXC-4) and the native identities of a snapshot (IDN-NAT-3).
+// (BUN-EXC-3, BUN-EXC-4) and the native identities of a snapshot or of a layer (IDN-NAT-3, LYR-DEF-4).
 func (e Env) Content(desc jsontext.Value) *Refusal {
 	switch Kind(desc) {
 	case "excerpt":
@@ -123,7 +123,7 @@ func (e Env) Content(desc jsontext.Value) *Refusal {
 		if !hasPart || !bytes.Equal(joined, part) {
 			return refuse("excerpt_mismatch", 1)
 		}
-	case "snapshot":
+	case "snapshot", "layer":
 		mappings, _ := desc.Get("native_mappings")
 		subjects := map[[2]string]map[string]struct{}{}
 		for _, m := range mappings.Arr {
@@ -150,7 +150,19 @@ func (e Env) Content(desc jsontext.Value) *Refusal {
 	return nil
 }
 
-// NotInServing has the kinds that a snapshot of a `serving` collection must not have in its closure (PUB-SEC-3).
+// CollectionOf returns the collection of a snapshot, or the base collection of a layer (PUB-SNP-4,
+// LYR-DEF-1). A descriptor of a different kind gives false.
+func CollectionOf(desc jsontext.Value) (string, bool) {
+	name := map[string]string{"snapshot": "collection", "layer": "base"}[Kind(desc)]
+	if name == "" {
+		return "", false
+	}
+	collection, _ := desc.Get(name)
+	return collection.Str, true
+}
+
+// NotInServing has the kinds that a snapshot of a `serving` collection must not have in its closure
+// (PUB-SEC-3). The same rule applies to a layer whose base is a `serving` collection (LYR-DEF-5).
 var NotInServing = map[string]bool{"source": true, "reading": true, "excerpt": true, "evidence": true}
 
 // SectionViolations returns, in ascending order, each descriptor in the closure of a snapshot that a

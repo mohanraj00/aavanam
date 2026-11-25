@@ -201,7 +201,8 @@ func SearchText(c *ops.Call) envelope.Envelope {
 	// The store does not keep closures that are larger than its bound, so the call keeps them for its items.
 	var closures map[string]map[string]struct{}
 	inSnapshots := func(ref string) []string {
-		if len(rc.Roots) == 1 {
+		// A member of a layered context that only the layer reaches is in no snapshot (LYR-PRE-4).
+		if len(rc.Roots) == 1 && rc.Layer == "" {
 			return roots
 		}
 		if closures == nil {

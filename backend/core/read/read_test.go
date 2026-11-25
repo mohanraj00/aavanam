@@ -75,3 +75,35 @@ func TestSelectorBeyondInt64(t *testing.T) {
 		t.Errorf("read with a row index: %s", out)
 	}
 }
+
+// IDX-MTH-4: the bucket of a term is the first four bytes of the SHA-256 digest of its folded form, as an
+// unsigned integer with the most significant byte first, modulo `dimensions`. The expected values come from
+// the clause, with a different SHA-256 tool: `maps` gives 844337896, `atlases` gives 2096875115, the bytes
+// C3 A9 74 C3 A9 give 3170962532, `a1` gives 4116705647 and `and` gives 1644237083.
+func TestBuckets(t *testing.T) {
+	cases := []struct {
+		data       string
+		dimensions uint32
+		want       []uint32
+	}{
+		{"Maps, MAPS and maps.", 4096, []uint32{283, 744}}, // one term for the three words, and the term `and`
+		{"maps atlases", 4096, []uint32{744, 1643}},
+		{"atlases maps", 65536, []uint32{37608, 50795}},
+		{"maps/atlases\x00a1 \xc3\xa9t\xc3\xa9", 7, []uint32{3, 5, 6}}, // a byte from 0x80 is a word byte (CRD-TXT-3)
+		{"maps atlases a1", 1, []uint32{0}},
+		{"... --- ...", 4096, []uint32{}},
+	}
+	for _, c := range cases {
+		got := read.Buckets([]byte(c.data), c.dimensions)
+		if len(got) != len(c.want) {
+			t.Errorf("%q with %d dimensions: %v, not %v", c.data, c.dimensions, got, c.want)
+			continue
+		}
+		for n := range got {
+			if got[n] != c.want[n] {
+				t.Errorf("%q with %d dimensions: %v, not %v", c.data, c.dimensions, got, c.want)
+				break
+			}
+		}
+	}
+}

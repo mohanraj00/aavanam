@@ -123,8 +123,10 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	store := h.Store()
-	if _, reserved := ops.Reserved[name]; reserved || !ops.Known(name) {
-		// NET-SCP-2: the envelope of STS-MAL-4. The server does not check the body.
+	if !store.Supports(name) {
+		// NET-SCP-2: the envelope of STS-MAL-4. The server does not check the body. An operation of a
+		// profile that the store declares has a row with more than `unsupported` (IDX-PRF-4), so
+		// NET-SCP-3 applies to it.
 		send(w, store.Call(r.Context(), jsontext.S(name), nil).JSON())
 		return
 	}

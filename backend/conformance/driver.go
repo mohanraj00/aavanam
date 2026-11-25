@@ -39,8 +39,12 @@ type Validate func(policy, candidate, receipt, activation json.RawMessage) (Deci
 // Store is the implementation that a driver connects to the runner. Each string argument that comes
 // from a vector is a raw JSON value. Call returns the result envelope as one JSON text.
 type Store interface {
-	// Reset makes each store empty and removes each policy, gate and section.
+	// Reset makes each store empty and removes each policy, gate and section. After it, a store declares
+	// no profile.
 	Reset() error
+	// Declare makes each store declare the profiles (LYR-PRF-1, IDX-PRF-1). The adapter calls it after
+	// Reset, so each store is empty. A store that does not have a profile gives an error.
+	Declare(profiles []string) error
 	// Call sends one request to the store with the role `store`: "writer", "device" or "output".
 	Call(store string, operation, request json.RawMessage, validate Validate) (json.RawMessage, error)
 	// Fingerprint returns a text that changes if the content of the store changes.
@@ -68,6 +72,7 @@ type message struct {
 	Policy     json.RawMessage `json:"policy"`
 	Collection json.RawMessage `json:"collection"`
 	Section    json.RawMessage `json:"section"`
+	Profiles   []string        `json:"profiles"`
 }
 
 type answer struct {
@@ -166,6 +171,8 @@ func handle(s Store, line []byte, validate Validate) ([][]byte, error) {
 	switch m.Cmd {
 	case "reset":
 		return ok, s.Reset()
+	case "declare":
+		return ok, s.Declare(m.Profiles)
 	case "call":
 		if !stores[m.Store] || len(m.Op) == 0 || len(m.Request) == 0 {
 			return nil, errors.New("a call needs store, op and request")
@@ -218,7 +225,8 @@ func Unsupported(operation json.RawMessage) json.RawMessage {
 // It must fail the vectors, as conformance/null_adapter.py does.
 type Null struct{}
 
-func (Null) Reset() error { return nil }
+func (Null) Reset() error           { return nil }
+func (Null) Declare([]string) error { return nil }
 
 func (Null) Call(_ string, operation, _ json.RawMessage, _ Validate) (json.RawMessage, error) {
 	return Unsupported(operation), nil

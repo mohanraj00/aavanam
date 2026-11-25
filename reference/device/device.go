@@ -326,6 +326,34 @@ func (v view) HasSnapshot(collection string) bool {
 	return err == nil
 }
 
+// HasLayer tells if the file of the store has a layer with the base collection (LYR-DEF-5). The table
+// `objects` has no column for the base of a layer (DEV-LAY-3), so the read uses the descriptors. Only a
+// writer store has sections (PUB-SEC-1), so no operation of a device store makes this read.
+func (v view) HasLayer(collection string) bool {
+	rows, err := v.q.QueryContext(v.ctx, `SELECT canonical FROM main.objects WHERE kind = CAST('layer' AS BLOB)`)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var text []byte
+		if err := rows.Scan(&text); err != nil {
+			ops.Raise(err)
+		}
+		desc, formError := jsontext.Parse(text, jsontext.Strict)
+		if formError != nil {
+			ops.Raise(errors.New("a stored descriptor is not JSON"))
+		}
+		if base, ok := check.CollectionOf(desc); ok && base == collection {
+			return true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return false
+}
+
 // A device store and its local output store have no catalog, no section, no gate and no producer
 // section (BUN-IMP-6, PRD-SEC-1).
 

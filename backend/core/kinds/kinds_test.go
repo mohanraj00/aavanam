@@ -104,3 +104,129 @@ func TestProfileMinorAgreesWithTheSpec(t *testing.T) {
 		t.Errorf("ProfileMinor is %d, and SPEC.md has %v", ProfileMinor, found)
 	}
 }
+
+// profileFields returns the rows of the field table of a profile document for each kind, in the order of
+// the document, with the targets in ascending order.
+func profileFields(t *testing.T, document string) map[string][]Field {
+	out := map[string][]Field{}
+	for _, row := range cells(t, document, "The field table of the profile:") {
+		targets := names(row[4])
+		sort.Strings(targets)
+		kind := names(row[0])[0]
+		out[kind] = append(out[kind], Field{Name: names(row[1])[0], Type: names(row[2])[0], Count: names(row[3])[0], Targets: targets})
+	}
+	return out
+}
+
+// The tables of each profile are the kind table and the field table of its document (LYR-PRF-2, IDX-PRF-2).
+func TestProfileTablesAgreeWithDocuments23And24(t *testing.T) {
+	for profile, document := range map[string]string{LayerProfile: "23", IndexProfile: "24"} {
+		table := added[profile]
+		var registry, got []string
+		for _, row := range cells(t, document, "The kind table of the profile:") {
+			registry = append(registry, names(row[0])[0])
+			if names(row[2])[0] != document {
+				t.Errorf("%s: the kind row %v names a different document", profile, row)
+			}
+		}
+		for kind := range table.kinds {
+			got = append(got, kind)
+		}
+		sort.Strings(registry)
+		sort.Strings(got)
+		if !reflect.DeepEqual(got, registry) {
+			t.Errorf("%s: the kinds are %v, and the document has %v", profile, got, registry)
+		}
+		want := profileFields(t, document)
+		rows := 0
+		for _, part := range []map[string][]Field{table.kinds, table.fields} {
+			for kind, fields := range part {
+				sorted := make([]Field, len(fields))
+				for i, f := range fields {
+					sorted[i] = f
+					sorted[i].Targets = append([]string(nil), f.Targets...)
+					sort.Strings(sorted[i].Targets)
+				}
+				if !reflect.DeepEqual(sorted, want[kind]) {
+					t.Errorf("%s, kind %s:\n table    %v\n document %v", profile, kind, sorted, want[kind])
+				}
+				rows++
+			}
+		}
+		if rows != len(want) {
+			t.Errorf("%s: the table has fields for %d kinds, and the document has %d", profile, rows, len(want))
+		}
+		for kind := range table.kinds {
+			if Known(kind) || groupHas(t, kind) {
+				t.Errorf("%s: the kind %s is a kind of the base profile or is in a target group", profile, kind)
+			}
+		}
+	}
+}
+
+// groupHas tells if a target group of document 02 has the kind. A kind of a profile is in no target group.
+func groupHas(t *testing.T, kind string) bool {
+	for _, row := range cells(t, "02", "The target groups:") {
+		for _, name := range names(row[1]) {
+			if name == kind {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// A store has a kind or a field of a profile only if it declares the profile (LYR-PRF-1, IDX-PRF-1).
+func TestProfileDeclaration(t *testing.T) {
+	layers, ok := DeclaredProfiles(LayerProfile)
+	if !ok || !reflect.DeepEqual(layers.Names(), []string{LayerProfile}) {
+		t.Fatalf("the declared profiles: %v", layers)
+	}
+	if _, ok := DeclaredProfiles(LayerProfile, "aavanam/workspace/v1"); ok {
+		t.Error("a profile that this module does not have was declared")
+	}
+	both := layers.With(IndexProfile)
+	if len(layers) != 1 || !reflect.DeepEqual(both.Names(), []string{LayerProfile, IndexProfile}) {
+		t.Errorf("With changed its set or gave %v", both.Names())
+	}
+	has := func(kind, name string, declared Profiles) bool {
+		for _, f := range SchemaIn(kind, declared) {
+			if f.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	cases := []struct {
+		kind, field string
+		declared    Profiles
+		want        bool
+	}{
+		{"layer", "scope", nil, false},
+		{"layer", "scope", layers, true},
+		{"retrieval-index", "method", layers, false},
+		{"retrieval-index", "method", both, true},
+		{"build-lock", "inputs", nil, true},
+		{"build-lock", "view", nil, false},
+		{"build-lock", "view", layers, true},
+		{"build-lock", "indexes", layers, false},
+		{"execution-lock", "indexes", both, true},
+		{"execution-lock", "view", Profiles{IndexProfile: true}, false},
+	}
+	for _, c := range cases {
+		if got := has(c.kind, c.field, c.declared); got != c.want {
+			t.Errorf("%s.%s with %v: %v, not %v", c.kind, c.field, c.declared.Names(), got, c.want)
+		}
+	}
+	if Registered("layer", nil) || !Registered("layer", layers) || Registered("retrieval-index", layers) ||
+		!Registered("source", nil) || Registered("workspace", both) || Known("layer") {
+		t.Error("the registered kinds are not correct")
+	}
+	// A reader of a stored descriptor has each field, with no declaration.
+	if f, ok := Find("layer", "units"); !ok || !f.IsRef() || f.Profile != LayerProfile || Schema("layer")[0].Name != "descriptor_profile" {
+		t.Errorf("the schema of layer: %v", Schema("layer"))
+	}
+	if f, ok := Find("execution-lock", "view"); !ok || !f.Permits("layer") || !f.Permits("snapshot") || f.Permits("source") {
+		t.Errorf("execution-lock.view: %+v", f)
+	}
+}

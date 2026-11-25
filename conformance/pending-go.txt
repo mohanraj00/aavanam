@@ -1,9 +1,3 @@
 # The vectors that a Go implementation does not pass yet. The reference implementation in src/ passes each of them.
 # tools/check_project.py reads this file: a vector must be in the lists of each Go implementation or in this file.
 # A line that ends with /** names each vector of a folder. Remove a line when each Go implementation lists its vectors.
-
-# Document 23, the layer profile aavanam/layer/v1 (issue 44). The Go implementations do not declare it. Issue 132 has the Go work.
-layers/**
-
-# Document 24, the retrieval index profile aavanam/semantic-index/v1 (issue 45). The Go implementations do not declare it. Issue 132 has the Go work.
-retrieval/**

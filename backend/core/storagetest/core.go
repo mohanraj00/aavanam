@@ -10,6 +10,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/check"
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/read"
 	"github.com/mohanraj00/aavanam/backend/core/write"
@@ -24,6 +25,8 @@ func Core(t *testing.T, open Open) {
 	t.Run("DeferredBytesArrive", func(t *testing.T) { deferredBytesArrive(t, newFixture(t, open(t))) })
 	t.Run("OpenContextAndGet", func(t *testing.T) { openContextAndGet(t, newFixture(t, open(t))) })
 	t.Run("SkewAfterConflict", func(t *testing.T) { skewAfterConflict(t, newFixture(t, open(t))) })
+	t.Run("LayeredContext", func(t *testing.T) { layeredContext(t, newFixture(t, open(t))) })
+	t.Run("LayerOfServingBase", func(t *testing.T) { layerOfServingBase(t, newFixture(t, open(t))) })
 	t.Run("Publication", func(t *testing.T) { publication(t, newFixture(t, open(t))) })
 	t.Run("GateDuringValidation", func(t *testing.T) { gateDuringValidation(t, newFixture(t, open(t))) })
 	t.Run("ConcurrentPublish", func(t *testing.T) { concurrentPublish(t, newFixture(t, open(t))) })
@@ -334,6 +337,135 @@ func openContextAndGet(t *testing.T, f *fixture) {
 		if got := Summary(f.call("get", request)); got != want {
 			t.Errorf("%s: %s, not %s", request, got, want)
 		}
+	}
+}
+
+// unitOf returns the texts of a binding set and of a unit that refers to it. `n` makes the binding set
+// different from each other one. `more` has more fields of the unit, for example `,"logical_id":"a"`.
+func unitOf(t *testing.T, n int, more string) (set, unit string) {
+	set = `{` + profile + `,"kind":"binding-set","parameters":{"n":` + jsontext.ESNumber(float64(n)) + `}}`
+	return set, `{` + profile + `,"kind":"knowledge-unit","binding_set":"` + revision(t, set) + `"` + more + `}`
+}
+
+// layerRevision returns the revision of a layer text. The fixture of the test declares the layer profile.
+func layerRevision(t *testing.T, text string) string {
+	t.Helper()
+	value, err := jsontext.Parse([]byte(text), jsontext.Strict)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc, refusal := check.NormalIn(value, kinds.Profiles{kinds.LayerProfile: true})
+	if refusal != nil {
+		t.Fatal(refusal)
+	}
+	return canon.Revision(desc)
+}
+
+// LYR-PRF-1, LYR-OPN-1 to LYR-OPN-3, LYR-PRE-2, LYR-ISO-2 and LYR-LCK-1 on a storage: a layered context has
+// the kept members, the layer members and what they reach, and not a replaced member.
+func layeredContext(t *testing.T, f *fixture) {
+	shared := `{` + profile + `,"kind":"overlay-set","ext":{"n":1}}`
+	sets := `,"overlay_sets":["` + revision(t, shared) + `"]`
+	setA, unitA := unitOf(t, 1, `,"logical_id":"a"`+sets) // the layer replaces this unit
+	setB, unitB := unitOf(t, 2, `,"logical_id":"b"`+sets) // a kept member
+	setA2, unitA2 := unitOf(t, 3, `,"logical_id":"a"`)    // the unit of the layer with the logical ID `a`
+	setC, unitC := unitOf(t, 4, `,"logical_id":"c"`)      // a unit that the layer adds
+	ref := func(text string) string { return revision(t, text) }
+	layerOf := func(scope string, units ...string) string {
+		return `{` + profile + `,"kind":"layer","base":"c","scope":` + quote(scope) + `,"units":["` + strings.Join(units, `","`) + `"]}`
+	}
+	layer, other := layerOf("north", ref(unitA2), ref(unitC)), layerOf("south", ref(unitC))
+	descriptors := []string{shared, setA, unitA, setB, unitB, setA2, unitA2, setC, unitC}
+	if got := Summary(f.call("put", Put(append(descriptors, layer)))); !strings.HasPrefix(got, "unsupported:unknown_kind") {
+		t.Errorf("a layer in a store with no profile: %s", got) // LYR-PRF-1
+	}
+	snapshotRequest := `{"collection":"c","units":["` + ref(unitA) + `","` + ref(unitB) + `"]}`
+	f.store.Profiles = kinds.Profiles{kinds.LayerProfile: true}
+	if got := Summary(f.call("put", Put(append(descriptors, layer, other)))); strings.Contains(got, ":") {
+		t.Fatalf("put: %s", got)
+	}
+	base := f.call("create_snapshot", snapshotRequest).Items[0].Fields[0].Val.Str
+	layerRef, otherRef := layerRevision(t, layer), layerRevision(t, other)
+	open := func(root, layer, scope string) envelope.Envelope {
+		return f.call("open_context", `{"roots":["`+root+`"],"layer":{"ref":"`+layer+`","scope":"`+scope+`"}}`)
+	}
+	for name, c := range map[string]struct {
+		e    envelope.Envelope
+		want string
+	}{
+		"a layer with no scope":   {f.call("open_context", `{"roots":["`+base+`"],"layer":{"ref":"`+layerRef+`"}}`), "failed:field_type"},
+		"an empty scope":          {open(base, layerRef, ""), "failed:field_type"},
+		"two roots":               {f.call("open_context", `{"roots":["`+base+`","`+ref(unitB)+`"],"layer":{"ref":"`+layerRef+`","scope":"north"}}`), "failed:field_count"},
+		"an unknown layer":        {open(base, "sha256:"+strings.Repeat("0", 64), "north"), "not_found:unknown_ref | ok | not_found:unknown_ref"},
+		"a layer that is a unit":  {open(base, ref(unitC), "north"), "unsupported:unsupported_target_kind | ok | unsupported:unsupported_target_kind"},
+		"a different scope":       {open(base, layerRef, "North"), "incompatible:layer_scope_mismatch | ok | incompatible:layer_scope_mismatch"},
+		"a root that is a unit":   {open(ref(unitB), layerRef, "north"), "incompatible:layer_base_mismatch | ok | incompatible:layer_base_mismatch"},
+		"a root that is unknown":  {open("sha256:"+strings.Repeat("0", 64), layerRef, "north"), "not_found:unknown_ref | not_found:unknown_ref | ok"},
+		"a layer as the one root": {f.call("open_context", `{"roots":["`+layerRef+`"]}`), "unsupported:unsupported_target_kind | unsupported:unsupported_target_kind"},
+	} {
+		if got := Summary(c.e); got != c.want || c.e.Context.Kind != jsontext.Null {
+			t.Errorf("%s: %s, not %s", name, got, c.want)
+		}
+	}
+	e := open(base, layerRef, "north")
+	if got := Summary(e); got != "ok | ok | ok" || e.Items[0].Fields[0].Val.Str != base || e.Items[1].Fields[0].Val.Str != layerRef {
+		t.Fatalf("open_context with a layer: %s", got)
+	}
+	layered := e.Context.Str
+	plain := f.call("open_context", `{"roots":["`+base+`"]}`).Context.Str
+	all := []string{base, layerRef, ref(unitB), ref(setB), ref(shared), ref(unitA2), ref(setA2), ref(unitC), ref(setC), // the members
+		ref(unitA), ref(setA), otherRef, "sha256:" + strings.Repeat("0", 64)}
+	get := func(id string) string {
+		return Summary(f.call("get", `{"context":"`+id+`","refs":["`+strings.Join(all, `","`)+`"]}`))
+	}
+	members, absent := strings.Repeat(" | ok", 9), " | not_found:unknown_ref"
+	if got, want := get(layered), "not_found:unknown_ref,unknown_ref,unknown_ref,unknown_ref"+members+strings.Repeat(absent, 4); got != want {
+		t.Errorf("get in the layered context:\n got  %s\n want %s", got, want) // LYR-PRE-2, LYR-ISO-2
+	}
+	outside := " | not_found:not_in_context"
+	want := "not_found:not_in_context,not_in_context,not_in_context,not_in_context,not_in_context,not_in_context,unknown_ref | ok" + outside +
+		" | ok | ok | ok" + strings.Repeat(outside, 4) + " | ok | ok" + outside + absent
+	if got := get(plain); got != want {
+		t.Errorf("get in the context with no layer:\n got  %s\n want %s", got, want) // LYR-ISO-1, CTX-OPN-4
+	}
+	// LYR-OPN-3: the record of the context has the base snapshot and the layer, and the storage has no
+	// more state for a layered context.
+	record, _ := f.mem.Session(context.Background()).Context(layered)
+	if len(record.Roots) != 2 || record.Roots[0] != base || record.Roots[1] != layerRef {
+		t.Errorf("the record of the layered context: %+v", record)
+	}
+}
+
+// LYR-DEF-5: a layer whose base is a `serving` collection has no Evidence material, and a collection that
+// is the base of a layer gets no first section declaration.
+func layerOfServingBase(t *testing.T, f *fixture) {
+	ctx := context.Background()
+	f.store.Profiles = kinds.Profiles{kinds.LayerProfile: true}
+	if err := f.store.Section(ctx, "served", "serving"); err != nil {
+		t.Fatal(err)
+	}
+	src := Source("alpha")
+	observation := `{` + profile + `,"kind":"observation","subjects":["` + revision(t, src) + `"],"observation_type":"t","scope":1,"values":1}`
+	layerOf := func(base string) string {
+		return `{` + profile + `,"kind":"layer","base":"` + base + `","scope":"north","observations":["` + revision(t, observation) + `"]}`
+	}
+	e := f.call("put", Put([]string{src, observation, layerOf("served")}, "alpha"))
+	if got := Summary(e); got != "failed:section_violation | failed:batch_aborted | failed:batch_aborted | failed:section_violation" {
+		t.Errorf("a layer of a serving base with a source: %s", got)
+	}
+	if got := Summary(f.call("put", Put([]string{src, observation, layerOf("free")}, "alpha"))); got != "ok | ok | ok | ok" {
+		t.Fatalf("a layer of a base with no section: %s", got)
+	}
+	// The declaration comes before the first call, so a second open of the store makes it.
+	second := ops.New(ops.Writer, f.storage, Registry())
+	if err := second.Section(ctx, "free", "serving"); err == nil || !strings.Contains(err.Error(), "LYR-DEF-5") {
+		t.Errorf("a first section declaration for the base of a layer: %v", err)
+	}
+	if _, declared := f.mem.Session(ctx).Section("free"); declared {
+		t.Error("a refused declaration changed the store")
+	}
+	if err := second.Section(ctx, "served", "serving"); err != nil {
+		t.Errorf("the same section again: %v", err)
 	}
 }
 

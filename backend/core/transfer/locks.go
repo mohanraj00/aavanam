@@ -9,6 +9,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
 	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
+	"github.com/mohanraj00/aavanam/backend/core/read"
 )
 
 // base is the descriptor profile of a lock.
@@ -139,7 +140,7 @@ func required(c *ops.Call, rc *ops.ReadContext) {
 			continue
 		}
 		code := "capability_unavailable"
-		if _, known := ops.Capabilities[name.Str]; !known {
+		if _, known := c.Store.Capabilities()[name.Str]; !known {
 			code = "unsupported_profile"
 		}
 		reasons = append(reasons, envelope.Reason{Code: code, Capabilities: []string{name.Str}})
@@ -149,8 +150,42 @@ func required(c *ops.Call, rc *ops.ReadContext) {
 	}
 }
 
+// indexes returns the form of the request field `indexes`, only for a store that declares the retrieval
+// index profile (IDX-LCK-1).
+func indexes(c *ops.Call) []ops.Field {
+	if !c.Store.Profiles[kinds.IndexProfile] {
+		return nil
+	}
+	return []ops.Field{ops.Opt("indexes", ops.ListOf(ops.IsRef, true))}
+}
+
+// indexTargets returns each index of a lock request with the kind and the field that give its permitted
+// kind (IDX-LCK-2).
+func indexTargets(c *ops.Call) []target {
+	var out []target
+	for _, r := range field(c.Request, "indexes").Arr {
+		out = append(out, target{r.Str, lockKinds[c.Operation], "indexes"})
+	}
+	return out
+}
+
+// fresh applies the last step of IDX-LCK-2: one reason `index_stale` for each stale index of the request.
+func fresh(c *ops.Call, rc *ops.ReadContext) {
+	var reasons []envelope.Reason
+	for _, r := range field(c.Request, "indexes").Arr {
+		if root := read.Stale(c, rc, r.Str); root != "" {
+			reasons = append(reasons, envelope.R("index_stale", r.Str, root))
+		}
+	}
+	if len(reasons) > 0 {
+		fail("incompatible", reasons)
+	}
+}
+
 // lock writes the lock of the request and returns the envelope with the closure that the lock covers
-// (LCK-EXE-4, LCK-BLD-3). A device store writes the lock to its local output store (BUN-IMP-7).
+// (LCK-EXE-4, LCK-BLD-3). A device store writes the lock to its local output store (BUN-IMP-7). In a
+// layered context, the lock has the base snapshot and the layer in `view` (LYR-LCK-1). The lock has the
+// `indexes` of the request (IDX-LCK-3). The covered set has no value of `view` or of `indexes`.
 func lock(c *ops.Call, rc *ops.ReadContext, covered []string) envelope.Envelope {
 	fields := []jsontext.Member{jsontext.M("descriptor_profile", jsontext.S(base)), jsontext.M("kind", jsontext.S(lockKinds[c.Operation]))}
 	for _, mem := range c.Request.Obj {
@@ -158,7 +193,12 @@ func lock(c *ops.Call, rc *ops.ReadContext, covered []string) envelope.Envelope 
 			fields = append(fields, mem)
 		}
 	}
-	desc, refusal := check.Normal(jsontext.O(fields...))
+	declared := c.Store.Profiles
+	if view := rc.View(); view != nil {
+		fields = append(fields, jsontext.M("view", jsontext.Strings(view)))
+		declared = declared.With(kinds.LayerProfile) // a layered context is a context of the layer profile
+	}
+	desc, refusal := check.NormalIn(jsontext.O(fields...), declared)
 	if refusal != nil {
 		ops.Fail(refusal.Codes...)
 	}
@@ -181,11 +221,12 @@ func lock(c *ops.Call, rc *ops.ReadContext, covered []string) envelope.Envelope 
 
 // ExecutionInputs is the operation `execution_inputs` (LCK-EXE-1 to LCK-EXE-4, LCK-CAP-1, LCK-CAP-2).
 func ExecutionInputs(c *ops.Call) envelope.Envelope {
-	c.Form("field_type", ops.Req("context", ops.IsStr), ops.Req("binding_set", ops.IsRef),
+	c.Form("field_type", append([]ops.Field{ops.Req("context", ops.IsStr), ops.Req("binding_set", ops.IsRef),
 		ops.Opt("context_inputs", ops.ListOf(ops.IsRef, true)), ops.Opt("requires", ops.IsNames),
-		ops.Req("consumer", ops.IsText), ops.Req("completeness", ops.IsLabel))
+		ops.Req("consumer", ops.IsText), ops.Req("completeness", ops.IsLabel)}, indexes(c)...)...)
 	c.Counted("context_inputs", false) // LCK-EXE-1
 	c.Counted("requires", false)       // LCK-CAP-1
+	c.Counted("indexes", false)        // IDX-LCK-1
 	rc := c.Context()
 	bindingSet, _ := c.Request.Get("binding_set")
 	refs := []target{{bindingSet.Str, "execution-lock", "binding_set"}}
@@ -195,8 +236,9 @@ func ExecutionInputs(c *ops.Call) envelope.Envelope {
 		refs = append(refs, target{r.Str, "execution-lock", "context_inputs"})
 		covered = append(covered, r.Str)
 	}
-	checkedRefs(c, rc, refs)
+	checkedRefs(c, rc, append(refs, indexTargets(c)...))
 	required(c, rc)
+	fresh(c, rc) // IDX-LCK-2: before LCK-EXE-3
 	desc, _ := c.Descriptor(bindingSet.Str)
 	bindingsProblems(c, desc)
 	return lock(c, rc, covered)
@@ -204,18 +246,20 @@ func ExecutionInputs(c *ops.Call) envelope.Envelope {
 
 // BuildInputs is the operation `build_inputs` (LCK-BLD-1 to LCK-BLD-3, LCK-CAP-1, LCK-CAP-2).
 func BuildInputs(c *ops.Call) envelope.Envelope {
-	c.Form("field_type", ops.Req("context", ops.IsStr), ops.Req("inputs", ops.ListOf(ops.IsRef, true)),
-		ops.Opt("requires", ops.IsNames), ops.Req("consumer", ops.IsText), ops.Req("completeness", ops.IsLabel))
+	c.Form("field_type", append([]ops.Field{ops.Req("context", ops.IsStr), ops.Req("inputs", ops.ListOf(ops.IsRef, true)),
+		ops.Opt("requires", ops.IsNames), ops.Req("consumer", ops.IsText), ops.Req("completeness", ops.IsLabel)}, indexes(c)...)...)
 	c.Counted("inputs", true) // LCK-BLD-1
 	c.Counted("requires", false)
+	c.Counted("indexes", false) // IDX-LCK-1
 	rc := c.Context()
 	inputs := ops.Strings(field(c.Request, "inputs"))
 	refs := make([]target, len(inputs))
 	for n, r := range inputs {
 		refs[n] = target{r, "build-lock", "inputs"}
 	}
-	checkedRefs(c, rc, refs)
+	checkedRefs(c, rc, append(refs, indexTargets(c)...))
 	required(c, rc)
+	fresh(c, rc) // IDX-LCK-2
 	return lock(c, rc, inputs)
 }
 

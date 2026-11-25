@@ -6,6 +6,7 @@ import (
 
 	"github.com/mohanraj00/aavanam/backend/core/internal/doctable"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 )
 
 func TestReasonTableAgreesWithDocument03(t *testing.T) {
@@ -98,4 +99,32 @@ func TestJoinedAndFailure(t *testing.T) {
 		}
 	}()
 	StatusOf("no_such_code")
+}
+
+// The reason codes of each profile are the reason table of its document (LYR-PRF-3, IDX-PRF-3).
+func TestProfileReasonTablesAgreeWithDocuments23And24(t *testing.T) {
+	documents := map[string]string{kinds.LayerProfile: "23", kinds.IndexProfile: "24"}
+	if len(profileReasons) != len(documents) {
+		t.Errorf("the profiles with reasons are %v", profileReasons)
+	}
+	for profile, document := range documents {
+		rows, err := doctable.Rows(document, "The reason table of the profile:")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{}
+		for _, row := range rows {
+			code := doctable.Names(row[0])[0]
+			want[code] = doctable.Names(row[1])[0]
+			if _, base := reasonStatus[code]; base {
+				t.Errorf("%s: the code %s is also in the reason table of document 03", profile, code)
+			}
+			if StatusOf(code) != want[code] {
+				t.Errorf("%s: StatusOf(%s) is %s", profile, code, StatusOf(code))
+			}
+		}
+		if !reflect.DeepEqual(profileReasons[profile], want) {
+			t.Errorf("%s: the reasons are %v, and the document has %v", profile, profileReasons[profile], want)
+		}
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/check"
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 )
 
@@ -19,13 +20,19 @@ func repeat(code string, n int) []string {
 	return out
 }
 
+// isLayer checks the form of the field `layer` of an `open_context` request: an object with the fields
+// `ref`, a reference, and `scope`, a string with one or more characters, and no other field (LYR-OPN-1).
+func isLayer(v jsontext.Value) bool {
+	return v.Kind == jsontext.Object && len(v.Obj) == 2 && ops.IsRef(field(v, "ref")) && isNonEmpty(field(v, "scope"))
+}
+
 // openForm checks the request form of `open_context`: the checks of CTX-OPN-5 in order, with one reason
-// for each affected value.
-func openForm(request jsontext.Value) {
+// for each affected value. Only a store that declares the layer profile has the field `layer` (LYR-PRF-1).
+func openForm(request jsontext.Value, layers bool) {
 	fields := map[string]ops.Test{"roots": ops.IsRef, "heads": ops.IsStr, "capabilities": ops.IsStr}
 	unknown := 0
 	for _, m := range request.Obj {
-		if _, ok := fields[m.Key]; !ok && m.Key != "skew_policy" {
+		if _, ok := fields[m.Key]; !ok && m.Key != "skew_policy" && !(layers && m.Key == "layer") {
 			unknown++
 		}
 	}
@@ -51,6 +58,10 @@ func openForm(request jsontext.Value) {
 	if policy, has := request.Get("skew_policy"); has && (policy.Kind != jsontext.String || (policy.Str != "reject" && policy.Str != "permit")) {
 		types++ // CTX-SKW-3
 	}
+	layer, hasLayer := request.Get("layer")
+	if hasLayer && !isLayer(layer) {
+		types++ // LYR-OPN-1
+	}
 	if types > 0 {
 		ops.Fail(repeat("field_type", types)...)
 	}
@@ -60,6 +71,8 @@ func openForm(request jsontext.Value) {
 	counts := 0
 	if len(roots.Arr) == 0 && len(heads.Arr) == 0 {
 		counts++
+	} else if hasLayer && len(roots.Arr)+len(heads.Arr) != 1 {
+		counts++ // LYR-OPN-1: a layered context has one root
 	}
 	for _, list := range [][]jsontext.Value{heads.Arr, capabilities.Arr} {
 		seen := map[string]struct{}{}
@@ -73,15 +86,39 @@ func openForm(request jsontext.Value) {
 	}
 }
 
+// layerItem returns the item of the layer of an `open_context` request: the first check that fails, in the
+// order of LYR-OPN-2. `first` is the item of the root or of the head.
+func layerItem(c *ops.Call, layer jsontext.Value, first envelope.Item) envelope.Item {
+	ref := str(layer, "ref")
+	desc, ok := c.Descriptor(ref)
+	switch {
+	case !ok:
+		return envelope.Refused([]string{"unknown_ref"}, ref)
+	case check.Kind(desc) != "layer":
+		return envelope.Refused([]string{"unsupported_target_kind"}, ref)
+	case str(desc, "scope") != str(layer, "scope"): // an exact string (LYR-DEF-2)
+		return envelope.Refused([]string{"layer_scope_mismatch"}, ref)
+	}
+	if first.Status == "ok" {
+		base, _ := c.Descriptor(first.Fields[0].Val.Str)
+		if collection, has := base.Get("collection"); check.Kind(base) != "snapshot" || !has || collection.Str != str(desc, "base") {
+			return envelope.Refused([]string{"layer_base_mismatch"}, ref)
+		}
+	}
+	return envelope.Ref(ref)
+}
+
 // OpenContext is the operation `open_context` (document 08). It resolves each head in one read, checks
 // each root, and records the context with the closure of its roots as its content (CTX-OPN-1 to CTX-OPN-3).
+// With the field `layer`, it opens a layered context (LYR-OPN-1 to LYR-OPN-3).
 func OpenContext(c *ops.Call) envelope.Envelope {
-	openForm(c.Request)
+	openForm(c.Request, c.Store.Profiles[kinds.LayerProfile])
+	table := c.Store.Capabilities()
 	var capabilities []string
 	if value, has := c.Request.Get("capabilities"); has {
 		capabilities = ops.Strings(value)
 	} else {
-		for capability := range ops.Capabilities { // CTX-PRJ-2
+		for capability := range table { // CTX-PRJ-2, IDX-PRF-4
 			capabilities = append(capabilities, capability)
 		}
 	}
@@ -89,7 +126,7 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 	var unknown []envelope.Reason
 	if value, has := c.Request.Get("capabilities"); has {
 		for _, capability := range ops.Strings(value) {
-			if _, ok := ops.Capabilities[capability]; !ok { // CTX-PRJ-3
+			if _, ok := table[capability]; !ok { // CTX-PRJ-3
 				unknown = append(unknown, envelope.Reason{Code: "unsupported_profile", Capabilities: []string{capability}})
 			}
 		}
@@ -102,10 +139,12 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 	found := c.S.Heads(ops.Strings(heads)) // CTX-VIW-3
 	var items []envelope.Item
 	for _, root := range roots.Arr { // CTX-OPN-1
-		switch c.Kind(root.Str) {
-		case "":
+		kind := c.Kind(root.Str)
+		switch {
+		case kind == "":
 			items = append(items, envelope.Refused([]string{"unknown_ref"}, root.Str))
-		case "knowledge-unit", "snapshot":
+		case kind == "knowledge-unit", kind == "snapshot",
+			kind == "retrieval-index" && c.Store.Profiles[kinds.IndexProfile]: // IDX-DEF-3: an index root with the profile
 			items = append(items, envelope.Ref(root.Str))
 		default:
 			items = append(items, envelope.Refused([]string{"unsupported_target_kind"}, root.Str))
@@ -122,6 +161,14 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 	for _, i := range items {
 		if i.Status == "ok" {
 			resolved = append(resolved, i.Fields[0].Val.Str)
+		}
+	}
+	if layer, has := c.Request.Get("layer"); has { // LYR-OPN-2: the second item
+		item := layerItem(c, layer, items[0])
+		items = append(items, item)
+		if item.Status == "ok" {
+			// The record of a layered context has the base snapshot and then the layer (LYR-OPN-3).
+			resolved = append(resolved, str(layer, "ref"))
 		}
 	}
 	composed(c, items)

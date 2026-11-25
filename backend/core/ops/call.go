@@ -222,21 +222,161 @@ func Sorted(set map[string]struct{}) []string {
 
 // ReadContext is the read context of a call (CTX-OPN-3).
 type ReadContext struct {
-	ID           string
-	Roots        []string
+	ID string
+	// Roots has the resolved roots of the context. A layered context has one root, its base snapshot
+	// (LYR-OPN-3).
+	Roots []string
+	// Layer is the layer of a layered context (LYR-PRE-2), or "" for a read context with no layer.
+	Layer        string
 	Capabilities []string
 	call         *Call
+	excluded     map[string]struct{} // the value of Excluded for this call
 }
 
-// Has tells if an object is in the content of the read context.
-func (rc *ReadContext) Has(ref string) bool { return rc.call.S.IsMember(rc.ID, ref) }
+// Has tells if an object is a member of the read context (CTX-VIW-1, LYR-PRE-2).
+func (rc *ReadContext) Has(ref string) bool {
+	if !rc.call.S.IsMember(rc.ID, ref) {
+		return false
+	}
+	if rc.Layer == "" {
+		return true
+	}
+	_, out := rc.Excluded()[ref]
+	return !out
+}
 
-// Members returns the content of the read context, in ascending order. The caller does not change it.
+// Members returns the members of the read context, in ascending order. The caller does not change it.
 func (rc *ReadContext) Members() []string {
 	return rc.Memo("members", func() (any, int) {
 		members := rc.call.S.Members(rc.ID)
-		return members, len(members)
+		if rc.Layer == "" {
+			return members, len(members)
+		}
+		excluded := rc.Excluded()
+		kept := make([]string, 0, len(members))
+		for _, ref := range members {
+			if _, out := excluded[ref]; !out {
+				kept = append(kept, ref)
+			}
+		}
+		return kept, len(kept)
 	}).([]string)
+}
+
+// View returns the base snapshot and the layer of a layered context (LYR-LCK-1), or nil.
+func (rc *ReadContext) View() []string {
+	if rc.Layer == "" {
+		return nil
+	}
+	return []string{rc.Roots[0], rc.Layer}
+}
+
+// Excluded returns the objects that the storage keeps for a layered context and that are not members of
+// it. The storage keeps the closure of the base snapshot and the closure of the layer. The members are
+// the objects of LYR-PRE-2. Thus the result has each replaced member (LYR-PRE-1) and each object that
+// only a replaced member reaches. A read context with no layer has no such object.
+func (rc *ReadContext) Excluded() map[string]struct{} {
+	if rc.Layer == "" {
+		return nil
+	}
+	if rc.excluded == nil {
+		rc.excluded = rc.Memo("excluded", func() (any, int) {
+			out := rc.call.Unreached(rc.Roots[0], rc.Layer, func(ref string) bool { return rc.call.S.IsMember(rc.ID, ref) })
+			return out, len(out)
+		}).(map[string]struct{})
+	}
+	return rc.excluded
+}
+
+// Unreached returns the objects in the closure of a base snapshot and of a layer that are not members of
+// their layered context (LYR-PRE-2). `stored` tells if an object is in one of the two closures.
+//
+// A layer member replaces a base member with the same kind and the same `logical_id` (LYR-PRE-1). An
+// object is a member if a reference path from a kept member or from a layer member reaches it, and the
+// path has no replaced member. An object that is not in the closure of a replaced member has no path with
+// a replaced member, so it is a member. Thus the walk reads only the closures of the replaced members.
+func (c *Call) Unreached(base, layer string, stored func(ref string) bool) map[string]struct{} {
+	type key struct{ kind, id string }
+	baseMembers, layerMembers := c.S.Targets(base), c.S.Targets(layer)
+	c.Preload(append(append([]string(nil), baseMembers...), layerMembers...))
+	keyOf := func(ref string) (key, bool) {
+		desc, _ := c.Descriptor(ref)
+		id, has := desc.Get("logical_id")
+		return key{check.Kind(desc), id.Str}, has // a member without a logical ID replaces no member
+	}
+	given := make(map[string]struct{}, len(layerMembers))
+	keys := map[key]struct{}{}
+	for _, ref := range layerMembers {
+		given[ref] = struct{}{}
+		if k, has := keyOf(ref); has {
+			keys[k] = struct{}{}
+		}
+	}
+	replaced := map[string]struct{}{}
+	var roots []string
+	for _, ref := range baseMembers {
+		if _, isLayerMember := given[ref]; isLayerMember {
+			continue
+		}
+		if k, has := keyOf(ref); has {
+			if _, found := keys[k]; found {
+				replaced[ref] = struct{}{}
+				roots = append(roots, ref)
+			}
+		}
+	}
+	if len(replaced) == 0 {
+		return map[string]struct{}{}
+	}
+	doubt := c.Closure(roots...) // each object that can have a path with a replaced member
+	kept := make(map[string]struct{}, len(baseMembers))
+	for _, ref := range baseMembers {
+		kept[ref] = struct{}{}
+	}
+	// The start of the walk: each object in doubt that is a kept member or a layer member, or that an
+	// object with no doubt refers to. That object is a member, as the comment of this function shows.
+	reached := map[string]struct{}{}
+	var todo []string
+	for ref := range doubt {
+		if _, out := replaced[ref]; out {
+			continue
+		}
+		_, isKept := kept[ref]
+		_, isGiven := given[ref]
+		start := isKept || isGiven
+		for _, source := range c.S.Sources(ref) {
+			if start {
+				break
+			}
+			if _, inDoubt := doubt[source]; !inDoubt && source != base && source != layer && stored(source) {
+				start = true
+			}
+		}
+		if start {
+			reached[ref] = struct{}{}
+			todo = append(todo, ref)
+		}
+	}
+	for len(todo) > 0 {
+		ref := todo[len(todo)-1]
+		todo = todo[:len(todo)-1]
+		for _, target := range c.S.Targets(ref) {
+			if _, out := replaced[target]; out {
+				continue
+			}
+			if _, seen := reached[target]; !seen {
+				reached[target] = struct{}{}
+				todo = append(todo, target)
+			}
+		}
+	}
+	out := map[string]struct{}{}
+	for ref := range doubt {
+		if _, ok := reached[ref]; !ok && ref != base && ref != layer {
+			out[ref] = struct{}{}
+		}
+	}
+	return out
 }
 
 // Memo returns a value that is a function of the content of the read context, for example a list of its
@@ -269,11 +409,13 @@ func (rc *ReadContext) Memo(name string, build func() (value any, cost int)) any
 }
 
 // Locate returns the reason code of a reference that is not in the read context, or "" (QRY-GET-2, CTX-OPN-4).
+// A layered context gives `unknown_ref` also for an object that the store has, so the reason does not
+// show that the store has an object of a different scope (LYR-ISO-2).
 func (rc *ReadContext) Locate(ref string) string {
 	if rc.Has(ref) {
 		return ""
 	}
-	if _, ok := rc.call.Descriptor(ref); ok {
+	if _, ok := rc.call.Descriptor(ref); ok && rc.Layer == "" {
 		return "not_in_context"
 	}
 	return "unknown_ref"
@@ -295,7 +437,13 @@ func (c *Call) Context() *ReadContext {
 	if capability, ok := needs[c.Operation]; ok && !contains(record.Capabilities, capability) {
 		FailWith("unsupported", envelope.Reason{Code: "capability_unavailable", Capabilities: []string{capability}})
 	}
-	return &ReadContext{ID: id.Str, Roots: record.Roots, Capabilities: record.Capabilities, call: c}
+	rc := &ReadContext{ID: id.Str, Roots: record.Roots, Capabilities: record.Capabilities, call: c}
+	// The record of a layered context has the base snapshot and then the layer (LYR-OPN-3). Only a layered
+	// context has a root of kind `layer`: `open_context` refuses that kind as a root (CTX-OPN-1).
+	if n := len(record.Roots); n == 2 && c.Kind(record.Roots[1]) == "layer" {
+		rc.Roots, rc.Layer = record.Roots[:1], record.Roots[1]
+	}
+	return rc
 }
 
 func contains(list []string, s string) bool {

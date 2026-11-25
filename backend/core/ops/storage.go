@@ -17,7 +17,10 @@ func (f *Fault) Unwrap() error { return f.Err }
 // `storage_error`. Thus a storage calls Raise, and only the dispatch of Store.Call recovers the panic.
 func Raise(err error) { panic(&Fault{Err: err}) }
 
-// ContextRecord is the record of one read context (CTX-OPN-2).
+// ContextRecord is the record of one read context (CTX-OPN-2). The record of a layered context has two
+// roots: its base snapshot and then its layer (LYR-OPN-3). No other context has a root of kind `layer`.
+// Thus the storage keeps the closure of the base snapshot and the closure of the layer for it, and
+// ReadContext removes the objects that are not members (LYR-PRE-2).
 type ContextRecord struct {
 	Roots        []string // the resolved roots, in the order of the request
 	Capabilities []string // in ascending order (CTX-PRJ-2)
@@ -29,7 +32,7 @@ type Object struct {
 	Kind       string
 	Text       []byte   // the canonical form (IDN-CAN-1)
 	Targets    []string // its `refs` (KND-DEP-2)
-	Collection string   // the collection of a snapshot, and "" for each other kind
+	Collection string   // the collection of a snapshot, the base collection of a layer, and "" for each other kind
 }
 
 // Candidate is one candidate record of the catalog (PUB-CND-3).
@@ -84,6 +87,8 @@ type Reader interface {
 	DeferredRefs(digest string) []string
 	// HasSnapshot tells if the store has a snapshot of the collection (PUB-SEC-2).
 	HasSnapshot(collection string) bool
+	// HasLayer tells if the store has a layer whose base collection is the collection (LYR-DEF-5).
+	HasLayer(collection string) bool
 
 	// Heads returns the head of each name that has one, from one atomic read (CTX-VIW-3).
 	Heads(collections []string) map[string]string

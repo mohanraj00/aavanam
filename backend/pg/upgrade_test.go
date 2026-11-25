@@ -30,6 +30,7 @@ INSERT INTO context_members (context, ref)
     SELECT DISTINCT x.id, c.member FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
     JOIN closures c ON c.root = r.root;
 DROP TABLE closures, text_tokens, table_heads, table_rows;
+DROP INDEX objects_layers;
 DELETE FROM schema_migrations WHERE version > 2;
 `
 

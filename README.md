@@ -129,7 +129,7 @@ Each refusal vector has a positive pair, so an implementation that refuses all c
 
 ## Which implementation to use
 
-The repository has three implementations of the spec. The reference implementation passes all the conformance vectors. The two Go implementations pass each vector that is not in `conformance/pending-go.txt`. The vectors, not the code, say what each one does.
+The repository has three implementations of the spec. Each implementation passes all the conformance vectors. The vectors, not the code, say what each one does.
 
 | Implementation | Use it to | Storage | Code |
 |---|---|---|---|
