@@ -3,6 +3,8 @@ package ops_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
 	"reflect"
 	"regexp"
 	"sort"
@@ -12,6 +14,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
 	"github.com/mohanraj00/aavanam/backend/core/internal/doctable"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/memstore"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 )
@@ -60,6 +63,209 @@ func TestTablesAgreeWithTheDocuments(t *testing.T) {
 	}
 	if !reflect.DeepEqual(capabilities, ops.Capabilities) {
 		t.Errorf("the capabilities are %v, and the document has %v", ops.Capabilities, capabilities)
+	}
+}
+
+// The tables of a profile are the operation table and the capability table of its document (IDX-PRF-4).
+// The layer profile adds no operation and no capability (document 23).
+func TestProfileTablesAgreeWithDocument24(t *testing.T) {
+	declared := store(ops.Writer, nil)
+	declared.Profiles = kinds.Profiles{kinds.IndexProfile: true}
+	base := store(ops.Writer, nil)
+	var operations []string
+	for _, row := range rows(t, "24", "The operation table of the profile:") {
+		name := doctable.Names(row[0])[0]
+		operations = append(operations, name)
+		if doctable.Names(row[1])[0] != "24" {
+			t.Errorf("%s: the row names a different document", name)
+		}
+		if got, want := ops.Permits(name), strings.Contains(row[2], "`partial`"); got != want {
+			t.Errorf("%s: Permits is %v, and the row of the document gives %v", name, got, want)
+		}
+		// RSV-LST-4: the row stays in the reserved profile table for a store without the profile.
+		if ops.Reserved[name] != kinds.IndexProfile || ops.Known(name) || base.Supports(name) || !declared.Supports(name) {
+			t.Errorf("%s: the operation is not an operation of the profile only", name)
+		}
+	}
+	sort.Strings(operations)
+	if got := ops.ProfileOperations(kinds.IndexProfile); !reflect.DeepEqual(got, operations) {
+		t.Errorf("the operations of the profile are %v, and the document has %v", got, operations)
+	}
+	if got := ops.ProfileOperations(kinds.LayerProfile); len(got) != 0 || len(ops.ProfileCapabilities[kinds.LayerProfile]) != 0 {
+		t.Errorf("the layer profile has the operations %v", got)
+	}
+	capabilities := map[string][]string{}
+	for _, row := range rows(t, "24", "The capability table of the profile:") {
+		capabilities[doctable.Names(row[0])[0]] = doctable.Names(row[1])
+	}
+	if !reflect.DeepEqual(capabilities, ops.ProfileCapabilities[kinds.IndexProfile]) {
+		t.Errorf("the capabilities of the profile are %v, and the document has %v", ops.ProfileCapabilities[kinds.IndexProfile], capabilities)
+	}
+	// CTX-PRJ-2: the capability table of a store has the rows of its profiles, and only of them.
+	if _, has := base.Capabilities()[kinds.IndexProfile]; has || len(declared.Capabilities()) != len(ops.Capabilities)+1 {
+		t.Errorf("the capability tables: %v and %v", base.Capabilities(), declared.Capabilities())
+	}
+}
+
+// RSV-LST-4 and IDX-PRF-1: `semantic_search` is a reserved operation for a store that does not declare the
+// retrieval index profile. A store that declares it runs the operation, with the capability of IDX-PRF-4.
+func TestProfileOperation(t *testing.T) {
+	read := func(c *ops.Call) envelope.Envelope {
+		context := c.Context()
+		return c.Result(nil).WithContext(context.ID)
+	}
+	handlers := map[string]ops.Handler{"semantic_search": read}
+	base, declared := store(ops.Writer, handlers), store(ops.Writer, handlers)
+	declared.Profiles = kinds.Profiles{kinds.IndexProfile: true}
+	layers := store(ops.Writer, handlers)
+	layers.Profiles = kinds.Profiles{kinds.LayerProfile: true}
+	declared.Storage.Session(context.Background()).Update(func(tx ops.Tx) {
+		tx.PutContext("with", ops.ContextRecord{Capabilities: []string{kinds.IndexProfile}})
+		tx.PutContext("without", ops.ContextRecord{Capabilities: []string{"aavanam/text/v1"}})
+	})
+	cases := []struct {
+		store   *ops.Store
+		request string
+		want    string
+	}{
+		{base, `not JSON`, "unsupported reserved_profile no items"},
+		{layers, `{"context":"with"}`, "unsupported reserved_profile no items"},
+		{declared, `not JSON`, "failed malformed_json"},
+		{declared, `{"context":"with"}`, "ok  context=with"},
+		{declared, `{"context":"without"}`, "unsupported capability_unavailable context=without"},
+	}
+	for _, c := range cases {
+		if got := call(c.store, `"semantic_search"`, c.request); got != c.want {
+			t.Errorf("semantic_search %s with %v: %q, not %q", c.request, c.store.Profiles.Names(), got, c.want)
+		}
+	}
+	if got := call(declared, `"gc_collect"`, `{}`); got != "unsupported reserved_profile no items" {
+		t.Errorf("a reserved operation of a different profile: %q", got)
+	}
+}
+
+// naive returns the members of a layered context by the rules of LYR-PRE-1 and LYR-PRE-2 as they are
+// written: a walk from each kept member and each layer member that does not go through a replaced member.
+func naive(objects map[string]ops.Object, ids map[string]string, base, layer string) []string {
+	given := map[string]bool{}
+	keys := map[string]bool{}
+	for _, ref := range objects[layer].Targets {
+		given[ref] = true
+		if id, has := ids[ref]; has {
+			keys[objects[ref].Kind+" "+id] = true
+		}
+	}
+	replaced := map[string]bool{}
+	for _, ref := range objects[base].Targets {
+		if id, has := ids[ref]; has && !given[ref] && keys[objects[ref].Kind+" "+id] {
+			replaced[ref] = true
+		}
+	}
+	seen := map[string]bool{base: true, layer: true}
+	todo := append(append([]string(nil), objects[base].Targets...), objects[layer].Targets...)
+	for len(todo) > 0 {
+		ref := todo[len(todo)-1]
+		todo = todo[:len(todo)-1]
+		if seen[ref] || replaced[ref] {
+			continue
+		}
+		seen[ref] = true
+		todo = append(todo, objects[ref].Targets...)
+	}
+	out := make([]string, 0, len(seen))
+	for ref := range seen {
+		out = append(out, ref)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// LYR-PRE-2: the members of a layered context, for many small graphs. The read context reads only the
+// closures of the replaced members, and the result is the result of the walk of the clause.
+func TestLayeredMembers(t *testing.T) {
+	var got []string
+	var located map[string]string
+	var base, layer string
+	s := store(ops.Writer, map[string]ops.Handler{"get": func(c *ops.Call) envelope.Envelope {
+		rc := c.Context()
+		got = rc.Members()
+		located = map[string]string{}
+		for _, ref := range c.Store.Storage.Session(c.Ctx).Members(rc.ID) {
+			located[ref] = rc.Locate(ref)
+		}
+		located["absent"] = rc.Locate("absent")
+		if view := rc.View(); len(view) != 2 || view[0] != base || view[1] != layer || len(rc.Roots) != 1 || rc.Layer != layer {
+			t.Errorf("the view is %v, and the roots are %v", view, rc.Roots)
+		}
+		return c.Result(nil)
+	}})
+	rng := rand.New(rand.NewSource(23))
+	replacedSome := 0
+	for round := 0; round < 400; round++ {
+		n := 2 + rng.Intn(14)
+		objects := map[string]ops.Object{}
+		ids := map[string]string{}
+		name := func(i int) string { return fmt.Sprintf("r%d-n%02d", round, i) }
+		var baseMembers, layerMembers []string
+		for i := 0; i < n; i++ {
+			kind := []string{"knowledge-unit", "schema"}[rng.Intn(2)]
+			text := `{"kind":"` + kind + `"`
+			if rng.Intn(3) > 0 {
+				ids[name(i)] = []string{"a", "b", "c"}[rng.Intn(3)]
+				text += `,"logical_id":"` + ids[name(i)] + `"`
+			}
+			var targets []string
+			for j := i + 1; j < n; j++ { // a reference goes to a later object, so the graph has no cycle
+				if rng.Intn(4) == 0 {
+					targets = append(targets, name(j))
+				}
+			}
+			objects[name(i)] = ops.Object{Ref: name(i), Kind: kind, Text: []byte(text + "}"), Targets: targets}
+			switch rng.Intn(5) {
+			case 0, 1:
+				baseMembers = append(baseMembers, name(i))
+			case 2:
+				layerMembers = append(layerMembers, name(i))
+			case 3:
+				if rng.Intn(3) == 0 { // one object is a base member and a layer member
+					baseMembers, layerMembers = append(baseMembers, name(i)), append(layerMembers, name(i))
+				}
+			}
+		}
+		id := fmt.Sprintf("ctx-%d", round)
+		base, layer = fmt.Sprintf("r%d-base", round), fmt.Sprintf("r%d-layer", round)
+		objects[base] = ops.Object{Ref: base, Kind: "snapshot", Text: []byte(`{"kind":"snapshot"}`), Targets: baseMembers}
+		objects[layer] = ops.Object{Ref: layer, Kind: "layer", Text: []byte(`{"kind":"layer"}`), Targets: layerMembers}
+		s.Storage.Session(context.Background()).Update(func(tx ops.Tx) {
+			for _, o := range objects {
+				tx.PutObject(o)
+			}
+			tx.PutContext(id, ops.ContextRecord{Roots: []string{base, layer}})
+		})
+		want := naive(objects, ids, base, layer)
+		got, located = nil, nil
+		e := s.Call(context.Background(), jsontext.S("get"), []byte(`{"context":"`+id+`"}`))
+		if e.Status != "ok" {
+			t.Fatalf("round %d: %s %v", round, e.Status, e.Reasons)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("round %d: the members are %v, not %v", round, got, want)
+		}
+		member := map[string]bool{}
+		for _, ref := range want {
+			member[ref] = true
+		}
+		for ref, code := range located {
+			if wantCode := map[bool]string{true: "", false: "unknown_ref"}[member[ref]]; code != wantCode { // LYR-ISO-2
+				t.Fatalf("round %d: Locate(%s) is %q, not %q", round, ref, code, wantCode)
+			}
+		}
+		if len(located)-1 > len(want) {
+			replacedSome++
+		}
+	}
+	if replacedSome < 40 {
+		t.Errorf("only %d graphs have an object that is not a member", replacedSome)
 	}
 }
 

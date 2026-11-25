@@ -31,6 +31,14 @@ func (s *script) Call(store string, operation, request json.RawMessage, validate
 	return Unsupported(operation), nil
 }
 
+func (s *script) Declare(profiles []string) error {
+	s.calls = append(s.calls, "declare "+strings.Join(profiles, " "))
+	if len(profiles) == 0 {
+		return errors.New("no profile")
+	}
+	return nil
+}
+
 func (s *script) Gate(c json.RawMessage) error {
 	s.calls = append(s.calls, "gate "+string(c))
 	return nil
@@ -99,5 +107,19 @@ func TestServeGivesAnErrorLineAndContinues(t *testing.T) {
 	}
 	if lines[9] != `{"error":"no such store"}` || lines[10] != `{"ok":true}` {
 		t.Fatalf("lines %q", lines[9:])
+	}
+}
+
+// The command `declare` gives the profiles to the store (LYR-PRF-1, IDX-PRF-1). A store that refuses the
+// profiles gives an error line.
+func TestServeDeclaresProfiles(t *testing.T) {
+	s := &script{}
+	lines := serve(t, s, `{"cmd":"declare","profiles":["aavanam/layer/v1","aavanam/semantic-index/v1"]}`+"\n"+`{"cmd":"declare"}`)
+	want := []string{`{"ready":true}`, `{"ok":true}`, `{"error":"no profile"}`}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Errorf("lines:\n%s", strings.Join(lines, "\n"))
+	}
+	if got := strings.Join(s.calls, "; "); got != "declare aavanam/layer/v1 aavanam/semantic-index/v1; declare " {
+		t.Errorf("calls: %q", got)
 	}
 }

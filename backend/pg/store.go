@@ -242,6 +242,11 @@ func (v view) HasSnapshot(collection string) bool {
 	return v.exists(`SELECT 1 FROM objects WHERE kind = 'snapshot' AND sha256(collection) = sha256($1) AND collection = $1`, []byte(collection))
 }
 
+// HasLayer reads the column `collection` of a layer, which has its base collection (LYR-DEF-5).
+func (v view) HasLayer(collection string) bool {
+	return v.exists(`SELECT 1 FROM objects WHERE kind = 'layer' AND sha256(collection) = sha256($1) AND collection = $1`, []byte(collection))
+}
+
 func (v view) Heads(collections []string) map[string]string {
 	names, keys := make([][]byte, len(collections)), make([][]byte, len(collections))
 	for i, c := range collections {
@@ -534,7 +539,7 @@ func (t tx) LockProducer(producer string) {
 
 func (t tx) PutObject(o ops.Object) {
 	var collection []byte
-	if o.Kind == "snapshot" {
+	if o.Kind == "snapshot" || o.Kind == "layer" { // the collection of a snapshot, or the base of a layer
 		collection = []byte(o.Collection)
 	}
 	t.exec(`INSERT INTO objects (ref, kind, collection, canonical) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,

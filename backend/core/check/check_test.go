@@ -7,6 +7,7 @@ import (
 
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 )
 
 const (
@@ -245,5 +246,92 @@ func TestSelectorForm(t *testing.T) {
 	}
 	if !IsLabel("aavanam/declared-refs/v1") || IsLabel("aavanam/declared-refs/v0") || IsLabel("a/b/v1\n") || IsLabel("A/b/v1") {
 		t.Error("IsLabel")
+	}
+}
+
+// LYR-PRF-1 and IDX-PRF-1: a kind or a field of a profile is registered only for a store that declares the
+// profile. IDX-MTH-1: the parameters of the method `aavanam/hashed-terms/v1`.
+func TestNormalWithProfiles(t *testing.T) {
+	layers := kinds.Profiles{kinds.LayerProfile: true}
+	indexes := kinds.Profiles{kinds.IndexProfile: true}
+	const (
+		layer = `{$P,"kind":"layer","base":"c","scope":"s"}`
+		lock  = `{$P,"kind":"build-lock","inputs":["$A"],"consumer":"c","completeness":"a/b/v1"`
+		index = `{$P,"kind":"retrieval-index","snapshot":"$A","method":"aavanam/hashed-terms/v1","parameters":`
+	)
+	cases := []struct {
+		text     string
+		declared kinds.Profiles
+		code     string
+		count    int
+	}{
+		{layer, nil, "unknown_kind", 1},
+		{layer, indexes, "unknown_kind", 1},
+		{layer, layers, "", 0},
+		{`{$P,"kind":"layer","base":"c"}`, layers, "field_count", 1},
+		{`{$P,"kind":"layer","base":"c","scope":"s","collection":"c"}`, layers, "unknown_field", 1},
+		{`{$P,"kind":"layer","base":"c","scope":"s","units":["$A","$A"]}`, layers, "field_count", 1},
+		{lock + `,"view":["$A"]}`, nil, "unknown_field", 1},
+		{lock + `,"view":["$A"]}`, indexes, "unknown_field", 1},
+		{lock + `,"view":["$B","$A"]}`, layers, "", 0},
+		{lock + `,"indexes":["$A"]}`, layers, "unknown_field", 1},
+		{lock + `,"indexes":["$A"],"view":["$A"]}`, nil, "unknown_field", 2},
+		{lock + `,"indexes":["$A"]}`, indexes, "", 0},
+		{index + `{"dimensions":64}}`, nil, "unknown_kind", 1},
+		{index + `{"dimensions":64}}`, layers, "unknown_kind", 1},
+		{index + `{"dimensions":1}}`, indexes, "", 0},
+		{index + `{"dimensions":65536}}`, indexes, "", 0},
+		{index + `{"dimensions":0}}`, indexes, "field_type", 1},
+		{index + `{"dimensions":65537}}`, indexes, "field_type", 1},
+		{index + `{"dimensions":1.5}}`, indexes, "field_type", 1},
+		{index + `{"dimensions":"64"}}`, indexes, "field_type", 1},
+		{index + `{"dimensions":64,"seed":1}}`, indexes, "field_type", 1},
+		{index + `{}}`, indexes, "field_type", 1},
+		{index + `64}`, indexes, "field_type", 1},
+		{index + `{"dimensions":9007199254740993}}`, indexes, "field_type", 1}, // one reason for a value that is not I-JSON
+		{`{$P,"kind":"retrieval-index","snapshot":"$A","method":"aavanam/hashed-terms/v1"}`, indexes, "field_count", 1},
+		// IDX-MTH-2: the store keeps the parameters of each other method as an opaque value.
+		{`{$P,"kind":"retrieval-index","snapshot":"$A","method":"sample/embedding/v2","parameters":{"model":"m","seed":1}}`, indexes, "", 0},
+		{`{$P,"kind":"retrieval-index","snapshot":"$A","method":"sample/embedding/v2","parameters":null}`, indexes, "", 0},
+	}
+	for _, c := range cases {
+		desc, refusal := NormalIn(value(t, c.text), c.declared)
+		switch {
+		case c.code == "" && refusal != nil:
+			t.Errorf("%s with %v: %v", c.text, c.declared.Names(), refusal.Codes)
+		case c.code != "" && (refusal == nil || refusal.Codes[0] != c.code || len(refusal.Codes) != c.count):
+			t.Errorf("%s with %v: %v, not %s x %d", c.text, c.declared.Names(), refusal, c.code, c.count)
+		case c.code == "" && Kind(desc) == "build-lock":
+			if view, has := desc.Get("view"); has && (len(view.Arr) != 2 || view.Arr[0].Str > view.Arr[1].Str) {
+				t.Errorf("the view of a lock is not a set in ascending order: %v", view.Arr) // KND-SCH-5
+			}
+		}
+	}
+	// The references of a stored descriptor of a profile are dependencies with no declaration (KND-DEP-1).
+	stored, _ := NormalIn(value(t, lock+`,"view":["$B"],"indexes":["$C"]}`), layers.With(kinds.IndexProfile))
+	if got := Targets(stored); !reflect.DeepEqual(got, []string{refA, refB, refC}) {
+		t.Errorf("the targets of a lock with a view and indexes: %v", got)
+	}
+}
+
+// LYR-DEF-4: one native identity of a layer has one subject, as in a snapshot (IDN-NAT-3).
+func TestLayerNativeIdentities(t *testing.T) {
+	mapping := func(subject string) jsontext.Value {
+		return normal(t, `{$P,"kind":"native-mapping","subject":"`+subject+`","native_scheme":"s","native_id":"1","checked":true}`)
+	}
+	objects := map[string]jsontext.Value{refA: mapping(refC), refB: mapping(refB)}
+	env := Env{Lookup: func(ref string) (jsontext.Value, bool) { desc, ok := objects[ref]; return desc, ok }}
+	layer, refusal := NormalIn(value(t, `{$P,"kind":"layer","base":"c","scope":"s","native_mappings":["$A","$B"]}`), kinds.Profiles{kinds.LayerProfile: true})
+	if refusal != nil {
+		t.Fatal(refusal.Codes)
+	}
+	if got := env.Content(layer); got == nil || !reflect.DeepEqual(got.Codes, []string{"native_id_conflict"}) {
+		t.Errorf("a layer with two subjects of one native identity: %v", got)
+	}
+	if collection, ok := CollectionOf(layer); !ok || collection != "c" {
+		t.Errorf("the base collection of a layer: %q %v", collection, ok)
+	}
+	if _, ok := CollectionOf(objects[refA]); ok {
+		t.Error("a native mapping has a collection")
 	}
 }

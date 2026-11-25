@@ -13,6 +13,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/api"
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/memstore"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/read"
@@ -279,5 +280,38 @@ func TestWriteListener(t *testing.T) {
 	response.Body.Close()
 	if response.StatusCode != 404 {
 		t.Errorf("the description on the listener for the writes: HTTP %d", response.StatusCode)
+	}
+}
+
+// NET-SCP-2, NET-SCP-3, RSV-LST-4 and IDX-PRF-4: `semantic_search` has a row with only `unsupported` for a
+// store that does not declare the retrieval index profile. For a store that declares it, the row has more
+// statuses, and the operation is not an operation of NET-SCP-1. Thus the read listener gives HTTP 404 and
+// does not run it, and the listener for the writes runs it.
+func TestOperationOfADeclaredProfile(t *testing.T) {
+	s := start(t, nil, api.Config{MaxBodyBytes: 64})
+	large := strings.Repeat("this body is not JSON ", 8)
+	status, _, body := s.do("POST", "/v1/op/semantic_search", strings.NewReader(large))
+	if status != 200 || !strings.Contains(body, "reserved_profile") || !strings.Contains(body, kinds.IndexProfile) {
+		t.Errorf("a store with no profile: HTTP %d %s", status, body)
+	}
+	s.store = ops.New(ops.Writer, s.mem, registry())
+	s.store.Profiles = kinds.Profiles{kinds.IndexProfile: true}
+	if status, kind, body := s.do("POST", "/v1/op/semantic_search", strings.NewReader(`{}`)); status != 404 || kind == "application/json" {
+		t.Errorf("the read listener of a store with the profile: HTTP %d %s", status, body)
+	}
+	_, _, about := s.do("GET", "/v1/about", nil)
+	if strings.Contains(about, "semantic_search") {
+		t.Errorf("the description has an operation that is not in the binding: %s", about)
+	}
+	server := httptest.NewServer(api.Write(api.Config{Store: func() *ops.Store { return s.store }}))
+	defer server.Close()
+	response, err := http.Post(server.URL+"/v1/op/semantic_search", "application/json", strings.NewReader(`{"context":"ctx-0"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	text, _ := io.ReadAll(response.Body)
+	if response.StatusCode != 200 || !strings.Contains(string(text), `"field_count"`) {
+		t.Errorf("the listener for the writes of a store with the profile: HTTP %d %s", response.StatusCode, text)
 	}
 }

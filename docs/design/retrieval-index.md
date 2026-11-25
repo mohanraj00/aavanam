@@ -36,4 +36,5 @@ A reader opens a context with the snapshot S7 and the index of S7. The reader ca
 - A layered context (document 23) has no index. An index has only the items of its snapshot, so a search in a layered context gives `unknown_ref`.
 - The store does not make an index for a new snapshot. The application writes the index descriptor for the new snapshot.
 - The store does not check that a consumer made a search through an index that its lock records.
-- The Go implementations do not declare the profile. They keep the reserved response until #132.
+- A Go store declares the profile in its field `Profiles` (#132). A Go store that does not declare it keeps the reserved response. The network read binding does not have `semantic_search`: NET-SCP-1 does not list it, so the read listener gives HTTP 404 for it on a store that declares the profile (NET-SCP-3).
+- The Go implementations keep no derived data for an index. Each search reads the texts of the snapshot again.

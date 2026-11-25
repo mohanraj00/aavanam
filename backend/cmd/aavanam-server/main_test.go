@@ -337,3 +337,34 @@ func TestContextLife(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+// LYR-PRF-1 and IDX-PRF-1: the service declares the profiles of --profile before the first call. With no
+// such option, it is a store of the base profile only.
+func TestDeclaredProfiles(t *testing.T) {
+	const layer = `{"descriptors":["{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"layer\",\"base\":\"c\",\"scope\":\"s\"}"]}`
+	run := func(args ...string) (put, search string) {
+		t.Helper()
+		socket := filepath.Join(folder(t), "w.sock")
+		s, err := start(context.Background(), options1(t, append([]string{"--write-socket", socket}, args...)...), memstore.New())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.stop()
+		_, put = post(t, over(socket), "http://socket/v1/op/put", layer)
+		_, search = post(t, over(socket), "http://socket/v1/op/semantic_search", `{}`)
+		return put, search
+	}
+	if put, search := run(); !strings.Contains(put, "unknown_kind") || !strings.Contains(search, "reserved_profile") {
+		t.Errorf("a service with no profile: %s %s", put, search)
+	}
+	if put, search := run("--profile", "aavanam/layer/v1"); !strings.Contains(put, `"status":"ok"`) || !strings.Contains(search, "reserved_profile") {
+		t.Errorf("a service with the layer profile: %s %s", put, search)
+	}
+	put, search := run("--profile", "aavanam/layer/v1", "--profile", "aavanam/semantic-index/v1")
+	if !strings.Contains(put, `"status":"ok"`) || !strings.Contains(search, "field_count") {
+		t.Errorf("a service with the two profiles: %s %s", put, search)
+	}
+	if _, err := start(context.Background(), options1(t, "--profile", "aavanam/workspace/v1"), memstore.New()); err == nil {
+		t.Error("a profile that the service does not have gave no error")
+	}
+}

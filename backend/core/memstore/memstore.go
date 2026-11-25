@@ -29,6 +29,7 @@ type state struct {
 	targets    map[string][]string
 	sources    map[string]map[string]struct{}
 	snapshots  map[string]int // the number of snapshots of each collection
+	layers     map[string]int // the number of layers of each base collection (LYR-DEF-5)
 	blobs      map[string][]byte
 	deferred   map[string]map[string]struct{} // digest, then ref
 	heads      map[string]string
@@ -55,7 +56,7 @@ type table struct {
 func newState() *state {
 	return &state{
 		objects: map[string]object{}, targets: map[string][]string{}, sources: map[string]map[string]struct{}{},
-		snapshots: map[string]int{}, blobs: map[string][]byte{}, deferred: map[string]map[string]struct{}{},
+		snapshots: map[string]int{}, layers: map[string]int{}, blobs: map[string][]byte{}, deferred: map[string]map[string]struct{}{},
 		heads: map[string]string{}, sections: map[string]string{}, gates: map[string]struct{}{},
 		candidates: map[string]ops.Candidate{}, published: map[string]struct{}{}, contexts: map[string]ops.ContextRecord{},
 		members: map[string]map[string]struct{}{}, producer: map[producerKey][]byte{}, removals: map[string][]ops.Removal{},
@@ -114,7 +115,7 @@ func copyMap[K comparable, V any](m map[K]V) map[K]V {
 func (st *state) clone() *state {
 	return &state{
 		objects: copyMap(st.objects), targets: copyMap(st.targets), sources: copyMap(st.sources),
-		snapshots: copyMap(st.snapshots), blobs: copyMap(st.blobs), deferred: copyMap(st.deferred),
+		snapshots: copyMap(st.snapshots), layers: copyMap(st.layers), blobs: copyMap(st.blobs), deferred: copyMap(st.deferred),
 		heads: copyMap(st.heads), sections: copyMap(st.sections), gates: copyMap(st.gates),
 		candidates: copyMap(st.candidates), published: copyMap(st.published), log: st.log[:len(st.log):len(st.log)],
 		contexts: copyMap(st.contexts), members: copyMap(st.members), producer: copyMap(st.producer),
@@ -141,8 +142,11 @@ func (t tx) PutObject(o ops.Object) {
 		set[o.Ref] = struct{}{}
 		t.st.sources[target] = set
 	}
-	if o.Kind == "snapshot" {
+	switch o.Kind {
+	case "snapshot":
 		t.st.snapshots[o.Collection]++
+	case "layer":
+		t.st.layers[o.Collection]++
 	}
 }
 
@@ -340,6 +344,8 @@ func (v view) DeferredRefs(digest string) []string {
 
 func (v view) HasSnapshot(collection string) bool { return v.st.snapshots[collection] > 0 }
 
+func (v view) HasLayer(collection string) bool { return v.st.layers[collection] > 0 }
+
 func (v view) Heads(collections []string) map[string]string {
 	out := map[string]string{}
 	for _, c := range collections {
@@ -536,6 +542,12 @@ func (v session) HasSnapshot(collection string) bool {
 	r, done := v.read()
 	defer done()
 	return r.HasSnapshot(collection)
+}
+
+func (v session) HasLayer(collection string) bool {
+	r, done := v.read()
+	defer done()
+	return r.HasLayer(collection)
 }
 
 func (v session) Heads(collections []string) map[string]string {

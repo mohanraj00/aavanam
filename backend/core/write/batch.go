@@ -41,13 +41,14 @@ type Outcome struct {
 	Items   []envelope.Item
 }
 
-// sections applies the check of PUB-SEC-3 to a snapshot of a `serving` collection.
+// sections applies the check of PUB-SEC-3 to a snapshot of a `serving` collection, and to a layer whose
+// base is a `serving` collection (LYR-DEF-5).
 func sections(r ops.Reader, env check.Env, desc jsontext.Value) []string {
-	if check.Kind(desc) != "snapshot" {
+	collection, ok := check.CollectionOf(desc)
+	if !ok {
 		return nil
 	}
-	collection, _ := desc.Get("collection")
-	if section, _ := r.Section(collection.Str); section != "serving" {
+	if section, _ := r.Section(collection); section != "serving" {
 		return nil
 	}
 	return env.SectionViolations(desc)
@@ -76,7 +77,7 @@ func (b Batch) Check(c *ops.Call, values []jsontext.Value, texts bool) []Checked
 			}
 			value = parsed
 		}
-		desc, refusal := check.Normal(value)
+		desc, refusal := check.NormalIn(value, c.Store.Profiles)
 		if refusal != nil {
 			out[n].Refused = refused(refusal)
 			continue
@@ -215,9 +216,10 @@ func (b Batch) write(c *ops.Call, checked []Checked) (failed found, fault *envel
 			}
 			digests = append(digests, p.Digest)
 		}
-		if check.Kind(x.Desc) == "snapshot" {
-			collection, _ := x.Desc.Get("collection")
-			collections = append(collections, collection.Str)
+		// The lock makes the write of a snapshot or of a layer atomic with a section declaration of its
+		// collection (PUB-SEC-2, LYR-DEF-5).
+		if collection, ok := check.CollectionOf(x.Desc); ok {
+			collections = append(collections, collection)
 		}
 	}
 	sort.Strings(digests)
@@ -339,10 +341,7 @@ func (b Batch) write(c *ops.Call, checked []Checked) (failed found, fault *envel
 		for _, ref := range ascending {
 			desc := batch[ref]
 			object := ops.Object{Ref: ref, Kind: check.Kind(desc), Text: canon.Canonical(desc), Targets: check.Targets(desc)}
-			if object.Kind == "snapshot" {
-				collection, _ := desc.Get("collection")
-				object.Collection = collection.Str
-			}
+			object.Collection, _ = check.CollectionOf(desc)
 			tx.PutObject(object)
 		}
 		ascending = append([]string(nil), order...)

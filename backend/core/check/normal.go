@@ -124,10 +124,22 @@ func agrees(f kinds.Field, v jsontext.Value) bool {
 	return jsontext.IsIJSON(v) // json: a value that is not I-JSON is not of the type (KND-SCH-4)
 }
 
-// Normal returns the normal form of a descriptor value, or the refusal of step 2 or step 3 of STS-MAL-3.
+// IsDimensions checks the parameters of the method `aavanam/hashed-terms/v1`: an object with only the field
+// `dimensions`, an integer from 1 to 65536 (IDX-MTH-1).
+func IsDimensions(v jsontext.Value) bool {
+	n, _ := v.Get("dimensions")
+	return only(v, "dimensions") && isInt(n) && 1 <= n.Num && n.Num <= 65536
+}
+
+// Normal returns the normal form of a descriptor value for a store of the base profile only. NormalIn has
+// the rules.
+func Normal(v jsontext.Value) (jsontext.Value, *Refusal) { return NormalIn(v, nil) }
+
+// NormalIn returns the normal form of a descriptor value, or the refusal of step 2 or step 3 of STS-MAL-3.
 // The normal form has the fields in the order of the schema, no empty list of a field that can be absent
-// (KND-SCH-3), and each set of strings in ascending order (KND-SCH-5).
-func Normal(v jsontext.Value) (jsontext.Value, *Refusal) {
+// (KND-SCH-3), and each set of strings in ascending order (KND-SCH-5). A kind or a field of a profile that
+// is not in `declared` is not registered (KND-REG-2, LYR-PRF-1, IDX-PRF-1).
+func NormalIn(v jsontext.Value, declared kinds.Profiles) (jsontext.Value, *Refusal) {
 	if v.Kind != jsontext.Object {
 		return jsontext.Value{}, refuse("field_type", 1)
 	}
@@ -137,13 +149,17 @@ func Normal(v jsontext.Value) (jsontext.Value, *Refusal) {
 		return jsontext.Value{}, refuse("field_count", 1)
 	case kind.Kind != jsontext.String:
 		return jsontext.Value{}, refuse("field_type", 1)
-	case !kinds.Known(kind.Str):
+	case !kinds.Registered(kind.Str, declared):
 		return jsontext.Value{}, refuse("unknown_kind", 1) // KND-REG-3
 	}
-	schema := kinds.Schema(kind.Str)
+	schema := kinds.SchemaIn(kind.Str, declared)
 	unknown := 0
 	for _, m := range v.Obj {
-		if _, ok := kinds.Find(kind.Str, m.Key); !ok {
+		known := false
+		for _, f := range schema {
+			known = known || f.Name == m.Key
+		}
+		if !known {
 			unknown++
 		}
 	}
@@ -203,6 +219,14 @@ func Normal(v jsontext.Value) (jsontext.Value, *Refusal) {
 	operands, _ := out.Get("operands")
 	if kind.Str == "derivation" && has && operands.Kind == jsontext.Array && len(selectors.Arr) != len(operands.Arr) {
 		counts++ // KND-SCH-7
+	}
+	if kind.Str == "retrieval-index" {
+		method, _ := out.Get("method")
+		parameters, has := out.Get("parameters")
+		// A value of `parameters` that is not I-JSON has its reason from the loop.
+		if method.Kind == jsontext.String && method.Str == kinds.HashedTerms && has && jsontext.IsIJSON(parameters) && !IsDimensions(parameters) {
+			types++ // IDX-MTH-1
+		}
 	}
 	switch {
 	case counts > 0:

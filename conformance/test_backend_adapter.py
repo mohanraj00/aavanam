@@ -51,11 +51,14 @@ FAKE = textwrap.dedent('''
     if 'mute' in sys.argv:
         sys.exit(3)
     print(json.dumps(hello), flush=True)
-    state = {'resets': 0, 'gates': [], 'sections': [], 'policies': [], 'args': sys.argv[1:]}
+    state = {'resets': 0, 'gates': [], 'sections': [], 'policies': [], 'profiles': [], 'args': sys.argv[1:]}
     for line in sys.stdin:
         m = json.loads(line)
         if m['cmd'] == 'reset':
-            state.update(resets=state['resets'] + 1, gates=[], sections=[], policies=[])
+            state.update(resets=state['resets'] + 1, gates=[], sections=[], policies=[], profiles=[])
+            reply = {'ok': True}
+        elif m['cmd'] == 'declare':
+            state['profiles'] = m['profiles']
             reply = {'ok': True}
         elif m['cmd'] == 'call' and m['op'] == 'stop':
             sys.stderr.write('the driver stops here')
@@ -152,6 +155,33 @@ class BackendAdapterTest(unittest.TestCase):
         for operation in sorted(backend_adapter.WRITES - {'publish'}):
             self.assertEqual(adapter.call(operation, {})['via'], 'line', operation)  # NET-SCP-3
         self.assertEqual(self.adapter('http', AAVANAM_READ_HTTP='0').call('get', {})['via'], 'line')
+
+    def test_declare_goes_to_each_driver(self):
+        index = 'aavanam/semantic-index/v1'
+        adapter = self.adapter('http')
+        self.assertEqual(adapter.call('semantic_search', {})['via'], 'http')  # no profile: the envelope of NET-SCP-2
+        adapter.declare([index])
+        self.assertEqual(adapter.call('put', {})['state']['profiles'], [index])
+        self.assertEqual(adapter.call('get', {}, store='device')['state']['profiles'], [index])
+        self.assertEqual(adapter.call('semantic_search', {})['via'], 'line')  # NET-SCP-3: not in the read binding
+        self.assertEqual(adapter.call('get', {})['via'], 'http')
+        adapter.reset()  # after a reset, a store declares no profile
+        self.assertEqual(adapter.call('put', {})['state']['profiles'], [])
+        self.assertEqual(adapter.call('semantic_search', {})['via'], 'http')
+        mixed = self.adapter(AAVANAM_WRITER='reference')
+        mixed.declare(['aavanam/layer/v1'])
+        self.assertEqual(mixed.local['writer'].profiles, ('aavanam/layer/v1',))
+        self.assertEqual(mixed.call('get', {}, store='device')['state']['profiles'], ['aavanam/layer/v1'])
+        mixed.reset()
+        self.assertEqual(mixed.local['writer'].profiles, ())
+
+    def test_profile_operations_are_the_profile_rows(self):
+        cs = runner.check_spec
+        base = cs.operations()
+        for profile in ('aavanam/layer/v1', 'aavanam/semantic-index/v1'):
+            added = {op for op, statuses in cs.operations(profile).items()
+                     if statuses != {'unsupported'} and base.get(op, {'unsupported'}) == {'unsupported'}}
+            self.assertEqual(backend_adapter.PROFILE_OPERATIONS.get(profile, frozenset()), added, profile)  # IDX-PRF-4
 
     def test_writes_are_the_operations_outside_the_read_binding(self):
         cs = runner.check_spec

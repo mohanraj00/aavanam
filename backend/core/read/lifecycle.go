@@ -10,12 +10,12 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 )
 
-// knownKinds gives one `unknown_kind` for each name of `kinds` that is not a kind of the base profile
-// (step 4 of LIF-CHG-1, step 5 of DSC-LST-1).
+// knownKinds gives one `unknown_kind` for each name of `kinds` that is not a kind of the base profile or
+// of a profile that the store declares (step 4 of LIF-CHG-1, step 5 of DSC-LST-1, LYR-PRF-2, IDX-PRF-2).
 func knownKinds(c *ops.Call) {
 	var reasons []envelope.Reason
 	for _, k := range field(c.Request, "kinds").Arr {
-		if !kinds.Known(k.Str) {
+		if !kinds.Registered(k.Str, c.Store.Profiles) {
 			reasons = append(reasons, envelope.Reason{Code: "unknown_kind"})
 		}
 	}

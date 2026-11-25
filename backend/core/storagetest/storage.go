@@ -51,6 +51,7 @@ func Fault(fn func()) (err error) {
 // Storage runs the contract tests of a storage.
 func Storage(t *testing.T, open Open) {
 	t.Run("ContentAndCatalog", func(t *testing.T) { contentAndCatalog(t, open(t)) })
+	t.Run("Layers", func(t *testing.T) { layers(t, open(t)) })
 	t.Run("ProducerRecords", func(t *testing.T) { producerRecords(t, open(t)) })
 	t.Run("LongNames", func(t *testing.T) { longNames(t, open(t)) })
 	t.Run("UpdateIsAtomic", func(t *testing.T) { updateIsAtomic(t, open(t)) })
@@ -141,6 +142,25 @@ func derivedData(t *testing.T, s Backing) {
 		if len(cache.TableRows(refB)) != 0 {
 			t.Error("the rows of a table with no row")
 		}
+	}
+}
+
+// LYR-DEF-5: a storage finds the layers of a base collection. A layer is not a snapshot of its base.
+func layers(t *testing.T, s Backing) {
+	update(s, func(tx ops.Tx) {
+		tx.PutObject(ops.Object{Ref: refA, Kind: "snapshot", Text: []byte("S"), Collection: "only-snapshot"})
+		tx.PutObject(ops.Object{Ref: refB, Kind: "layer", Text: []byte("L"), Targets: []string{refA}, Collection: odd})
+		tx.PutObject(ops.Object{Ref: refC, Kind: "source", Text: []byte("A"), Collection: "not-a-layer"})
+		if !tx.HasLayer(odd) {
+			t.Error("an update does not read the layer that it wrote")
+		}
+	})
+	r := s.Session(context.Background())
+	if !r.HasLayer(odd) || r.HasLayer("only-snapshot") || r.HasLayer("not-a-layer") || r.HasLayer("") {
+		t.Error("the layers of a base collection are not correct")
+	}
+	if r.HasSnapshot(odd) || !r.HasSnapshot("only-snapshot") {
+		t.Error("a layer is a snapshot of its base collection")
 	}
 }
 

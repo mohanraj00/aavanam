@@ -1,5 +1,11 @@
 package ops
 
+import (
+	"sort"
+
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
+)
+
 // row is one row of the operation table of document 03.
 type row struct {
 	document string
@@ -74,4 +80,33 @@ var Capabilities = map[string][]string{
 	"aavanam/locks/v1":   {"execution_inputs", "build_inputs"},
 	"aavanam/export/v1":  {"export"},
 	"aavanam/text/v1":    {"search_text"},
+}
+
+// profileRow is the row of an operation that a profile gives to a store that declares the profile.
+type profileRow struct {
+	profile string
+	row
+}
+
+// profileTable has the operation table of each profile (IDX-PRF-4). For a store that declares the profile,
+// the row replaces the row of document 03, so the operation is not a reserved operation (RSV-LST-4).
+var profileTable = map[string]profileRow{
+	"semantic_search": {kinds.IndexProfile, row{"24", true}},
+}
+
+// ProfileCapabilities has the rows that each profile adds to the capability table (IDX-PRF-4).
+var ProfileCapabilities = map[string]map[string][]string{
+	kinds.IndexProfile: {"aavanam/semantic-index/v1": {"semantic_search"}},
+}
+
+// ProfileOperations returns the operations of the operation table of a profile, in ascending order.
+func ProfileOperations(profile string) []string {
+	var out []string
+	for operation, r := range profileTable {
+		if r.profile == profile {
+			out = append(out, operation)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

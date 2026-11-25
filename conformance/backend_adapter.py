@@ -36,6 +36,9 @@ ROOT = Path(__file__).resolve().parent.parent
 # operation name goes to the read binding, also a name with no row in the operation table (NET-SCP-2).
 WRITES = frozenset({'put', 'create_snapshot', 'create_candidate', 'publish', 'import', 'execution_inputs', 'build_inputs',
                     'producer_put', 'producer_get', 'producer_forget', 'producer_removals', 'producer_append', 'producer_read'})
+# The operations that a declared profile adds and that the read binding does not have (NET-SCP-1). The read
+# listener gives HTTP 404 for such an operation (NET-SCP-3), so the call goes over the line protocol.
+PROFILE_OPERATIONS = {'aavanam/semantic-index/v1': frozenset({'semantic_search'})}
 DRIVERS = {'conform': ('backend', './cmd/aavanam-conform', 'AAVANAM_CONFORM_BIN'),
            'device': ('reference', './cmd/aavanam-device', 'AAVANAM_DEVICE_BIN')}
 HTTP_TIMEOUT = 120  # seconds, for one call of the read binding
@@ -172,6 +175,7 @@ class BackendAdapter:
         self.device = choice('AAVANAM_DEVICE', ('go', 'reference'))
         self.http = os.environ.get('AAVANAM_READ_HTTP', '1') != '0'
         self.validators: dict = {}
+        self.profiles: tuple = ()  # the profiles that each store declares (LYR-PRF-1, IDX-PRF-1)
         self.local: dict = {}  # the roles that the Python store has
         self.drivers: dict[str, Driver] = {}  # role -> driver
         self.folder = tempfile.mkdtemp(prefix='aavanam-drivers-')
@@ -200,11 +204,11 @@ class BackendAdapter:
             if store.role != 'output':  # the device store closes its output store
                 store.close()
         self.local = {}
-        # This adapter has no `declare` method, so a store declares no profile (KND-REG-2, RSV-LST-4).
+        # After `reset`, a store declares no profile (KND-REG-2, RSV-LST-4).
         if self.writer == 'reference':
-            self.local['writer'] = Store(debug=debug, profiles=())
+            self.local['writer'] = Store(debug=debug, profiles=self.profiles)
         if self.device == 'reference':
-            device = Store(debug=debug, role='device', profiles=())  # with its local output store (BUN-IMP-5)
+            device = Store(debug=debug, role='device', profiles=self.profiles)  # with its local output store (BUN-IMP-5)
             self.local['device'], self.local['output'] = device, device.output
 
     def processes(self) -> list[Driver]:
@@ -212,15 +216,25 @@ class BackendAdapter:
 
     def reset(self) -> None:
         self.validators.clear()
+        self.profiles = ()
         for driver in self.processes():
             driver.request({'cmd': 'reset'})
+        self.open_local()
+
+    def declare(self, profiles) -> None:
+        """Make each store declare the profiles (LYR-PRF-1, IDX-PRF-1). The runner calls it after `reset`, so
+        each store is empty. A driver makes new stores for the command `declare`."""
+        self.profiles = tuple(profiles)
+        for driver in self.processes():
+            driver.request({'cmd': 'declare', 'profiles': list(profiles)})
         self.open_local()
 
     def call(self, operation: str, request: dict, store: str = 'writer') -> dict:
         if store in self.local:
             return self.local[store].call(operation, request)
         driver = self.drivers[store]
-        if store == 'writer' and self.http and driver.read_url and operation not in WRITES:
+        added = any(operation in PROFILE_OPERATIONS.get(profile, ()) for profile in self.profiles)
+        if store == 'writer' and self.http and driver.read_url and operation not in WRITES and not added:
             return driver.post(operation, request)
         reply = driver.request({'cmd': 'call', 'store': store, 'op': operation, 'request': request}, self.validators)
         if not isinstance(reply.get('result'), dict):

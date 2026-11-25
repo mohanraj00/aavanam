@@ -12,9 +12,9 @@
 // of the read listener, and it controls who can open the socket.
 //
 // The DSN comes from the environment variable AAVANAM_PG_DSN, not from an argument, because the arguments
-// of a process are visible to other users. The gates, the sections and the policies are store
-// configuration (PUB-GAT-1, PUB-SEC-1, PUB-RCP-1). The service declares them at each start, before the
-// first call. A validator of a policy is an HTTP address of the host application (api.HTTPValidator). The
+// of a process are visible to other users. The gates, the sections, the policies and the declared
+// profiles are store configuration (PUB-GAT-1, PUB-SEC-1, PUB-RCP-1, LYR-PRF-1, IDX-PRF-1). The service
+// declares them at each start, before the first call. A validator of a policy is an HTTP address of the host application (api.HTTPValidator). The
 // service never loads or runs a stored artifact.
 //
 // A read context has a life (--context-life). After its end, a call in the context gets `context_expired`,
@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/mohanraj00/aavanam/backend/api"
+	"github.com/mohanraj00/aavanam/backend/core/kinds"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/read"
 	"github.com/mohanraj00/aavanam/backend/core/text"
@@ -81,6 +82,7 @@ type options struct {
 	contextLife       time.Duration
 	gates             pairs
 	sections          pairs
+	profiles          pairs
 	policies          pairs
 }
 
@@ -98,6 +100,7 @@ func parse(args []string, output io.Writer) (*options, error) {
 	flags.DurationVar(&o.validatorDeadline, "validator-deadline", api.DefaultValidatorDeadline, "the deadline of a validator (PUB-RCP-4)")
 	flags.DurationVar(&o.contextLife, "context-life", 24*time.Hour, "the life of a read context, or 0 for no end")
 	flags.Var(&o.gates, "gate", "a gated collection (PUB-GAT-1). The flag can occur more than one time")
+	flags.Var(&o.profiles, "profile", "a profile that the store declares, for example aavanam/layer/v1 (LYR-PRF-1, IDX-PRF-1). The flag can occur more than one time")
 	flags.Var(&o.sections, "section", "collection=serving or collection=evidence (PUB-SEC-1). The flag can occur more than one time")
 	flags.Var(&o.policies, "policy", "name=URL: an acceptance policy and the HTTP address of its validator (PUB-RCP-1). The flag can occur more than one time")
 	if err := flags.Parse(args); err != nil {
@@ -183,6 +186,15 @@ func start(ctx context.Context, o *options, storage ops.Storage) (*service, erro
 	transfer.Register(registry)
 	write.Register(registry)
 	store := ops.New(ops.Writer, storage, registry)
+	var names []string
+	for _, profile := range o.profiles.list {
+		names = append(names, profile[0])
+	}
+	declared, known := kinds.DeclaredProfiles(names...)
+	if !known {
+		return nil, fmt.Errorf("the service has only these profiles: %s, %s", kinds.LayerProfile, kinds.IndexProfile)
+	}
+	store.Profiles = declared // LYR-PRF-1, IDX-PRF-1: before the first call
 	for _, policy := range o.policies.list {
 		validate, err := api.HTTPValidator(policy[0], policy[1], o.validatorDeadline)
 		if err != nil {

@@ -1,5 +1,7 @@
 package envelope
 
+import "github.com/mohanraj00/aavanam/backend/core/kinds"
+
 // reasonStatus has the status of each reason code (the reason table of document 03, STS-RSN-1).
 var reasonStatus = map[string]string{
 	"bounds_reached":              "partial",
@@ -70,4 +72,16 @@ var reasonStatus = map[string]string{
 	"storage_error":               "failed",
 	"incomplete_result":           "failed",
 	"batch_aborted":               "failed",
+}
+
+// profileReasons has the status of each reason code that a profile adds: the reason tables of document 23
+// (LYR-PRF-3) and of document 24 (IDX-PRF-3).
+var profileReasons = map[string]map[string]string{
+	kinds.LayerProfile: {
+		"layer_scope_mismatch": "incompatible",
+		"layer_base_mismatch":  "incompatible",
+	},
+	kinds.IndexProfile: {
+		"index_stale": "incompatible",
+	},
 }

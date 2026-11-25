@@ -1,5 +1,5 @@
 // Package read has the operations that read a store through a read context (documents 06 to 09, 12, 14,
-// 17, 18 and 20), and the store reads of document 17.
+// 17, 18, 20 and 24), and the store reads of document 17.
 package read
 
 import "github.com/mohanraj00/aavanam/backend/core/ops"
@@ -21,4 +21,5 @@ func Register(r *ops.Registry) {
 	r.Handle("snapshot_changes", SnapshotChanges)
 	r.Handle("item_history", ItemHistory)
 	r.Handle("list_items", ListItems)
+	r.Handle("semantic_search", SemanticSearch) // only a store that declares the retrieval index profile runs it (IDX-PRF-4)
 }

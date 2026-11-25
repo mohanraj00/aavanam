@@ -165,6 +165,10 @@ CREATE TABLE table_rows (
     cells bytea NOT NULL,
     PRIMARY KEY (digest, idx)
 );
+`, `
+-- The layer profile (document 23). The column objects.collection of a layer has its base collection. The
+-- index finds the layers of a base collection, for the section declaration of LYR-DEF-5.
+CREATE INDEX objects_layers ON objects ((sha256(collection))) WHERE kind = 'layer';
 `}
 
 // tables has each table of the schema, for the reset of the conformance driver.

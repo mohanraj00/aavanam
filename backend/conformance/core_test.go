@@ -117,3 +117,46 @@ func TestCoreStoresAndDeclarations(t *testing.T) {
 		}
 	}
 }
+
+// LYR-PRF-1 and IDX-PRF-1: after a reset, a store declares no profile. The command `declare` makes new
+// stores that declare the profiles, and a profile that the driver does not have gives an error.
+func TestCoreDeclaresProfiles(t *testing.T) {
+	core := newCore(t)
+	layer := `{"descriptors":["{\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"layer\",\"base\":\"c\",\"scope\":\"s\"}"]}`
+	if got := result(t, core, "writer", `"put"`, layer); !strings.Contains(got, `"unknown_kind"`) {
+		t.Errorf("a layer with no declared profile: %s", got)
+	}
+	if got := result(t, core, "writer", `"semantic_search"`, `{}`); !strings.Contains(got, `"reserved_profile"`) {
+		t.Errorf("semantic_search with no declared profile: %s", got)
+	}
+	before, _ := core.Fingerprint("writer")
+	if err := core.Declare([]string{"aavanam/layer/v1", "aavanam/workspace/v1"}); err == nil {
+		t.Error("a profile that the driver does not have gave no error")
+	}
+	if err := core.Declare([]string{"aavanam/layer/v1", "aavanam/semantic-index/v1"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"writer", "device", "output"} {
+		if got := core.stores[name].Profiles.Names(); len(got) != 2 {
+			t.Errorf("the store %s declares %v", name, got)
+		}
+	}
+	if core.stores["device"].Output != core.stores["output"] {
+		t.Error("the device store does not have its output store after a declaration (BUN-IMP-7)")
+	}
+	if got := result(t, core, "writer", `"put"`, layer); !strings.Contains(got, `"status":"ok"`) {
+		t.Errorf("a layer with the declared profile: %s", got)
+	}
+	if got := result(t, core, "writer", `"semantic_search"`, `{}`); !strings.Contains(got, `"field_count"`) {
+		t.Errorf("semantic_search with the declared profile: %s", got)
+	}
+	if after, _ := core.Fingerprint("writer"); after == before {
+		t.Error("the put of the layer did not change the store")
+	}
+	if err := core.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if got := result(t, core, "writer", `"put"`, layer); !strings.Contains(got, `"unknown_kind"`) || len(core.stores["writer"].Profiles) != 0 {
+		t.Errorf("a layer after a reset: %s", got)
+	}
+}

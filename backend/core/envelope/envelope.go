@@ -10,14 +10,18 @@ import (
 // Order is the order of rule 6 of STS-ENV-3.
 var Order = []string{"failed", "unsupported", "incompatible", "ambiguous", "unresolved", "not_found"}
 
-// StatusOf returns the status of a reason code in the reason table (STS-RSN-3). A code that is not in the
-// table is a defect of the caller, so it panics.
+// StatusOf returns the status of a reason code in the reason table, or in the reason table of a profile
+// (STS-RSN-3, LYR-PRF-3, IDX-PRF-3). A code that is not in a table is a defect of the caller, so it panics.
 func StatusOf(code string) string {
-	status, ok := reasonStatus[code]
-	if !ok {
-		panic("envelope: the reason table has no code " + code)
+	if status, ok := reasonStatus[code]; ok {
+		return status
 	}
-	return status
+	for _, reasons := range profileReasons {
+		if status, ok := reasons[code]; ok {
+			return status
+		}
+	}
+	panic("envelope: the reason table has no code " + code)
 }
 
 // Reason is one reason of an envelope or of an item (STS-RSN-1).
