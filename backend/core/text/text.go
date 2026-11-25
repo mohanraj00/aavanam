@@ -299,8 +299,8 @@ func SearchText(c *ops.Call) envelope.Envelope {
 				fill[x.digest], filled[x.digest] = Tokens(words), true
 			}
 			var in []string
-			for n, match := range Matches(words, query) {
-				if n == 0 {
+			for m, match := range Matches(words, query) {
+				if m == 0 {
 					in = inSnapshots(x.ref)
 				}
 				selector := jsontext.O(jsontext.M("selector_profile", jsontext.S(check.Bytes)),

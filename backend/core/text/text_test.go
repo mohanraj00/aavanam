@@ -437,6 +437,7 @@ type wide struct {
 	mem   *memstore.Store
 	pad   []string
 	reads int // the number of Closure calls
+	lists int // the number of Members calls
 }
 
 type wideSession struct {
@@ -445,6 +446,11 @@ type wideSession struct {
 }
 
 func (w *wide) Session(ctx context.Context) ops.Session { return wideSession{w.mem.Session(ctx), w} }
+
+func (s wideSession) Members(context string) []string {
+	s.storage.lists++
+	return s.Session.Members(context)
+}
 
 func (s wideSession) Closure(root string) []string {
 	s.storage.reads++
@@ -457,7 +463,8 @@ func (s wideSession) Closure(root string) []string {
 }
 
 // A search reads the closure of each snapshot root one time, also if the store does not keep the closures
-// for the next call (CRD-TXT-6 rule 2).
+// for the next call (CRD-TXT-6 rule 2). A value that the store does not keep does not remove the values
+// that it keeps: the next search does not read the member list again.
 func TestSearchReadsLargeClosuresOneTime(t *testing.T) {
 	r := ops.NewRegistry()
 	read.Register(r)
@@ -500,5 +507,12 @@ func TestSearchReadsLargeClosuresOneTime(t *testing.T) {
 	}
 	if storage.reads != 2 {
 		t.Errorf("the search of 2 items read %d closures, want one for each of the 2 snapshot roots", storage.reads)
+	}
+	storage.lists = 0
+	if again := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"common"}`); len(again.Items) != 2 {
+		t.Fatalf("the second search_text: %d items, status %s", len(again.Items), again.Status)
+	}
+	if storage.lists != 0 {
+		t.Errorf("the second search read the member list %d times, want 0", storage.lists)
 	}
 }

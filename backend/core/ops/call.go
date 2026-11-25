@@ -256,10 +256,10 @@ func (rc *ReadContext) Memo(name string, build func() (value any, cost int)) any
 	value, cost := build()
 	s.mu.Lock()
 	if _, ok := s.memo[key]; !ok {
-		if s.memoCost+cost > memoLimit {
-			s.memo, s.memoCost = map[memoKey]any{}, 0
-		}
-		if cost <= memoLimit {
+		if cost <= memoLimit { // a larger value is not kept, and it does not remove the kept values
+			if s.memoCost+cost > memoLimit {
+				s.memo, s.memoCost = map[memoKey]any{}, 0
+			}
 			s.memo[key] = value
 			s.memoCost += cost
 		}
