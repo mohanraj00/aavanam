@@ -1,0 +1,164 @@
+{
+  "format": "aavanam-bench/v1",
+  "date": "2026-11-25T03:19:49Z",
+  "note": "Each value is for the machine of this run only. It is not a claim for a different machine.",
+  "machine": {
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "memory_bytes": 25769803776,
+    "os": "Darwin 27.0.0 arm64",
+    "go": "go1.27.2",
+    "postgresql": "17.12 (Debian 17.12-1.pgdg13+1)"
+  },
+  "shape": "S1",
+  "calls": 1000,
+  "check_factor": 3,
+  "time_limit_s": 120,
+  "runs": [
+    {
+      "storage": "pg",
+      "store": {
+        "shape": "S1",
+        "seed": 1,
+        "collections": 50,
+        "descriptors": 200000,
+        "payload_bytes": 2147483648,
+        "main_context_members": 19991,
+        "main_context_text_artifacts": 2000,
+        "table_rows": 100000,
+        "table_bytes": 20971520,
+        "search_matches": 20,
+        "query_data_rows": 1000,
+        "filtered_units": 218,
+        "request_digest": "d7e223623a59c13c907c5390f533ef612267bb93174a6fba38c6b378e3c77e5f"
+      },
+      "measures": [
+        {
+          "name": "open_context",
+          "clients": 1,
+          "count": 20,
+          "p50_ms": 8024.267,
+          "p95_ms": 11378.078,
+          "max_ms": 12149.777,
+          "target_ms": 25
+        },
+        {
+          "name": "read_row",
+          "clients": 1,
+          "count": 608,
+          "p50_ms": 189.233,
+          "p95_ms": 255.356,
+          "max_ms": 421.749,
+          "target_ms": 10
+        },
+        {
+          "name": "read_artifact_64k",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 1.44,
+          "p95_ms": 1.85,
+          "max_ms": 13.441,
+          "target_ms": 10
+        },
+        {
+          "name": "search_text",
+          "clients": 1,
+          "count": 21,
+          "p50_ms": 5526.863,
+          "p95_ms": 6544.891,
+          "max_ms": 7741.989,
+          "target_ms": 100
+        },
+        {
+          "name": "query_data_where",
+          "clients": 1,
+          "count": 515,
+          "p50_ms": 218.828,
+          "p95_ms": 304.77,
+          "max_ms": 638.865
+        },
+        {
+          "name": "open_context",
+          "clients": 16,
+          "count": 64,
+          "p50_ms": 30000.324,
+          "p95_ms": 30001.625,
+          "max_ms": 30001.685,
+          "failed": 64,
+          "failure": "failed deadline_exceeded"
+        },
+        {
+          "name": "read_row",
+          "clients": 16,
+          "count": 907,
+          "p50_ms": 2011.142,
+          "p95_ms": 2903.172,
+          "max_ms": 4702.226
+        },
+        {
+          "name": "read_artifact_64k",
+          "clients": 16,
+          "count": 1000,
+          "p50_ms": 9.962,
+          "p95_ms": 14.434,
+          "max_ms": 20.196
+        },
+        {
+          "name": "search_text",
+          "clients": 16,
+          "count": 80,
+          "p50_ms": 27547.94,
+          "p95_ms": 29164.099,
+          "max_ms": 29219.566
+        },
+        {
+          "name": "query_data_where",
+          "clients": 16,
+          "count": 910,
+          "p50_ms": 2004.675,
+          "p95_ms": 2780.122,
+          "max_ms": 4088.328
+        },
+        {
+          "name": "publish_1000:put",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 1428.121,
+          "p95_ms": 1991.328,
+          "max_ms": 1991.328
+        },
+        {
+          "name": "publish_1000:create_snapshot",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 4188.393,
+          "p95_ms": 4634.568,
+          "max_ms": 4634.568
+        },
+        {
+          "name": "publish_1000:create_candidate",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 4266.701,
+          "p95_ms": 4787.417,
+          "max_ms": 4787.417
+        },
+        {
+          "name": "publish_1000:publish",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 2.546,
+          "p95_ms": 4.517,
+          "max_ms": 4.517
+        }
+      ],
+      "values": {
+        "pg_relations_bytes": 1501536256,
+        "pg_relations_target_bytes": 3630825472
+      },
+      "times_ms": {
+        "build": 473746.912
+      }
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "format": "aavanam-bench/v1",
+  "date": "2026-11-25T02:53:51Z",
+  "note": "Each value is for the machine of this run only. It is not a claim for a different machine.",
+  "machine": {
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "memory_bytes": 25769803776,
+    "os": "Darwin 27.0.0 arm64",
+    "go": "go1.27.2",
+    "sqlite": "3.54.1"
+  },
+  "shape": "S0",
+  "calls": 1000,
+  "check_factor": 3,
+  "runs": [
+    {
+      "storage": "device",
+      "store": {
+        "shape": "S0",
+        "seed": 1,
+        "collections": 10,
+        "descriptors": 20000,
+        "payload_bytes": 209715200,
+        "main_context_members": 2304,
+        "main_context_text_artifacts": 2000,
+        "table_rows": 10000,
+        "table_bytes": 2097152,
+        "search_matches": 20,
+        "query_data_rows": 100,
+        "filtered_units": 25,
+        "request_digest": "37b1572fa99cc9c70af9eef1c436f54fb58633fa3bc78f9983e62f28934a95fd"
+      },
+      "measures": [
+        {
+          "name": "open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 32.8,
+          "p95_ms": 40.42,
+          "max_ms": 325.999,
+          "target_ms": 25
+        },
+        {
+          "name": "read_row",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 9.091,
+          "p95_ms": 10.585,
+          "max_ms": 16.68,
+          "target_ms": 5
+        },
+        {
+          "name": "read_artifact_64k",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.196,
+          "p95_ms": 0.215,
+          "max_ms": 0.392,
+          "target_ms": 5
+        },
+        {
+          "name": "search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 133.177,
+          "p95_ms": 144.551,
+          "max_ms": 190.365,
+          "target_ms": 100
+        },
+        {
+          "name": "query_data_where",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 10.86,
+          "p95_ms": 12.141,
+          "max_ms": 13.978
+        },
+        {
+          "name": "filtered:open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 3.822,
+          "p95_ms": 4.04,
+          "max_ms": 8.812
+        },
+        {
+          "name": "filtered:search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 18.754,
+          "p95_ms": 21.214,
+          "max_ms": 51.944
+        }
+      ],
+      "values": {
+        "after_import:device_file_bytes": 382717952,
+        "after_import:device_wal_bytes": 0,
+        "after_update:device_file_bytes": 389545984,
+        "after_update:device_wal_bytes": 0,
+        "bundle_bytes": 287479190,
+        "bundle_payload_bytes": 209714930,
+        "bundle_ratio_permille": 1370,
+        "filtered_bundle_bytes": 10985668,
+        "filtered_bundle_roots": 25,
+        "update_bundle_bytes": 287479190,
+        "update_new_descriptors": 726
+      },
+      "times_ms": {
+        "export": 1395.844,
+        "filtered_import": 313.841,
+        "first_import": 18082.152,
+        "update_import": 3610.477,
+        "writer_build": 1890.357
+      }
+    }
+  ]
+}

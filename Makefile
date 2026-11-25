@@ -50,8 +50,30 @@ check-backend: check-backend-mem check-backend-pg check-null-driver
 check-device:
 	AAVANAM_WRITER=reference AAVANAM_DEVICE=go $(RUNNER) --expect reference/conformance/passing.txt
 
-# The budget bench of the backend (docs/design/backend.md, section 7). It needs AAVANAM_PG_DSN.
+# The budget bench (docs/bench.md). It runs S0 on the storage in memory, on PostgreSQL if AAVANAM_PG_DSN
+# is set, and on the device store, and prints each measured value. It fails only on a clear miss: a p95 that
+# is more than BENCH_FACTOR times its target and is not in BENCH_KNOWN. Reason: the time of a shared CI
+# runner varies. Each entry of BENCH_KNOWN is a miss of the first run, with the issue of its cause. Remove
+# an entry when its measure meets its target. BENCH_MAX_TIME limits each read measure, so the CI job ends
+# in its time limit. The PostgreSQL run removes each row of the database of AAVANAM_PG_DSN.
+BENCH_CALLS ?= 1000
+BENCH_FACTOR ?= 3
+BENCH_MAX_TIME ?= 10s
+BENCH_KNOWN ?= mem/read_row=\#128,mem/search_text=\#128,pg/open_context=\#128,pg/read_row=\#128,pg/search_text=\#128,device/open_context=\#128,device/read_row=\#128,device/search_text=\#128
+BENCH_CHECK = -calls $(BENCH_CALLS) -max-time $(BENCH_MAX_TIME) -check -factor $(BENCH_FACTOR) -known '$(BENCH_KNOWN)'
 .PHONY: check-bench
 check-bench:
-	@if [ -d backend/bench ]; then cd backend && go run ./bench; \
-	else echo "No backend/bench in the tree. The budget bench did not run."; fi
+	@storages=mem; if [ -n "$$AAVANAM_PG_DSN" ]; then storages=mem,pg; \
+	else echo "No AAVANAM_PG_DSN. The budget bench does not run on PostgreSQL."; fi; \
+	cd backend && go run ./bench -shape S0 -storage $$storages $(BENCH_CHECK)
+	cd reference && go run ./bench -shape S0 $(BENCH_CHECK)
+
+# The S1 bench on PostgreSQL, with one client and with 16 concurrent clients. It does not run in CI. It needs
+# AAVANAM_PG_DSN. It writes the result file BENCH_OUT, outside the checkout by default. S1_MAX_TIME limits
+# each read measure.
+BENCH_OUT ?= $(or $(TMPDIR),/tmp)/aavanam-bench-s1.json
+S1_MAX_TIME ?= 120s
+.PHONY: bench-s1
+bench-s1:
+	cd backend && go run ./bench -shape S1 -storage pg -clients 16 -calls $(BENCH_CALLS) -max-time $(S1_MAX_TIME) \
+		-out "$(abspath $(BENCH_OUT))"
