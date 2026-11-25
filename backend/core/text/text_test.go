@@ -2,7 +2,9 @@ package text_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -427,5 +429,76 @@ func TestSearchFillsTheIndexInGroups(t *testing.T) {
 	}
 	if len(storage.tokens) != 3 {
 		t.Errorf("the index has the tokens of %d payloads, want 3", len(storage.tokens))
+	}
+}
+
+// wide is a storage whose closure of each root has more references than the store keeps for a context.
+type wide struct {
+	mem   *memstore.Store
+	pad   []string
+	reads int // the number of Closure calls
+}
+
+type wideSession struct {
+	ops.Session
+	storage *wide
+}
+
+func (w *wide) Session(ctx context.Context) ops.Session { return wideSession{w.mem.Session(ctx), w} }
+
+func (s wideSession) Closure(root string) []string {
+	s.storage.reads++
+	var members []string
+	for member := range ops.ClosureIn(s.Session, []string{root}) {
+		members = append(members, member)
+	}
+	sort.Strings(members)
+	return append(members, s.storage.pad...) // each pad sorts after each reference
+}
+
+// A search reads the closure of each snapshot root one time, also if the store does not keep the closures
+// for the next call (CRD-TXT-6 rule 2).
+func TestSearchReadsLargeClosuresOneTime(t *testing.T) {
+	r := ops.NewRegistry()
+	read.Register(r)
+	text.Register(r)
+	storage := &wide{mem: memstore.New()}
+	for n := 0; n <= 1<<18; n++ { // two closures of this size are more than the bound of the store
+		storage.pad = append(storage.pad, fmt.Sprintf("z%06d", n))
+	}
+	store := ops.New(ops.Writer, storage, r)
+	bindings := object(t, `{`+profile+`,"kind":"binding-set"}`)
+	objects := []ops.Object{bindings}
+	var payloads [][]byte
+	var snapshots []string
+	for _, name := range []string{"alpha", "beta"} {
+		data := []byte("common " + name)
+		payloads = append(payloads, data)
+		artifact := object(t, artifactOf(jsontext.Digest(data), len(data), name))
+		unit := object(t, `{`+profile+`,"kind":"knowledge-unit","binding_set":"`+bindings.Ref+`","narratives":["`+artifact.Ref+`"]}`,
+			bindings.Ref, artifact.Ref)
+		snapshot := object(t, `{`+profile+`,"kind":"snapshot","collection":"`+name+`","units":["`+unit.Ref+`"]}`, unit.Ref)
+		objects = append(objects, artifact, unit, snapshot)
+		snapshots = append(snapshots, snapshot.Ref)
+	}
+	storage.Session(context.Background()).Update(func(tx ops.Tx) {
+		for _, o := range objects {
+			tx.PutObject(o)
+		}
+		for _, data := range payloads {
+			tx.PutBlob(jsontext.Digest(data), data)
+		}
+	})
+	opened := call(t, store, "open_context", `{"roots":["`+snapshots[0]+`","`+snapshots[1]+`"]}`)
+	if opened.Status != "ok" {
+		t.Fatalf("open_context: %s", opened.JSON())
+	}
+	storage.reads = 0
+	found := call(t, store, "search_text", `{"context":"`+opened.Context.Str+`","query":"common"}`)
+	if found.Status != "ok" || len(found.Items) != 2 {
+		t.Fatalf("search_text: %d items, status %s", len(found.Items), found.Status)
+	}
+	if storage.reads != 2 {
+		t.Errorf("the search of 2 items read %d closures, want one for each of the 2 snapshot roots", storage.reads)
 	}
 }

@@ -581,7 +581,9 @@ func (t tx) Publish(p ops.Publication) {
 
 // PutContext adds a read context. It writes the closure of each root that has no stored closure, in one
 // recursive statement (KND-DEP-3). A stored closure is complete: one statement writes it, and the closure
-// of a stored root does not change. Two updates that write one closure write the same rows.
+// of a stored root does not change. Two updates that write one closure write the same rows. The statement
+// writes the rows in ascending order, so two updates with the same roots in a different sequence do not
+// wait for each other in a circle.
 func (t tx) PutContext(id string, record ops.ContextRecord) {
 	capabilities := record.Capabilities
 	if capabilities == nil {
@@ -595,7 +597,7 @@ func (t tx) PutContext(id string, record ops.ContextRecord) {
 					WHERE NOT EXISTS (SELECT 1 FROM closures c WHERE c.root = r.root)
 				UNION
 				SELECT w.root, e.dst FROM walk w JOIN edges e ON e.src = w.ref)
-			SELECT root, ref FROM walk ON CONFLICT DO NOTHING`, roots)
+			SELECT root, ref FROM walk ORDER BY root, ref ON CONFLICT DO NOTHING`, roots)
 	}
 	t.exec(`INSERT INTO contexts (id, roots, capabilities) VALUES ($1, $2, $3)`, []byte(id), roots, capabilities)
 }

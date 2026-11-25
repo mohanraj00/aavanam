@@ -198,18 +198,22 @@ func SearchText(c *ops.Call) envelope.Envelope {
 	}
 	sort.Strings(roots)
 	members := rc.Members() // CRD-TXT-2, CRD-ORD-1: ascending ref
+	// The store does not keep closures that are larger than its bound, so the call keeps them for its items.
+	var closures map[string]map[string]struct{}
 	inSnapshots := func(ref string) []string {
 		if len(rc.Roots) == 1 {
 			return roots
 		}
-		closures := rc.Memo("snapshot-closures", func() (any, int) {
-			out, cost := map[string]map[string]struct{}{}, 0
-			for _, root := range roots {
-				out[root] = c.Closure(root)
-				cost += len(out[root])
-			}
-			return out, cost
-		}).(map[string]map[string]struct{})
+		if closures == nil {
+			closures = rc.Memo("snapshot-closures", func() (any, int) {
+				out, cost := map[string]map[string]struct{}{}, 0
+				for _, root := range roots {
+					out[root] = c.Closure(root)
+					cost += len(out[root])
+				}
+				return out, cost
+			}).(map[string]map[string]struct{})
+		}
 		var in []string
 		for _, root := range roots {
 			if _, ok := closures[root][ref]; ok {

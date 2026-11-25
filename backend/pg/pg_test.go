@@ -196,3 +196,41 @@ func TestContextsExpire(t *testing.T) {
 		t.Error("the removal changed a different context or the content of the store")
 	}
 }
+
+// Two updates that write the closures of the same roots do not stop each other: each one writes the rows
+// in ascending order, whatever the sequence of its roots (KND-DEP-3). The first update writes the closure
+// of A and then that of B, as one statement for the roots A and B does. The second update has the roots B
+// and A. If it wrote B first, each update would wait for a row of the other.
+func TestClosureWritesHaveOneOrder(t *testing.T) {
+	s := open(t)
+	inside := make(chan struct{})
+	var wg sync.WaitGroup
+	var faults [2]error
+	for n := 0; n < 2; n++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			faults[n] = storagetest.Fault(func() {
+				if n == 1 {
+					<-inside // the first update has the rows of A now
+					update(s, func(tx ops.Tx) { tx.PutContext("second", ops.ContextRecord{Roots: []string{refB, refA}}) })
+					return
+				}
+				update(s, func(tx ops.Tx) {
+					tx.PutContext("first-a", ops.ContextRecord{Roots: []string{refA}})
+					close(inside)
+					time.Sleep(300 * time.Millisecond) // the second update waits for a row now
+					tx.PutContext("first-b", ops.ContextRecord{Roots: []string{refB}})
+				})
+			})
+		}(n)
+	}
+	wg.Wait()
+	if faults[0] != nil || faults[1] != nil {
+		t.Fatalf("an update did not write its closures: %v", faults)
+	}
+	members := s.Session(context.Background()).Members("second")
+	if len(members) != 2 || members[0] != refA || members[1] != refB {
+		t.Errorf("the members of the context with two roots: %v", members)
+	}
+}
