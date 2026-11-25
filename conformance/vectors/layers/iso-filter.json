@@ -1,0 +1,93 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A filter does not read the overlay of a different layer",
+  "clauses": [
+    "LYR-ISO-3",
+    "DSC-FLT-2",
+    "DSC-FLT-3",
+    "DSC-FLT-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/filter-layer-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "kinds": [
+          "data-resource"
+        ],
+        "logical_ids": [
+          "site-limits"
+        ],
+        "filter": {
+          "equals": {
+            "region": "north"
+          }
+        }
+      },
+      "expect": {
+        "status": "unresolved",
+        "reasons": [
+          "no_metadata"
+        ],
+        "items": [
+          {
+            "status": "unresolved",
+            "reasons": [
+              "no_metadata"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

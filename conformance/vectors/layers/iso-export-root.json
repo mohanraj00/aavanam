@@ -1,0 +1,93 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An export with the layer of a different scope as a root gives unknown_ref and no bundle",
+  "clauses": [
+    "LYR-EXP-1",
+    "LYR-ISO-2",
+    "BUN-EXP-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/export-other-scope-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "roots": [
+          {
+            "$ref": "base"
+          },
+          {
+            "$ref": "layer-north"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [],
+        "reason_details": [
+          {
+            "code": "unknown_ref",
+            "refs": [
+              {
+                "$ref": "layer-north"
+              }
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

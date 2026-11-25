@@ -1,0 +1,229 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A context with a different layer or with no layer does not list the members of a layer",
+  "clauses": [
+    "LYR-ISO-1",
+    "LYR-PRE-2",
+    "DSC-LST-2",
+    "DSC-LST-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook. The layer layer-south adds the unit fan. The units filter and gauge are members of layer-north only."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-fan-s"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "fan"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "logical_ids": [
+          "filter",
+          "gauge"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "p"
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "kinds": [
+          "knowledge-unit"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "list_items",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "kinds": [
+          "layer"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": []
+      }
+    }
+  ]
+}

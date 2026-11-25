@@ -5,7 +5,7 @@ import re
 import unicodedata
 
 from .jsontext import is_digest, is_ijson, valid_string
-from .kinds import KINDS, REF_TYPES, SETS, schema
+from .kinds import PROFILES, REF_TYPES, SETS, registered, schema
 
 BYTES = 'aavanam/bytes/v1'
 NFC_TEXT = 'aavanam/nfc-text/v1'  # ADP-SEL-4
@@ -77,8 +77,9 @@ def agrees(vtype: str, value, field: str) -> bool:
     return is_ijson(value)  # json: a value that is not I-JSON is not of the type (KND-SCH-4)
 
 
-def check(value) -> dict:
-    """Return the normal form of a descriptor value, or raise Refusal (STS-MAL-3 steps 2 and 3)."""
+def check(value, profiles=PROFILES) -> dict:
+    """Return the normal form of a descriptor value, or raise Refusal (STS-MAL-3 steps 2 and 3). A kind or a field
+    of a profile that is not in `profiles` is not registered (KND-REG-2, LYR-PRF-1)."""
     if not isinstance(value, dict):
         raise Refusal(['field_type'])
     kind = value.get('kind')
@@ -86,9 +87,9 @@ def check(value) -> dict:
         raise Refusal(['field_count'])
     if not isinstance(kind, str):
         raise Refusal(['field_type'])
-    if kind not in KINDS:
+    if not registered(kind, profiles):
         raise Refusal(['unknown_kind'])  # KND-REG-3
-    fields = schema(kind)
+    fields = schema(kind, profiles)
     unknown = [f for f in value if f not in fields]
     if unknown:
         raise Refusal(['unknown_field'] * len(unknown))  # KND-SCH-2

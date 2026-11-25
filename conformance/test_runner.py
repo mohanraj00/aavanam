@@ -87,6 +87,9 @@ class Scripted:
     def accept(self, policy, validate):
         self.validate = validate
 
+    def declare(self, profiles):
+        self.declared = list(profiles)
+
     def gate(self, collection):
         self.gates = getattr(self, 'gates', []) + [collection]
 
@@ -551,6 +554,7 @@ def echo(vector: dict) -> list[dict]:
     vector = runner.check_spec.with_fixture(vector)
     expander = runner.Expander('echo', vector)
     results, stored, sent, fields = [], {}, {}, runner.check_spec.schemas()
+    views = {}  # the base snapshot and the layer of each layered context (LYR-LCK-1)
     for n, step in enumerate(vector['steps']):
         if step.get('fresh_store'):
             expander.contexts.clear()
@@ -587,6 +591,8 @@ def echo(vector: dict) -> list[dict]:
             result['context'] = f'context-{n}'  # CTX-OPN-2
             if 'as_context' in step:
                 expander.contexts[step['as_context']] = result['context']
+            if 'layer' in request:  # LYR-LCK-1: the view of a layered context
+                views[result['context']] = [request['roots'][0] if request.get('roots') else items[0]['ref'], request['layer']['ref']]
         if op == 'export' and e['status'] == 'ok':
             texts = [stored[i['ref']] for i in items]
             digests = {p['digest'] for t in texts for p in runner.payload_objects(json.loads(t), fields)}
@@ -605,7 +611,7 @@ def echo(vector: dict) -> list[dict]:
             result['document'] = runner.render_document(request, items) if ok else None
             result['document_id'] = runner.digest(runner.canonical(result['document']).encode()) if ok else None
         if op in runner.LOCK_OPERATIONS and e['status'] == 'ok':
-            result['lock'] = runner.revision(runner.lock_descriptor(op, request), fields)
+            result['lock'] = runner.revision(runner.lock_descriptor(op, request, views.get(request.get('context'))), fields)
         if op != 'put' and op not in runner.STORE_READS and 'as_context' not in step and 'context' in request:  # LIF-ITM-4
             result['context'] = request['context']
         results.append(result)
@@ -641,6 +647,28 @@ class EchoTest(unittest.TestCase):
         for vid, vector in runner.load().items():
             adapter = Scripted(*echo(vector))
             self.assertEqual(runner.run_vector(adapter, vid, vector), [], vid)
+
+
+class DeclareTest(unittest.TestCase):
+    def test_the_runner_declares_the_profile_of_a_vector_after_each_reset(self):  # LYR-PRF-1
+        vectors = runner.load()
+        layered, base = vectors['layers/device-ok'], vectors['contexts/open-roots-ok']
+        adapter = Scripted(*echo(layered))
+        self.assertEqual(runner.run_vector(adapter, 'layers/device-ok', layered), [])
+        self.assertEqual(adapter.declared, ['aavanam/layer/v1'])
+        adapter = Scripted(*echo(base))
+        self.assertEqual(runner.run_vector(adapter, 'contexts/open-roots-ok', base), [])
+        self.assertFalse(hasattr(adapter, 'declared'))  # a base vector runs on a store with no profile
+
+    def test_an_adapter_that_cannot_declare_the_profile_fails_the_vector(self):  # LYR-PRF-1
+        class NoProfile(Scripted):
+            def declare(self, profiles):
+                raise NotImplementedError('no profile')
+
+        vector = runner.load()['layers/open-ok']
+        problems = runner.run_vector(NoProfile(*echo(vector)), 'layers/open-ok', vector)
+        self.assertEqual(len(problems), 1)
+        self.assertIn('did not declare the profile aavanam/layer/v1', problems[0])
 
 
 class MainTest(unittest.TestCase):

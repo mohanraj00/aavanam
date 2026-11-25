@@ -1,0 +1,326 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "Equal lock requests in contexts with different layers give different locks",
+  "clauses": [
+    "LYR-LCK-1",
+    "LYR-LCK-2",
+    "LCK-BLD-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses. The runner makes each lock with the view of its context. Each lock is new, so the store changes three times."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-north"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "n"
+    },
+    {
+      "operation": "build_inputs",
+      "request": {
+        "context": {
+          "$context": "n"
+        },
+        "inputs": [
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "consumer": "sample/recorder/build/v1",
+        "completeness": "sample/declared/v1"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-valve"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "sch"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-valve"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-south"
+          },
+          "scope": "site-south"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "layer-south"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "s"
+    },
+    {
+      "operation": "build_inputs",
+      "request": {
+        "context": {
+          "$context": "s"
+        },
+        "inputs": [
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "consumer": "sample/recorder/build/v1",
+        "completeness": "sample/declared/v1"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-valve"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "sch"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-valve"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "base"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "p"
+    },
+    {
+      "operation": "build_inputs",
+      "request": {
+        "context": {
+          "$context": "p"
+        },
+        "inputs": [
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "consumer": "sample/recorder/build/v1",
+        "completeness": "sample/declared/v1"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b-valve"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "t-base"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "sch"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "a-valve"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      }
+    }
+  ]
+}

@@ -20,7 +20,7 @@ This document defines views, read contexts, projected contexts with functional c
 
 ### Views and membership
 
-**CTX-VIW-1.** A view is the content of one read context. An object is a member of the view if it is in the closure of a root (CTX-OPN-2). Membership does not depend on how the request names the root, by reference or by head.
+**CTX-VIW-1.** A view is the content of one read context. An object is a member of the view if it is in the closure of a root (CTX-OPN-2). Membership does not depend on how the request names the root, by reference or by head. LYR-PRE-2 gives the members of a layered context.
 
 **CTX-VIW-2.** The request of `open_context` can have the field `heads`, a set of collection names (KND-SCH-5). For each name, the store reads the head of that collection in the catalog (PUB-HED-1). If the catalog has a head, the head snapshot is a root of the context. If the catalog has no head for the name, the item of the name has status `unresolved` with reason `no_head`.
 
@@ -28,19 +28,19 @@ This document defines views, read contexts, projected contexts with functional c
 
 ### Opening a read context
 
-**CTX-OPN-1.** The request of `open_context` can have the field `roots`, a list of references, the field `heads` (CTX-VIW-2), the field `skew_policy` (CTX-SKW-3) and the field `capabilities` (CTX-PRJ-2). Each root MUST have kind `knowledge-unit` or `snapshot`. The result has one item for each root, in the order of `roots`, and then one item for each name of `heads`, in the order of the request. An `ok` item has the field `ref`, the root or the head snapshot. If a root is not in the store, its item has status `not_found` and reason `unknown_ref`. If a root has a different kind, its item has status `unsupported` and reason `unsupported_target_kind`. STS-ENV-3 gives the envelope status.
+**CTX-OPN-1.** The request of `open_context` can have the field `roots`, a list of references, the field `heads` (CTX-VIW-2), the field `skew_policy` (CTX-SKW-3), the field `capabilities` (CTX-PRJ-2) and the field `layer` (LYR-OPN-1). Each root MUST have kind `knowledge-unit` or `snapshot`. The result has one item for each root, in the order of `roots`, and then one item for each name of `heads`, in the order of the request. An `ok` item has the field `ref`, the root or the head snapshot. If a root is not in the store, its item has status `not_found` and reason `unknown_ref`. If a root has a different kind, its item has status `unsupported` and reason `unsupported_target_kind`. STS-ENV-3 gives the envelope status.
 
 **CTX-OPN-5.** The store checks the request form of `open_context` before its roots and heads. It applies these checks in order, and stops at the first check that fails. The result has status `failed` with one reason for each affected value, and no items.
 
-1. Each field that is not `roots`, `heads`, `skew_policy` or `capabilities` gives the reason `unknown_field`.
-2. If `roots` is not a list, or `heads` is not a list, the field gives `field_type`. If `skew_policy` is not one of the values of CTX-SKW-3, the field gives `field_type`. If `capabilities` is not a list, the field gives `field_type`. Each value of `capabilities` that is not a string gives `field_type`. Each value of `roots` that is not a reference, and each value of `heads` that is not a string, gives `field_type`.
-3. If the two fields together have no value, the request gives `field_count`. Each name that occurs again in `heads` or in `capabilities` gives `field_count`.
+1. Each field that is not `roots`, `heads`, `skew_policy` or `capabilities` gives the reason `unknown_field`. A store that declares the layer profile also permits the field `layer` (LYR-OPN-1).
+2. If `roots` is not a list, or `heads` is not a list, the field gives `field_type`. If `skew_policy` is not one of the values of CTX-SKW-3, the field gives `field_type`. If `capabilities` is not a list, the field gives `field_type`. Each value of `capabilities` that is not a string gives `field_type`. Each value of `roots` that is not a reference, and each value of `heads` that is not a string, gives `field_type`. A `layer` that does not have the form of LYR-OPN-1 gives `field_type`.
+3. If the two fields together have no value, the request gives `field_count`. Each name that occurs again in `heads` or in `capabilities` gives `field_count`. If the request has `layer`, and the two fields together do not have exactly one value, the request gives `field_count` (LYR-OPN-1).
 
-**CTX-OPN-2.** If `open_context` is `ok`, the read context contains the closure of each root (KND-DEP-3), and no other object. The envelope field `context` is the identity of the read context, a string. The content of a read context MUST NOT change after the store opens it. A later `put` does not add an object to it. If `open_context` is not `ok`, `context` is null.
+**CTX-OPN-2.** If `open_context` is `ok`, the read context contains the closure of each root (KND-DEP-3), and no other object. A layered context contains the members of LYR-PRE-2, and no other object. The envelope field `context` is the identity of the read context, a string. The content of a read context MUST NOT change after the store opens it. A later `put` does not add an object to it. If `open_context` is not `ok`, `context` is null.
 
 **CTX-OPN-3.** An operation that reads in a context has the request field `context`, with the identity from `open_context`. Its envelope field `context` MUST be that identity.
 
-**CTX-OPN-4.** If an object is in the store but not in the read context, an operation in that context MUST NOT return the object or a value from it. Where the operation gives the object an outcome, the outcome is status `not_found` with reason `not_in_context`.
+**CTX-OPN-4.** If an object is in the store but not in the read context, an operation in that context MUST NOT return the object or a value from it. Where the operation gives the object an outcome, the outcome is status `not_found` with reason `not_in_context`. In a layered context, the reason is `unknown_ref` (LYR-ISO-2).
 
 ### Projected contexts and capabilities
 

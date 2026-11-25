@@ -1,0 +1,44 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An open_context request with a layer and two roots gives field_count",
+  "clauses": [
+    "LYR-OPN-1",
+    "CTX-OPN-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture site-handbook."
+  },
+  "profile": "aavanam/layer/v1",
+  "fixture": "site-handbook",
+  "pair": "layers/open-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "base"
+          },
+          {
+            "$ref": "u-valve"
+          }
+        ],
+        "layer": {
+          "ref": {
+            "$ref": "layer-north"
+          },
+          "scope": "site-north"
+        }
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_count"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ]
+}
