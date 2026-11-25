@@ -13,7 +13,7 @@ Each implementation passes all the conformance vectors. The count comes from the
 | Backend, PostgreSQL 17, reads over HTTP | All vectors | `make check-backend-pg` (needs `AAVANAM_PG_DSN`) |
 | Device store, SQLite with FTS5 | All vectors | `make check-device` |
 
-The lists are `backend/conformance/passing.txt`, `backend/conformance/passing-mem-core.txt`, `backend/conformance/passing-mem-read.txt` and `reference/conformance/passing.txt`. The vectors have no measured size or time numbers. The budget bench is not built.
+The lists are `backend/conformance/passing.txt`, `backend/conformance/passing-mem-core.txt`, `backend/conformance/passing-mem-read.txt` and `reference/conformance/passing.txt`. The vectors have no measured size or time numbers. The budget bench gives these numbers for one machine. [docs/bench.md](bench.md) gives the commands, the CI rule and the first run.
 
 ## Done
 

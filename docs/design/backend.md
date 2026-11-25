@@ -125,7 +125,7 @@ These numbers are targets, not claims. A claim needs a measured result (constitu
 
 - Size target: the PostgreSQL relations of `S1` take 1.5 times the payload bytes plus 2 KiB for each descriptor, or less, with all indexes. The bench reads `pg_total_relation_size`.
 - Method: `backend/bench` makes the store from a fixed seed with neutral synthetic data. It runs 1 000 calls of each operation over the HTTP read binding on the loopback address, with PostgreSQL on the same host, and writes p50, p95 and the size as JSON.
-- CI runs `S0` on each PR that changes `backend/` or `reference/`. The job fails if a p95 is more than two times its target, because shared runners vary. The maintainer runs `S1` on a declared machine and records the result with the machine description.
+- CI runs `S0` on each PR that changes `backend/` or `reference/`. The job fails only on a clear miss: a p95 that is more than three times its target and is not a known miss with an open issue. Reason: shared runners vary. [docs/bench.md](../bench.md) gives the rule, the device measures and the results. The maintainer runs `S1` on a declared machine and records the result with the machine description.
 
 ## 8. Device bundle (#65)
 

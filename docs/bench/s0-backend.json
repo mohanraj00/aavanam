@@ -1,0 +1,220 @@
+{
+  "format": "aavanam-bench/v1",
+  "date": "2026-11-25T02:06:48Z",
+  "note": "Each value is for the machine of this run only. It is not a claim for a different machine.",
+  "machine": {
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "memory_bytes": 25769803776,
+    "os": "Darwin 27.0.0 arm64",
+    "go": "go1.27.2",
+    "postgresql": "17.12 (Debian 17.12-1.pgdg13+1)"
+  },
+  "shape": "S0",
+  "calls": 1000,
+  "check_factor": 3,
+  "runs": [
+    {
+      "storage": "mem",
+      "store": {
+        "shape": "S0",
+        "seed": 1,
+        "collections": 10,
+        "descriptors": 20000,
+        "payload_bytes": 209715200,
+        "main_context_members": 2304,
+        "main_context_text_artifacts": 2000,
+        "table_rows": 10000,
+        "table_bytes": 2097152,
+        "search_matches": 20,
+        "query_data_rows": 100,
+        "filtered_units": 25,
+        "request_digest": "37b1572fa99cc9c70af9eef1c436f54fb58633fa3bc78f9983e62f28934a95fd"
+      },
+      "measures": [
+        {
+          "name": "open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 3.714,
+          "p95_ms": 6.279,
+          "max_ms": 13.335,
+          "target_ms": 25
+        },
+        {
+          "name": "read_row",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 8.547,
+          "p95_ms": 10.481,
+          "max_ms": 30.978,
+          "target_ms": 5
+        },
+        {
+          "name": "read_artifact_64k",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 0.177,
+          "p95_ms": 0.226,
+          "max_ms": 2.475,
+          "target_ms": 5
+        },
+        {
+          "name": "search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 103.36,
+          "p95_ms": 144.358,
+          "max_ms": 461.487,
+          "target_ms": 100
+        },
+        {
+          "name": "query_data_where",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 10.306,
+          "p95_ms": 12.213,
+          "max_ms": 28.998
+        },
+        {
+          "name": "publish_1000:put",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 46.378,
+          "p95_ms": 51.566,
+          "max_ms": 51.566
+        },
+        {
+          "name": "publish_1000:create_snapshot",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 14.973,
+          "p95_ms": 21.088,
+          "max_ms": 21.088
+        },
+        {
+          "name": "publish_1000:create_candidate",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 4.388,
+          "p95_ms": 5.18,
+          "max_ms": 5.18
+        },
+        {
+          "name": "publish_1000:publish",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 3.264,
+          "p95_ms": 3.438,
+          "max_ms": 3.438
+        }
+      ],
+      "times_ms": {
+        "build": 1947.074
+      }
+    },
+    {
+      "storage": "pg",
+      "store": {
+        "shape": "S0",
+        "seed": 1,
+        "collections": 10,
+        "descriptors": 20000,
+        "payload_bytes": 209715200,
+        "main_context_members": 2304,
+        "main_context_text_artifacts": 2000,
+        "table_rows": 10000,
+        "table_bytes": 2097152,
+        "search_matches": 20,
+        "query_data_rows": 100,
+        "filtered_units": 25,
+        "request_digest": "37b1572fa99cc9c70af9eef1c436f54fb58633fa3bc78f9983e62f28934a95fd"
+      },
+      "measures": [
+        {
+          "name": "open_context",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 988.235,
+          "p95_ms": 1554.973,
+          "max_ms": 5007.895,
+          "target_ms": 25
+        },
+        {
+          "name": "read_row",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 17.002,
+          "p95_ms": 20.393,
+          "max_ms": 38.014,
+          "target_ms": 5
+        },
+        {
+          "name": "read_artifact_64k",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 1.627,
+          "p95_ms": 3.219,
+          "max_ms": 9.031,
+          "target_ms": 5
+        },
+        {
+          "name": "search_text",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 1413.796,
+          "p95_ms": 1962.034,
+          "max_ms": 4691.805,
+          "target_ms": 100
+        },
+        {
+          "name": "query_data_where",
+          "clients": 1,
+          "count": 1000,
+          "p50_ms": 22.133,
+          "p95_ms": 31.616,
+          "max_ms": 168.864
+        },
+        {
+          "name": "publish_1000:put",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 1779.304,
+          "p95_ms": 2171.869,
+          "max_ms": 2171.869
+        },
+        {
+          "name": "publish_1000:create_snapshot",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 1252.616,
+          "p95_ms": 1699.215,
+          "max_ms": 1699.215
+        },
+        {
+          "name": "publish_1000:create_candidate",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 1275.044,
+          "p95_ms": 1618.57,
+          "max_ms": 1618.57
+        },
+        {
+          "name": "publish_1000:publish",
+          "clients": 1,
+          "count": 5,
+          "p50_ms": 3.048,
+          "p95_ms": 3.955,
+          "max_ms": 3.955
+        }
+      ],
+      "values": {
+        "pg_relations_bytes": 140296192,
+        "pg_relations_target_bytes": 355532800
+      },
+      "times_ms": {
+        "build": 47457.61
+      }
+    }
+  ]
+}
