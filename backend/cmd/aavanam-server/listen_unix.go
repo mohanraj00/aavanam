@@ -35,10 +35,10 @@ func socketListener(path string, mode os.FileMode, listen func(string) (net.List
 	if !filepath.IsAbs(path) || strings.ContainsRune(path, 0) {
 		return nil, errors.New("the path of the socket must be an absolute file path")
 	}
-	dir, _ := filepath.Split(path)
-	unlock, err := lockSocketDir(dir)
+	lockPath := path + ".lock"
+	unlock, err := lockSocketFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf("lock the socket directory: %w", err)
+		return nil, fmt.Errorf("the socket lock %q: %w", lockPath, err)
 	}
 	if unlock != nil {
 		defer unlock()
@@ -48,7 +48,7 @@ func socketListener(path string, mode os.FileMode, listen func(string) (net.List
 			return nil, errors.New("the path has a file that is not a socket")
 		}
 		if unlock == nil {
-			return nil, errors.New("the path already has a socket and this system cannot lock the socket directory")
+			return nil, errors.New("the path already has a socket and this system does not use a socket lock")
 		}
 		conn, err := net.DialTimeout("unix", path, time.Second)
 		if err == nil {

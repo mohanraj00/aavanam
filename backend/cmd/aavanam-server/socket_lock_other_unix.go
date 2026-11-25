@@ -2,7 +2,7 @@
 
 package main
 
-// These systems have no directory lock. Keep an existing socket at the path.
-func lockSocketDir(string) (func(), error) {
+// The service keeps an existing socket on these systems.
+func lockSocketFile(string) (func(), error) {
 	return nil, nil
 }
