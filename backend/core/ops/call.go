@@ -136,12 +136,25 @@ func (c *Call) Blob(digest, ref string) ([]byte, bool) {
 	return c.checked(data, ref, c.S.HasDeferred(ref))
 }
 
-// BlobOf is Blob for a caller that knows if the descriptor has a deferred record, for example from Deferred.
-func (c *Call) BlobOf(digest, ref string, deferred bool) ([]byte, bool) {
-	data, ok := c.S.Blob(digest)
-	if !ok {
-		return nil, false
+// Blobs returns the bytes of each digest of a list that the store has, with no deferred check. A storage
+// with BatchReader gives them in one read. The caller applies Checked to the bytes of a descriptor.
+func (c *Call) Blobs(digests []string) map[string][]byte {
+	if batch, ok := c.S.(BatchReader); ok {
+		return batch.Blobs(digests)
 	}
+	out := make(map[string][]byte, len(digests))
+	for _, digest := range digests {
+		if data, ok := c.S.Blob(digest); ok {
+			out[digest] = data
+		}
+	}
+	return out
+}
+
+// Checked is the second part of Blob, for bytes that the caller read with Blobs: it applies the deferred
+// checks of a descriptor to bytes that the store has (BUN-IMP-12). `deferred` tells if the descriptor has
+// a deferred record, for example from Deferred.
+func (c *Call) Checked(data []byte, ref string, deferred bool) ([]byte, bool) {
 	return c.checked(data, ref, deferred)
 }
 
@@ -218,8 +231,42 @@ type ReadContext struct {
 // Has tells if an object is in the content of the read context.
 func (rc *ReadContext) Has(ref string) bool { return rc.call.S.IsMember(rc.ID, ref) }
 
-// Members returns the content of the read context, in ascending order.
-func (rc *ReadContext) Members() []string { return rc.call.S.Members(rc.ID) }
+// Members returns the content of the read context, in ascending order. The caller does not change it.
+func (rc *ReadContext) Members() []string {
+	return rc.Memo("members", func() (any, int) {
+		members := rc.call.S.Members(rc.ID)
+		return members, len(members)
+	}).([]string)
+}
+
+// Memo returns a value that is a function of the content of the read context, for example a list of its
+// members. The content of a context does not change (CTX-OPN-2), and a descriptor does not change
+// (IDN-CAN-1). Thus the store keeps the value for the next call with the context, and `build` runs only
+// if the store does not have the value. `build` returns the value and its cost: the number of references
+// that the value keeps. The caller does not change the value.
+func (rc *ReadContext) Memo(name string, build func() (value any, cost int)) any {
+	s := rc.call.Store
+	key := memoKey{rc.ID, name}
+	s.mu.RLock()
+	value, ok := s.memo[key]
+	s.mu.RUnlock()
+	if ok {
+		return value
+	}
+	value, cost := build()
+	s.mu.Lock()
+	if _, ok := s.memo[key]; !ok {
+		if s.memoCost+cost > memoLimit {
+			s.memo, s.memoCost = map[memoKey]any{}, 0
+		}
+		if cost <= memoLimit {
+			s.memo[key] = value
+			s.memoCost += cost
+		}
+	}
+	s.mu.Unlock()
+	return value
+}
 
 // Locate returns the reason code of a reference that is not in the read context, or "" (QRY-GET-2, CTX-OPN-4).
 func (rc *ReadContext) Locate(ref string) string {

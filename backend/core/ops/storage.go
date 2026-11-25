@@ -196,6 +196,8 @@ type BatchReader interface {
 	Objects(refs []string) map[string][]byte
 	// Deferred returns each descriptor of the list that a deferred record names (BUN-IMP-12).
 	Deferred(refs []string) map[string]bool
+	// Blobs returns the bytes of each digest of the list that the store has, with no deferred check.
+	Blobs(digests []string) map[string][]byte
 }
 
 // TextIndex is an optional part of a Tx and of a Reader: an index of the words of text payloads

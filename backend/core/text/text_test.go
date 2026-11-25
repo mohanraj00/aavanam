@@ -46,6 +46,19 @@ func TestToken(t *testing.T) {
 	}
 }
 
+// TokensOf gives the tokens of Tokens(Words(data)), also for a word that is too large for its cache and
+// for a second call (DEV-FTS-3).
+func TestTokensOf(t *testing.T) {
+	long := strings.Repeat("Z", 100)
+	for _, data := range []string{"", " ;", "Alpha beta ALPHA\x00b\xc3\x89 9", long + " a " + long, "alpha"} {
+		for range 2 {
+			if got, want := text.TokensOf([]byte(data)), text.Tokens(text.Words([]byte(data))); !reflect.DeepEqual(got, want) {
+				t.Errorf("%q: %v, want %v", data, got, want)
+			}
+		}
+	}
+}
+
 func TestIsTextMedia(t *testing.T) {
 	for media, want := range map[string]bool{
 		"text/plain": true, " TEXT/markdown ; charset=utf-8": true, "Text/x": true,

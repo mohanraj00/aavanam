@@ -373,6 +373,24 @@ func (v view) Objects(refs []string) map[string][]byte {
 	return out
 }
 
+// Blobs returns the bytes of each digest of a list that the store has, in one statement (ops.BatchReader).
+func (v view) Blobs(digests []string) map[string][]byte {
+	out := make(map[string][]byte, len(digests))
+	if len(digests) == 0 {
+		return out
+	}
+	v.each(func(rows pgx.Rows) error {
+		var digest []byte
+		data := []byte{}
+		if err := rows.Scan(&digest, &data); err != nil {
+			return err
+		}
+		out[name(digest)] = data
+		return nil
+	}, `SELECT digest, data FROM payloads WHERE digest = ANY($1::bytea[])`, keys(digests))
+	return out
+}
+
 // Deferred returns each descriptor of a list that a deferred record names (ops.BatchReader).
 func (v view) Deferred(refs []string) map[string]bool {
 	out := map[string]bool{}
@@ -469,7 +487,9 @@ func (s session) Update(fn func(tx ops.Tx)) {
 			_ = t.Rollback(ctx)
 		}
 	}()
-	fn(tx{view{s.ctx, t, s.life}})
+	work := tx{view{s.ctx, t, s.life}, &tokenBatch{}}
+	fn(work)
+	work.flushTokens()
 	if err := t.Commit(s.ctx); err != nil {
 		ops.Raise(err)
 	}
@@ -478,7 +498,10 @@ func (s session) Update(fn func(tx ops.Tx)) {
 
 // tx is one update: a transaction at the READ COMMITTED level. After a lock, a read gives the committed
 // state of each update that had the lock before.
-type tx struct{ view }
+type tx struct {
+	view
+	tokens *tokenBatch // the text index rows that the update did not write yet
+}
 
 func (t tx) LockCollections(collections []string) {
 	names := append([]string(nil), collections...)

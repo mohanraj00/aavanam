@@ -411,27 +411,30 @@ func (v view) Closure(root string) []string {
 	return ops.Sorted(ops.ClosureIn(v, []string{root}))
 }
 
-// Objects returns the canonical text of each descriptor of a list (ops.BatchReader).
-func (v view) Objects(refs []string) map[string][]byte {
+// pairs returns the second column of a query for each key of a list, from the first schema that has the
+// key. The query has `{s}` for the schema and one argument: the JSON list of the keys.
+func (v view) pairs(query string, refs []string) map[string][]byte {
 	out := make(map[string][]byte, len(refs))
 	if len(refs) == 0 {
 		return out
 	}
 	list := hexList(refs)
 	for _, schema := range v.s.schemas {
-		rows, err := v.q.QueryContext(v.ctx, in(`SELECT ref, canonical FROM {s}.objects
-			WHERE ref IN (SELECT unhex(value) FROM json_each(?))`, schema), list)
+		rows, err := v.q.QueryContext(v.ctx, in(query, schema), list)
 		if err != nil {
 			ops.Raise(err)
 		}
 		for rows.Next() {
-			var ref, text []byte
-			if err := rows.Scan(&ref, &text); err != nil {
+			var ref, value []byte
+			if err := rows.Scan(&ref, &value); err != nil {
 				rows.Close()
 				ops.Raise(err)
 			}
+			if value == nil {
+				value = []byte{}
+			}
 			if _, has := out[refOf(ref)]; !has {
-				out[refOf(ref)] = text
+				out[refOf(ref)] = value
 			}
 		}
 		err = rows.Err()
@@ -441,6 +444,16 @@ func (v view) Objects(refs []string) map[string][]byte {
 		}
 	}
 	return out
+}
+
+// Objects returns the canonical text of each descriptor of a list (ops.BatchReader).
+func (v view) Objects(refs []string) map[string][]byte {
+	return v.pairs(`SELECT ref, canonical FROM {s}.objects WHERE ref IN (SELECT unhex(value) FROM json_each(?))`, refs)
+}
+
+// Blobs returns the bytes of each digest of a list that the store has (ops.BatchReader).
+func (v view) Blobs(digests []string) map[string][]byte {
+	return v.pairs(`SELECT digest, data FROM {s}.payloads WHERE digest IN (SELECT unhex(value) FROM json_each(?))`, digests)
 }
 
 // Deferred returns each descriptor of a list that a deferred record names (ops.BatchReader).

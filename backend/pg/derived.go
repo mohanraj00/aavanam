@@ -3,6 +3,7 @@ package pg
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
@@ -79,23 +80,85 @@ func (v view) PutTextTokens(digest string, tokens []string) {
 	v.exec(`INSERT INTO text_tokens (digest, bits) VALUES ($1, $2) ON CONFLICT DO NOTHING`, must(digest), bitSet(tokens))
 }
 
+// tokenBatch has the text index rows of one update. The update writes them in one statement for each
+// tokenBatchBytes of bit sets, and not in one statement for each payload.
+type tokenBatch struct {
+	rows map[string][]byte // digest, then bit set
+	size int
+}
+
+const tokenBatchBytes = 4 << 20
+
+// PutTextTokens keeps the row for the next flush. A read of the index in the update writes the rows first.
+func (t tx) PutTextTokens(digest string, tokens []string) {
+	must(digest)
+	if _, ok := t.tokens.rows[digest]; ok {
+		return
+	}
+	if t.tokens.rows == nil {
+		t.tokens.rows = map[string][]byte{}
+	}
+	bits := bitSet(tokens)
+	t.tokens.rows[digest] = bits
+	if t.tokens.size += len(bits); t.tokens.size >= tokenBatchBytes {
+		t.flushTokens()
+	}
+}
+
+// flushTokens writes the kept rows in ascending order of the digest. Thus two updates that write the same
+// rows take the row locks in one order and cannot wait for each other.
+func (t tx) flushTokens() {
+	if len(t.tokens.rows) == 0 {
+		return
+	}
+	digests := make([]string, 0, len(t.tokens.rows))
+	for digest := range t.tokens.rows {
+		digests = append(digests, digest)
+	}
+	sort.Strings(digests)
+	sets := make([][]byte, len(digests))
+	for i, digest := range digests {
+		sets[i] = t.tokens.rows[digest]
+	}
+	t.tokens.rows, t.tokens.size = nil, 0
+	t.exec(`INSERT INTO text_tokens (digest, bits) SELECT * FROM unnest($1::bytea[], $2::bytea[]) ON CONFLICT DO NOTHING`,
+		raws(digests), sets)
+}
+
+func (t tx) TextIndexed(digest string) bool {
+	t.flushTokens()
+	return t.view.TextIndexed(digest)
+}
+
+func (t tx) TextCandidates(tokens, digests []string) (candidates, unindexed []string) {
+	t.flushTokens()
+	return t.view.TextCandidates(tokens, digests)
+}
+
 func (v view) TextIndexed(digest string) bool {
 	key, ok := raw(digest)
 	return ok && v.exists(`SELECT 1 FROM text_tokens WHERE digest = $1`, key)
 }
 
 // TextCandidates reads the bit set of each digest of the list in one statement. The statement has the bit
-// positions of the tokens, and no text of the request (CRD-TXT-3).
+// positions of the tokens, one condition for each position, and no text of the request (CRD-TXT-3).
 func (v view) TextCandidates(tokens, digests []string) (candidates, unindexed []string) {
 	if len(digests) == 0 {
 		return nil, nil
 	}
-	var bits []int64
+	args := []any{keys(digests)}
+	condition := "true"
+	seen := map[int64]bool{}
 	for _, token := range tokens {
-		p := positions(token)
-		bits = append(bits, p[:]...)
+		for _, p := range positions(token) {
+			if !seen[p] {
+				seen[p] = true
+				args = append(args, p)
+				condition += fmt.Sprintf(" AND get_bit(bits, ($%d::bigint %% (octet_length(bits)::bigint * 8))::int) = 1", len(args))
+			}
+		}
 	}
-	indexed := map[string]bool{}
+	indexed := make(map[string]bool, len(digests))
 	v.each(func(rows pgx.Rows) error {
 		var digest []byte
 		var possible bool
@@ -107,9 +170,7 @@ func (v view) TextCandidates(tokens, digests []string) (candidates, unindexed []
 			candidates = append(candidates, name(digest))
 		}
 		return nil
-	}, `SELECT digest, NOT EXISTS (SELECT 1 FROM unnest($2::bigint[]) AS p
-			WHERE get_bit(bits, (p % (octet_length(bits)::bigint * 8))::int) = 0)
-		FROM text_tokens WHERE digest = ANY($1::bytea[])`, keys(digests), bits)
+	}, `SELECT digest, `+condition+` FROM text_tokens WHERE digest = ANY($1::bytea[])`, args...)
 	for _, digest := range digests {
 		if !indexed[digest] {
 			unindexed = append(unindexed, digest)

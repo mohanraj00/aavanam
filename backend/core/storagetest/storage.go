@@ -235,7 +235,11 @@ func contentAndCatalog(t *testing.T, s Backing) {
 		if got := batch.Deferred([]string{refA, refB, refC}); !reflect.DeepEqual(got, map[string]bool{refA: true, refC: true}) {
 			t.Errorf("the deferred descriptors of a list: %v", got)
 		}
-		if len(batch.Objects(nil)) != 0 || len(batch.Deferred(nil)) != 0 {
+		blobs := batch.Blobs([]string{refD, refB, refC, "not a digest"})
+		if data, ok := blobs[refB]; len(blobs) != 2 || string(blobs[refD]) != "one" || !ok || len(data) != 0 {
+			t.Errorf("the bytes of a list: %q", blobs)
+		}
+		if len(batch.Objects(nil)) != 0 || len(batch.Deferred(nil)) != 0 || len(batch.Blobs(nil)) != 0 {
 			t.Error("a batch read of an empty list")
 		}
 	}
