@@ -29,6 +29,7 @@ REASON_STATUS = {
     'binding_skew': 'incompatible',
     'layer_scope_mismatch': 'incompatible',  # LYR-PRF-3, LYR-OPN-2
     'layer_base_mismatch': 'incompatible',  # LYR-PRF-3, LYR-OPN-2
+    'index_stale': 'incompatible',  # the profile aavanam/semantic-index/v1 (IDX-PRF-3)
     'head_moved': 'incompatible',
     'check_outside_snapshot': 'incompatible',
     'receipt_rejected': 'incompatible',

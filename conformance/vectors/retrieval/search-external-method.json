@@ -1,0 +1,88 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search through an index of an external method gives unsupported_profile",
+  "clauses": [
+    "IDX-MTH-2",
+    "IDX-SRC-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/search-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i-ext"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i-ext"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i-ext"
+        },
+        "query": "pump bearing"
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_profile"
+        ],
+        "items": [],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "unsupported_profile",
+            "refs": [
+              {
+                "$ref": "i-ext"
+              }
+            ],
+            "capabilities": [
+              "sample/embedding/v1"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

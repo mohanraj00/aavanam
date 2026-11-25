@@ -1,6 +1,6 @@
 # Aavanam specification
 
-Status: draft. Documents 01 to 23 are in the `draft` state. No clause is normative yet.
+Status: draft. Documents 01 to 24 are in the `draft` state. No clause is normative yet.
 
 This file is the index. The normative text is in `docs/contracts/`. The [constitution](CONSTITUTION.md) has authority over this specification. This specification has authority over the implementation.
 
@@ -31,6 +31,7 @@ This file is the index. The normative text is in `docs/contracts/`. The [constit
 | DEV | [21 Device stores](docs/contracts/21-device-stores.md) | The SQLite layout of a device store and its output file, the layout profile, the FTS5 index |
 | NET | [22 Network read binding](docs/contracts/22-network-read-binding.md) | The network binding of the operations that do not write content: transport, limits, version rule |
 | LYR | [23 Layers](docs/contracts/23-layers.md) | The layer profile: a layer for one scope on a base collection, precedence, layered read contexts, isolation, the view of a lock |
+| IDX | [24 Retrieval indexes](docs/contracts/24-retrieval-indexes.md) | The semantic index profile: an index derived from one snapshot, its method, the search, a stale index, the indexes of a lock |
 
 The conformance vector format and the runner are in [conformance/](conformance/README.md). Vectors cite the clause IDs in these documents.
 
@@ -60,7 +61,7 @@ The base profile is at minor version 12. Minor version 1 adds the kind `activati
 
 - A compatible addition to a profile increments the minor version in the profile document.
 - An incompatible change makes a new major version, for example `aavanam/base/v2`. Old objects keep their old profile identity. A transformation makes new objects.
-- Document 21 has the layout profile `aavanam/device-sqlite/v1`, and document 22 has the API profile `aavanam-read/v1`. Document 23 has the layer profile `aavanam/layer/v1`. A store declares each of these profiles separately from the base profile. Their clauses apply only to a store that declares them. The layer profile has its own kind, field and reason tables (LYR-PRF-2, LYR-PRF-3). Thus it does not change the tables or the minor version of the base profile.
+- Document 21 has the layout profile `aavanam/device-sqlite/v1`, and document 22 has the API profile `aavanam-read/v1`. Document 23 has the layer profile `aavanam/layer/v1`. A store declares each of these profiles separately from the base profile. Their clauses apply only to a store that declares them. The layer profile has its own kind, field and reason tables (LYR-PRF-2, LYR-PRF-3). Thus it does not change the tables or the minor version of the base profile. Document 24 has the retrieval index profile `aavanam/semantic-index/v1`, which document 16 reserved. It has its own kind, field, reason, operation and capability tables (IDX-PRF-2 to IDX-PRF-4), and it does not change the tables or the minor version of the base profile either.
 - A reserved profile is listed in document 16. Operations that need it return `unsupported` until it is specified.
 
 Extensions use the namespace `ext:<owner>/<name>/v<N>`. The owner is a DNS name or a GitHub owner. An extension MAY add kinds, fields or reason codes. It MUST NOT change the meaning of a base clause. An application that is not aware of an extension keeps the extension data as opaque content.

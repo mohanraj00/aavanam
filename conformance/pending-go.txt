@@ -4,3 +4,6 @@
 
 # Document 23, the layer profile aavanam/layer/v1 (issue 44). The Go implementations do not declare it. Issue 132 has the Go work.
 layers/**
+
+# Document 24, the retrieval index profile aavanam/semantic-index/v1 (issue 45). The Go implementations do not declare it. Issue 132 has the Go work.
+retrieval/**

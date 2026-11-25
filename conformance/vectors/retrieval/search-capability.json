@@ -1,0 +1,87 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A projected context with no capability of the profile gives capability_unavailable",
+  "clauses": [
+    "IDX-PRF-4",
+    "IDX-SRC-1",
+    "CTX-PRJ-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/search-capability-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ],
+        "capabilities": [
+          "aavanam/text/v1"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "pump bearing"
+      },
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "capability_unavailable"
+        ],
+        "items": [],
+        "store_unchanged": true,
+        "reason_details": [
+          {
+            "code": "capability_unavailable",
+            "capabilities": [
+              "aavanam/semantic-index/v1"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

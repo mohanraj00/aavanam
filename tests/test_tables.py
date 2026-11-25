@@ -5,10 +5,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import support  # noqa: F401  (paths)
 import check_spec
-from aavanam import kinds, statuses
+from aavanam import kinds, statuses, store
 
 
 class TablesTest(unittest.TestCase):
@@ -26,7 +27,7 @@ class TablesTest(unittest.TestCase):
         self.assertEqual(check_spec.profiles()['LYR'], 'aavanam/layer/v1')
         self.assertEqual(check_spec.profiles()['KND'], check_spec.BASE_PROFILE)
         kinds_of_profile = {row[0] for _, row in check_spec.profile_rows(check_spec.PROFILE_KINDS, 3)}
-        self.assertEqual(kinds_of_profile, {'layer'})
+        self.assertEqual(kinds_of_profile, {'layer', 'retrieval-index'})
         self.assertEqual(check_spec.schemas()['build-lock']['view'], ('ref', '0..n'))
         self.assertEqual(check_spec.targets()[('execution-lock', 'view')], {'snapshot', 'layer'})
         # The tables of document 02 and document 03 do not have the kind, the field or the reasons of the profile.
@@ -38,7 +39,8 @@ class TablesTest(unittest.TestCase):
     def test_a_vector_has_the_profile_of_its_clauses(self):
         vectors = {v.relative_to(check_spec.VECTORS).as_posix(): json.loads(v.read_text()) for v in check_spec.VECTORS.rglob('*.json')}
         for name, vector in vectors.items():
-            wanted = 'aavanam/layer/v1' if any(c.startswith('LYR-') for c in vector['clauses']) else check_spec.BASE_PROFILE
+            wanted = ('aavanam/layer/v1' if any(c.startswith('LYR-') for c in vector['clauses'])
+                      else 'aavanam/semantic-index/v1' if any(c.startswith('IDX-') for c in vector['clauses']) else check_spec.BASE_PROFILE)
             self.assertEqual(vector['profile'], wanted, name)
 
     def test_a_vector_with_a_different_profile_is_a_problem(self):
@@ -49,6 +51,34 @@ class TablesTest(unittest.TestCase):
                 problems = check_spec.check(Path(folder))
             self.assertEqual(len(problems), 1, problems)
             self.assertIn('profile is not', problems[0])
+
+    def test_operation_and_capability_tables_of_a_profile(self):  # IDX-PRF-4, RSV-LST-4
+        index = 'aavanam/semantic-index/v1'
+        self.assertEqual(check_spec.profiles()['IDX'], index)
+        self.assertEqual(check_spec.operations()['semantic_search'], {'unsupported'})  # the row of document 03 does not change
+        self.assertEqual(check_spec.operations('aavanam/layer/v1'), check_spec.operations())
+        with_profile = check_spec.operations(index)
+        self.assertEqual(with_profile['semantic_search'], set(check_spec.STATUS_SET))
+        self.assertEqual({op: s for op, s in with_profile.items() if op != 'semantic_search'},
+                         {op: s for op, s in check_spec.operations().items() if op != 'semantic_search'})
+        self.assertEqual(check_spec.capabilities(), store.CAPABILITIES)
+        self.assertEqual(check_spec.capabilities(index), {**store.CAPABILITIES, **store.PROFILE_CAPABILITIES[index]})
+        self.assertEqual(statuses.RESERVED['semantic_search'], index)  # RSV-LST-4: the row stays in the reserved profile table
+        self.assertEqual(store.PARTIAL, {op for op, s in with_profile.items() if 'partial' in s})
+
+    def test_a_wrong_profile_operation_table_is_a_problem(self):  # IDX-PRF-4, RSV-LST-3
+        text = (check_spec.CONTRACTS / '24-retrieval-indexes.md').read_text()
+        cases = (('| `semantic_search` | 24 |', '| `gc_collect` | 24 |', 'not a reserved operation of the profile'),
+                 ('| `semantic_search` | 24 |', '| `semantic_search` | 16 |', 'a different document'),
+                 ('| `aavanam/semantic-index/v1` | `semantic_search` |', '| `aavanam/text/v1` | `semantic_search` |', 'is a base capability'),
+                 ('| `aavanam/semantic-index/v1` | `semantic_search` |', '| `aavanam/semantic-index/v1` | `search` |', 'not in the operation table of the profile'))
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(check_spec, 'CONTRACTS', Path(folder)):
+            for old, new, problem in cases:  # a copy of the document: the checkout does not change
+                self.assertEqual(text.count(old), 1, old)
+                (Path(folder) / '24-retrieval-indexes.md').write_text(text.replace(old, new))
+                self.assertTrue(any(problem in e for e in check_spec.check_profile_tables()), problem)
+            (Path(folder) / '24-retrieval-indexes.md').write_text(text)
+            self.assertEqual(check_spec.check_profile_tables(), [])
 
     def test_reason_and_reserved_tables(self):
         self.assertEqual(statuses.REASON_STATUS, check_spec.reason_statuses())

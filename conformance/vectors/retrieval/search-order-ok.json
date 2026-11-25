@@ -1,0 +1,236 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "The items are in the order of the score, then of the logical ID",
+  "clauses": [
+    "IDX-SRC-6",
+    "IDX-MTH-5"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Each item has the word the: score 1, in the order of the logical ID. With the second query, seal shares three words and comes first."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "the"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "the seal year"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-seal"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "seal",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 3
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

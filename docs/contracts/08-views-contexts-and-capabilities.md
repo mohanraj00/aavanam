@@ -28,7 +28,7 @@ This document defines views, read contexts, projected contexts with functional c
 
 ### Opening a read context
 
-**CTX-OPN-1.** The request of `open_context` can have the field `roots`, a list of references, the field `heads` (CTX-VIW-2), the field `skew_policy` (CTX-SKW-3), the field `capabilities` (CTX-PRJ-2) and the field `layer` (LYR-OPN-1). Each root MUST have kind `knowledge-unit` or `snapshot`. The result has one item for each root, in the order of `roots`, and then one item for each name of `heads`, in the order of the request. An `ok` item has the field `ref`, the root or the head snapshot. If a root is not in the store, its item has status `not_found` and reason `unknown_ref`. If a root has a different kind, its item has status `unsupported` and reason `unsupported_target_kind`. STS-ENV-3 gives the envelope status.
+**CTX-OPN-1.** The request of `open_context` can have the field `roots`, a list of references, the field `heads` (CTX-VIW-2), the field `skew_policy` (CTX-SKW-3), the field `capabilities` (CTX-PRJ-2) and the field `layer` (LYR-OPN-1). Each root MUST have kind `knowledge-unit` or `snapshot`. A store that declares the profile of document 24 also permits a root of kind `retrieval-index` (IDX-DEF-3). The result has one item for each root, in the order of `roots`, and then one item for each name of `heads`, in the order of the request. An `ok` item has the field `ref`, the root or the head snapshot. If a root is not in the store, its item has status `not_found` and reason `unknown_ref`. If a root has a different kind, its item has status `unsupported` and reason `unsupported_target_kind`. STS-ENV-3 gives the envelope status.
 
 **CTX-OPN-5.** The store checks the request form of `open_context` before its roots and heads. It applies these checks in order, and stops at the first check that fails. The result has status `failed` with one reason for each affected value, and no items.
 
@@ -44,7 +44,7 @@ This document defines views, read contexts, projected contexts with functional c
 
 ### Projected contexts and capabilities
 
-**CTX-PRJ-1.** A capability is the name of a function that a read context can make available. The capability table gives each capability of the base profile and the operations that need it. An operation that is not in the table does not need a capability, for example `get`.
+**CTX-PRJ-1.** A capability is the name of a function that a read context can make available. The capability table gives each capability of the base profile and the operations that need it. An operation that is not in the table does not need a capability, for example `get`. A profile document can add a capability for the stores that declare the profile (IDX-PRF-4).
 
 | Capability | Operations |
 |---|---|

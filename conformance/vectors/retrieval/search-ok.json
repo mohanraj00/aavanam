@@ -1,0 +1,134 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search gives each item of the snapshot that shares a term with the query, with its snapshot, its index and its score",
+  "clauses": [
+    "IDX-SRC-1",
+    "IDX-SRC-2",
+    "IDX-SRC-3",
+    "IDX-SRC-6",
+    "IDX-SRC-7",
+    "IDX-MTH-3",
+    "IDX-MTH-4",
+    "IDX-MTH-5",
+    "IDX-PRF-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The notes of motor and pump have the words pump and bearing: score 2. The note of valve has pump: score 1. The texts of seal have no word of the query. In one score, the logical ID gives the order (IDX-SRC-6)."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "pump bearing"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 2
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-valve"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "valve",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

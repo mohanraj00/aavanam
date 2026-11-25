@@ -1,0 +1,74 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A search with no matching item is ok with no items",
+  "clauses": [
+    "IDX-SRC-3",
+    "IDX-MTH-3",
+    "IDX-MTH-5",
+    "STS-ENV-2"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The word loose is only in an artifact that no unit of the snapshot reaches. The word fan is only in a unit of the later snapshot."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "loose fan"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

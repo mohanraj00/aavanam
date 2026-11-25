@@ -22,7 +22,7 @@ from decimal import Decimal
 
 from . import descriptors as d
 from .jsontext import FormError, canonical, detached, digest, is_digest, is_ijson, number_value, parse, revision, valid_string
-from .kinds import BASE_PROFILE, LAYER_PROFILE, PROFILES, registered
+from .kinds import BASE_PROFILE, HASHED_TERMS, INDEX_PROFILE, LAYER_PROFILE, PROFILES, registered
 from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
@@ -32,13 +32,14 @@ DECLARED = {'redistributable', 'no_redistribution', 'unknown'}  # BUN-RED-1
 RENDER_PROFILE = 'aavanam/render/v1'
 # The operations whose row in the operation table has `partial` (STS-ENV-3)
 PARTIAL = {'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render', 'compare', 'impact',
-           'snapshot_changes', 'list_items', 'search_text'}
+           'snapshot_changes', 'list_items', 'search_text', 'semantic_search'}
 LOCK_KINDS = {'execution_inputs': 'execution-lock', 'build_inputs': 'build-lock'}
 # The capability table (CTX-PRJ-1): each capability and the operations that need it
 CAPABILITIES = {'aavanam/data/v1': ('query_data',), 'aavanam/lexical/v1': ('search',),
                 'aavanam/locks/v1': ('execution_inputs', 'build_inputs'), 'aavanam/export/v1': ('export',),
                 'aavanam/text/v1': ('search_text',)}
-NEEDS = {op: cap for cap, ops in CAPABILITIES.items() for op in ops}
+# The capability that a profile adds for the stores that declare it (IDX-PRF-4)
+PROFILE_CAPABILITIES = {INDEX_PROFILE: {INDEX_PROFILE: ('semantic_search',)}}
 SKEW_POLICIES = ('reject', 'permit')  # CTX-SKW-3
 ROLES = ('writer', 'device', 'output')  # BUN-IMP-5
 # The fields of the publication record (PUB-LOG-2), after `candidate` and `receipt`. The rowid order is the head update order.
@@ -259,6 +260,12 @@ def is_query(value) -> bool:
     return 1 <= len(WORD.findall(value.encode('utf-8'))) <= 32
 
 
+def buckets(data: bytes, dimensions: int) -> set[int]:
+    """The bucket set of the terms of `data` under the method hashed-terms (IDX-MTH-4). A term is the folded form
+    of a word (CRD-TXT-3). Its bucket is the first four bytes of its SHA-256 digest, as an integer, modulo `dimensions`."""
+    return {int.from_bytes(hashlib.sha256(w).digest()[:4], 'big') % dimensions for _, _, w in words(data)}
+
+
 def is_text_media(media_type: str) -> bool:
     """CRD-TXT-2: the part before the first `;`, without ASCII spaces at its ends, with A to Z folded, is text/<more>."""
     part = media_type.split(';', 1)[0].strip(' ').encode('utf-8').lower()
@@ -342,6 +349,9 @@ class Store:
         if set(profiles) - set(PROFILES):
             raise ValueError(f'a store declares only these profiles: {", ".join(PROFILES)} (LYR-PRF-1)')
         self.profiles = tuple(profiles)  # the declared profiles, for the life of this open
+        # The capability table of this store, and the capability that each operation needs (CTX-PRJ-1, IDX-PRF-4)
+        self.capabilities = {**CAPABILITIES, **{c: ops for p in self.profiles for c, ops in PROFILE_CAPABILITIES.get(p, {}).items()}}
+        self.needs = {op: cap for cap, ops in self.capabilities.items() for op in ops}
         self.role, self.device, self.output = role, device, None
         self.debug = debug  # raise in place of storage_error, for tests
         self.broken = False  # a rollback failed, so the connection can show a partial write
@@ -594,7 +604,7 @@ class Store:
         """Return the envelope of one call. No raw exception crosses the API (STS-MAL-1)."""
         if not isinstance(operation, str):
             return self.envelope(None, 'unsupported', [reason('unsupported_operation')])
-        if operation in RESERVED:  # STS-MAL-4, RSV-RSP-1
+        if operation in RESERVED and RESERVED[operation] not in self.profiles:  # STS-MAL-4, RSV-RSP-1, RSV-LST-4
             return self.envelope(operation, 'unsupported', [reason('reserved_profile', (), [RESERVED[operation]])])
         method = getattr(self, 'op_' + operation, None)
         if method is None:
@@ -652,8 +662,8 @@ class Store:
         """The identity and the content of the read context of the request (CTX-OPN-3). If the operation
         needs a capability that the context does not have, raise capability_unavailable (CTX-PRJ-4)."""
         context, members, capabilities = self.context_of(request)
-        if operation in NEEDS and NEEDS[operation] not in capabilities:
-            raise Failure('unsupported', [reason('capability_unavailable', (), [NEEDS[operation]])])
+        if operation in self.needs and self.needs[operation] not in capabilities:
+            raise Failure('unsupported', [reason('capability_unavailable', (), [self.needs[operation]])])
         return context, members
 
     def context_of(self, request: dict) -> tuple[str, Members, list[str]]:
@@ -733,8 +743,8 @@ class Store:
 
     def op_open_context(self, request: dict) -> dict:
         self.open_form(request)
-        capabilities = request.get('capabilities', list(CAPABILITIES))  # CTX-PRJ-2
-        unknown = [c for c in capabilities if c not in CAPABILITIES]
+        capabilities = request.get('capabilities', list(self.capabilities))  # CTX-PRJ-2
+        unknown = [c for c in capabilities if c not in self.capabilities]
         if unknown:  # CTX-PRJ-3
             raise Failure('unsupported', [reason('unsupported_profile', (), [c]) for c in unknown])
         roots, heads = request.get('roots', []), request.get('heads', [])
@@ -744,8 +754,8 @@ class Store:
             kind = self.kind(root)
             if kind is None:
                 items.append(refused(['unknown_ref'], [root]))
-            elif kind not in ('knowledge-unit', 'snapshot'):
-                items.append(refused(['unsupported_target_kind'], [root]))
+            elif kind not in ('knowledge-unit', 'snapshot') and not (kind == 'retrieval-index' and INDEX_PROFILE in self.profiles):
+                items.append(refused(['unsupported_target_kind'], [root]))  # IDX-DEF-3: an index root with the profile
             else:
                 items.append(item(ref=root))
         items += [item(ref=found[n]) if found[n] else refused(['no_head']) for n in heads]  # CTX-VIW-2
@@ -1109,10 +1119,9 @@ class Store:
         if wrong:
             raise Failure('incompatible', [reason('runtime_profile_mismatch', [r]) for r in sorted(set(wrong))])
 
-    @staticmethod
-    def required(request: dict, capabilities: list[str]) -> None:
+    def required(self, request: dict, capabilities: list[str]) -> None:
         """LCK-CAP-2: one reason for each name of `requires` that is not in the table or not in the context."""
-        reasons = [reason('unsupported_profile' if c not in CAPABILITIES else 'capability_unavailable', (), [c])
+        reasons = [reason('unsupported_profile' if c not in self.capabilities else 'capability_unavailable', (), [c])
                    for c in request.get('requires', []) if c not in capabilities]
         if reasons:
             raise Failure('unsupported', reasons)
@@ -1132,6 +1141,30 @@ class Store:
             target.write({ref: desc}, {})
         return self.envelope(operation, 'ok', [], items, context, lock=ref)
 
+    def indexes_form(self) -> dict:
+        """The field `indexes` of a lock request, only for a store that declares the retrieval index profile (IDX-LCK-1)."""
+        return {'indexes': (False, lambda v: is_refs(v, empty=True))} if INDEX_PROFILE in self.profiles else {}
+
+    @staticmethod
+    def indexes_of(request: dict) -> list[tuple[str, tuple]]:
+        """Each index of a lock request with its permitted kind (IDX-LCK-2)."""
+        return [(r, ('retrieval-index',)) for r in request.get('indexes', [])]
+
+    def stale(self, index: str, context: str) -> str | None:
+        """The snapshot root of the context that makes the index stale, or None (IDX-STL-1): a root of the
+        collection of the index snapshot that is a different snapshot. A context has at most one (CTX-CMP-1)."""
+        snapshot = self.descriptor(index)['snapshot']
+        collection = self.descriptor(snapshot)['collection']
+        roots = json.loads(self.db.execute('SELECT roots FROM contexts WHERE id = ?', (context,)).fetchone()[0])
+        return next((r for r in sorted(set(roots)) if r != snapshot and self.kind(r) == 'snapshot'
+                     and self.descriptor(r)['collection'] == collection), None)
+
+    def fresh_indexes(self, request: dict, context: str) -> None:
+        """IDX-LCK-2: one index_stale reason for each stale index of a lock request."""
+        reasons = [reason('index_stale', [r, root]) for r in request.get('indexes', []) if (root := self.stale(r, context))]
+        if reasons:
+            raise Failure('incompatible', reasons)
+
     def lock_context(self, request: dict, operation: str) -> tuple[str, Members, list[str]]:
         """The read context of a lock request, with the capability of the operation (CTX-PRJ-4)."""
         context, members = self.members(request, operation)
@@ -1139,26 +1172,32 @@ class Store:
 
     def op_execution_inputs(self, request: dict) -> dict:
         form(request, {'context': (True, is_str), 'binding_set': (True, is_digest), 'context_inputs': (False, lambda v: is_refs(v, empty=True)),
-                       'requires': (False, is_names), 'consumer': (True, is_text), 'completeness': (True, is_label)})
+                       'requires': (False, is_names), 'consumer': (True, is_text), 'completeness': (True, is_label),
+                       **self.indexes_form()})
         counted(request, 'context_inputs')  # LCK-EXE-1
         counted(request, 'requires')  # LCK-CAP-1
+        counted(request, 'indexes')  # IDX-LCK-1
         context, members, capabilities = self.lock_context(request, 'execution_inputs')
         inputs = request.get('context_inputs', [])
         binding_set, permitted = request['binding_set'], d.targets('execution-lock', 'context_inputs')
-        self.checked_refs([(binding_set, ('binding-set',))] + [(r, permitted) for r in inputs], members)
+        self.checked_refs([(binding_set, ('binding-set',))] + [(r, permitted) for r in inputs] + self.indexes_of(request), members)
         self.required(request, capabilities)
+        self.fresh_indexes(request, context)
         self.bindings_problems(self.descriptor(binding_set))
         return self.lock('execution_inputs', request, context, [binding_set, *inputs], members.view)
 
     def op_build_inputs(self, request: dict) -> dict:
         form(request, {'context': (True, is_str), 'inputs': (True, lambda v: is_refs(v, empty=True)),
-                       'requires': (False, is_names), 'consumer': (True, is_text), 'completeness': (True, is_label)})
+                       'requires': (False, is_names), 'consumer': (True, is_text), 'completeness': (True, is_label),
+                       **self.indexes_form()})
         counted(request, 'inputs', many=True)  # LCK-BLD-1
         counted(request, 'requires')  # LCK-CAP-1
+        counted(request, 'indexes')  # IDX-LCK-1
         context, members, capabilities = self.lock_context(request, 'build_inputs')
         inputs = request['inputs']
-        self.checked_refs([(r, d.targets('build-lock', 'inputs')) for r in inputs], members)
+        self.checked_refs([(r, d.targets('build-lock', 'inputs')) for r in inputs] + self.indexes_of(request), members)
         self.required(request, capabilities)
+        self.fresh_indexes(request, context)
         return self.lock('build_inputs', request, context, inputs, members.view)
 
     # Bundles (document 11)
@@ -1439,6 +1478,51 @@ class Store:
         rest = items[offset:]
         bounded = limit is not None and len(rest) > limit  # CRD-ORD-2
         return self.result('search_text', rest[:limit] if limit is not None else rest, context, bounded)
+
+    # The retrieval index profile (document 24). The index is a projection of its snapshot: the store keeps no
+    # derived data, so a search makes the bucket sets again from the snapshot (IDX-DEF-2, IDX-SRC-7).
+
+    def op_semantic_search(self, request: dict) -> dict:
+        strict(request, {'context': (True, is_str), 'index': (True, is_digest), 'query': (True, is_query), 'offset': (False, is_count),
+                         'limit': (False, lambda v: is_count(v, 1)), 'filter': (False, is_filter)})  # IDX-SRC-1 steps 1 to 3
+        context, members = self.members(request, 'semantic_search')  # steps 4 and 5
+        index = request['index']
+        code = self.locate(index, members)  # IDX-SRC-2
+        if code:
+            raise fail(code, refs=[index])
+        if self.kind(index) != 'retrieval-index':
+            raise fail('unsupported_target_kind', refs=[index])
+        root = self.stale(index, context)
+        if root:
+            raise fail('index_stale', refs=[index, root])  # IDX-STL-1
+        desc = self.descriptor(index)
+        if desc['method'] != HASHED_TERMS:  # IDX-MTH-2: the store does not run an external method
+            raise Failure('unsupported', [reason('unsupported_profile', [index], [desc['method']])])
+        dimensions, snapshot = desc['parameters']['dimensions'], desc['snapshot']
+        wanted = buckets(request['query'].encode('utf-8'), dimensions)
+        scored, absent = [], []
+        for unit in self.descriptor(snapshot).get('units', []):  # IDX-MTH-3: the items are the units of the snapshot
+            found: set[int] | None = set()
+            for ref in sorted(self.closure([unit])):
+                part = self.descriptor(ref)
+                if part['kind'] == 'artifact' and is_text_media(part['payload']['media_type']):
+                    data = self.blob(part['payload']['digest'], ref=ref)
+                    if data is None:
+                        found = None  # IDX-SRC-4: no score from a part of the texts
+                        break
+                    found |= buckets(data, dimensions)
+            if found is None:
+                absent.append(unit)
+            elif found & wanted:
+                scored.append((-len(found & wanted), 'logical_id' not in self.descriptor(unit), self.descriptor(unit).get('logical_id', ''), unit))
+        entries = [item(ref=unit, kind='knowledge-unit', logical_id=None if none else lid, snapshot=snapshot, index=index, score=-score)
+                   for score, none, lid, unit in sorted(scored)]  # IDX-SRC-3, IDX-SRC-6
+        if 'filter' in request:  # IDX-SRC-5: a match keeps its item, a failed check gives its outcome, and no match gives no item
+            checked = self.filtered(request['filter'], [e['ref'] for e in entries], members)
+            entries = [e if o is True else o for e, (_, o) in zip(entries, checked) if o is not False]
+        entries += [refused(['payload_missing'], [unit]) for unit in sorted(absent)]
+        items, bounded = self.page(request, entries)
+        return self.result('semantic_search', items, context, bounded)
 
     def distances(self, start, members: set[str], forward: bool) -> dict[str, int]:
         """The smallest number of reference steps from the start objects, in the read context (QRY-BDL-3, CHG-IMP-4)."""

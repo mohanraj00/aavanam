@@ -93,16 +93,20 @@ def table(text: str, lead: str, width: int, name: str, errors: list[str]) -> lis
 
 
 FIELD_LEAD = 'The field table. The targets column applies only to the value types `ref` and `ref-map`.'
-# A profile document can have these three tables. They have the form of the tables of documents 02 and 03 (LYR-PRF-2, LYR-PRF-3).
+# A profile document can have these tables. They have the form of the tables of documents 02, 03 and 08
+# (LYR-PRF-2, LYR-PRF-3, IDX-PRF-4).
 PROFILE_KINDS, PROFILE_FIELDS, PROFILE_REASONS = 'The kind table of the profile:', 'The field table of the profile:', 'The reason table of the profile:'
+PROFILE_OPERATIONS, PROFILE_CAPABILITIES = 'The operation table of the profile:', 'The capability table of the profile:'
+CONTEXTS = ROOT / 'docs/contracts/08-views-contexts-and-capabilities.md'
+CONTRACTS = ROOT / 'docs/contracts'  # the folder that has the profile documents
 LOCK_KINDS = {'execution-lock', 'build-lock'}  # a profile can add an optional field to these kinds only (KND-REG-2)
 
 
 def profile_rows(lead: str, width: int, errors: list[str] | None = None) -> list[tuple[Path, list[str]]]:
     """Return the rows of the table after `lead` in each contract document that has it, with the document."""
     out = []
-    for path in sorted((ROOT / 'docs/contracts').glob('*.md')):
-        if path in (REGISTRY, STATUSES):
+    for path in sorted(CONTRACTS.glob('*.md')):
+        if path in (REGISTRY, STATUSES, CONTEXTS):
             continue
         text = path.read_text()
         if lead in text.splitlines():
@@ -118,6 +122,30 @@ def profiles() -> dict[str, str]:
         if found:
             out[found.group(1)] = found.group(2)
     return out
+
+
+def profile_of(path: Path) -> str:
+    """Return the profile in the header line of a contract document."""
+    found = PROFILE.search(path.read_text())
+    return found.group(2) if found else BASE_PROFILE
+
+
+def operations(profile: str = BASE_PROFILE) -> dict[str, set[str]]:
+    """Return the statuses of each operation for a store that declares `profile`: the operation table of document 03,
+    with each row of the operation table of the profile document in place of its row (IDX-PRF-4)."""
+    rows = table(STATUSES.read_text(), 'The operation table:', 3, STATUSES.name, [])
+    rows += [row for path, row in profile_rows(PROFILE_OPERATIONS, 3) if profile != BASE_PROFILE and profile_of(path) == profile]
+    return {row[0]: {s.strip() for s in row[2].split(',')} for row in rows}
+
+
+def capabilities(profile: str = BASE_PROFILE) -> dict[str, tuple[str, ...]]:
+    """Return the operations of each capability for a store that declares `profile`: the capability table of
+    CTX-PRJ-1, and the rows of the capability table of the profile document (IDX-PRF-4)."""
+    lines = CONTEXTS.read_text().splitlines()
+    start = lines.index('| Capability | Operations |')
+    rows = [cells(line) for line in lines[start + 2:lines.index('', start)]]
+    rows += [row for path, row in profile_rows(PROFILE_CAPABILITIES, 2) if profile != BASE_PROFILE and profile_of(path) == profile]
+    return {row[0]: tuple(x.strip() for x in row[1].split(',')) for row in rows}
 
 
 def check_profile_tables() -> list[str]:
@@ -162,6 +190,23 @@ def check_profile_tables() -> list[str]:
         seen.add(code)
         if status not in STATUS_SET or status in ('ok', 'partial'):
             errors.append(f'{path.name}: reason {code} has the status {status}')
+    held = reserved() if RESERVED.exists() else {}
+    own: dict[Path, set[str]] = {}
+    for path, (op, doc, listed) in profile_rows(PROFILE_OPERATIONS, 3, errors):
+        if held.get(op) != profile_of(path) or op in own.get(path, set()):
+            errors.append(f'{path.name}: operation {op} is not a reserved operation of the profile of the document, or it is listed twice (RSV-LST-3)')
+        own.setdefault(path, set()).add(op)
+        if doc != path.name[:2] or not {s.strip() for s in listed.split(',')} <= set(STATUS_SET):
+            errors.append(f'{path.name}: the row of operation {op} has a different document or an unknown status')
+    base = capabilities() if CONTEXTS.exists() else {}
+    names = set()
+    for path, (name, listed) in profile_rows(PROFILE_CAPABILITIES, 2, errors):
+        if name in base or name in names:
+            errors.append(f'{path.name}: capability {name} is a base capability or listed twice')
+        names.add(name)
+        for op in (x.strip() for x in listed.split(',')):
+            if op not in own.get(path, set()):
+                errors.append(f'{path.name}: capability {name} names {op}, which is not in the operation table of the profile')
     return errors
 
 
@@ -480,10 +525,9 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
     if not root.is_dir():
         return [f'{root}: not a folder of vectors']
     errors: list[str] = []
-    text = STATUSES.read_text()
     reasons = reason_statuses()
     document_profiles = profiles()
-    ops = {row[0]: {s.strip() for s in row[2].split(',')} for row in table(text, 'The operation table:', 3, STATUSES.name, [])}
+    profile_ops = {profile: operations(profile) for profile in {BASE_PROFILE, *document_profiles.values()}}
     vectors, final = {}, {}
     for path in sorted(root.rglob('*.json')):
         vid = path.relative_to(root).with_suffix('').as_posix()
@@ -509,6 +553,7 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
             errors.append(f'{where}: format is not aavanam-vector/v1')
         cited = {document_profiles.get(c[:3], BASE_PROFILE) for c in v.get('clauses', []) if isinstance(c, str)} - {BASE_PROFILE}
         wanted = cited.pop() if len(cited) == 1 else BASE_PROFILE
+        ops = profile_ops[wanted]  # a store that declares the profile of the vector (IDX-PRF-4)
         if cited:
             errors.append(f'{where}: the clauses are of more than one profile document')
         elif v.get('profile') != wanted:

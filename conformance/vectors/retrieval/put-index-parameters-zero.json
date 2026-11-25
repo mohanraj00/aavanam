@@ -1,0 +1,52 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An index of the method hashed-terms with 0 dimensions gives field_type",
+  "clauses": [
+    "IDX-MTH-1",
+    "STS-MAL-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the definition of the fixture part-notes."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/put-index-ok",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retrieval-index",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "method": "aavanam/hashed-terms/v1",
+              "parameters": {
+                "dimensions": 0
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "field_type"
+        ],
+        "items": [
+          {
+            "status": "failed",
+            "reasons": [
+              "field_type"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

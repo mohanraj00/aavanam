@@ -5,7 +5,7 @@ import re
 import unicodedata
 
 from .jsontext import is_digest, is_ijson, valid_string
-from .kinds import PROFILES, REF_TYPES, SETS, registered, schema
+from .kinds import HASHED_TERMS, PROFILES, REF_TYPES, SETS, registered, schema
 
 BYTES = 'aavanam/bytes/v1'
 NFC_TEXT = 'aavanam/nfc-text/v1'  # ADP-SEL-4
@@ -77,6 +77,12 @@ def agrees(vtype: str, value, field: str) -> bool:
     return is_ijson(value)  # json: a value that is not I-JSON is not of the type (KND-SCH-4)
 
 
+def is_dimensions(value) -> bool:
+    """The parameters of the method hashed-terms: an object with only `dimensions`, an integer from 1 to 65536 (IDX-MTH-1)."""
+    n = value.get('dimensions') if isinstance(value, dict) and set(value) == {'dimensions'} else None
+    return isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= 65536
+
+
 def check(value, profiles=PROFILES) -> dict:
     """Return the normal form of a descriptor value, or raise Refusal (STS-MAL-3 steps 2 and 3). A kind or a field
     of a profile that is not in `profiles` is not registered (KND-REG-2, LYR-PRF-1)."""
@@ -121,6 +127,9 @@ def check(value, profiles=PROFILES) -> dict:
     if kind == 'derivation' and selectors is not None and isinstance(normal.get('operands'), list) \
             and len(selectors) != len(normal['operands']):
         counts.append('operand_selectors')  # KND-SCH-7
+    if kind == 'retrieval-index' and normal.get('method') == HASHED_TERMS and 'parameters' not in types \
+            and 'parameters' in normal and not is_dimensions(normal['parameters']):
+        types.append('parameters')  # IDX-MTH-1
     if counts:
         raise Refusal(['field_count'] * len(counts))
     if types:

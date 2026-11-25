@@ -1,0 +1,135 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A candidate with no metadata for a filter key gives an item with no_metadata at its position",
+  "clauses": [
+    "IDX-SRC-5",
+    "IDX-SRC-6",
+    "DSC-FLT-3",
+    "STS-ENV-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Each of the four units is a candidate with the score 1. No overlay has seal as its subject. valve has the area south, so it gives no item."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "pair": "retrieval/search-filter-ok",
+  "steps": [
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "i1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i1"
+              }
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "semantic_search",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "index": {
+          "$ref": "i1"
+        },
+        "query": "the",
+        "filter": {
+          "equals": {
+            "area": "north"
+          }
+        }
+      },
+      "expect": {
+        "status": "partial",
+        "reasons": [
+          "items_not_ok"
+        ],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-motor"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "motor",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u-pump"
+              },
+              "kind": "knowledge-unit",
+              "logical_id": "pump",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "index": {
+                "$ref": "i1"
+              },
+              "score": 1
+            }
+          },
+          {
+            "status": "unresolved",
+            "reasons": [
+              "no_metadata"
+            ],
+            "reason_details": [
+              {
+                "code": "no_metadata",
+                "refs": [
+                  {
+                    "$ref": "u-seal"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

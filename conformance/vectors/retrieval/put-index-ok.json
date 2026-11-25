@@ -1,0 +1,86 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A put of an index descriptor is ok, and a second put of it gives the same reference",
+  "clauses": [
+    "IDX-PRF-2",
+    "IDX-DEF-1",
+    "IDX-DEF-2",
+    "IDX-MTH-1",
+    "IDN-CAN-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses. The two descriptors have one canonical form, so they are one object (IDN-CAN-3)."
+  },
+  "profile": "aavanam/semantic-index/v1",
+  "fixture": "part-notes",
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "i-new",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retrieval-index",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "method": "aavanam/hashed-terms/v1",
+              "parameters": {
+                "dimensions": 16
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "retrieval-index",
+              "snapshot": {
+                "$ref": "s1"
+              },
+              "method": "aavanam/hashed-terms/v1",
+              "parameters": {
+                "dimensions": 16
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "i-new"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}
