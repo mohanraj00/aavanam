@@ -333,6 +333,60 @@ Each cell is p50 / p95.
 
 The PostgreSQL relations of `S1` took 2 191 810 560 bytes in run A and in the container, and 2 191 851 520 bytes in run B, with all indexes and the derived tables. Before, they took 1 501 536 256 bytes. The size target is 3 630 825 472 bytes. Thus `S1` meets the size target on this machine.
 
+## The release run, on 0.5.0
+
+The release run was on 2026-11-26 (UTC), with `-seed 1`, on the commit of the 0.5.0 release preparation (#141, `706a4e5`). It has only the setup in the container, with 3 runs of `make bench-s1` and a time limit of 120 s for each measure. The result files are [`docs/bench/050-s1-container-1.json`](bench/050-s1-container-1.json), [`docs/bench/050-s1-container-2.json`](bench/050-s1-container-2.json) and [`docs/bench/050-s1-container-3.json`](bench/050-s1-container-3.json).
+
+The machine and the container are the same as in the second run. Each run started only when the load average of 1 minute of the host was less than 2. The load includes the load of the bench.
+
+| Run | Start (UTC) | Load at the start | Load at the end |
+|---|---|---|---|
+| 1 | 02:33 | 1.50 | 4.25 |
+| 2 | 02:42 | 1.76 | 3.90 |
+| 3 | 02:51 | 1.94 | 4.01 |
+
+Each number in this section is for this machine and this load only. A time is in ms. Each measure made 1 000 calls. Each cell is p50 / p95.
+
+### `S1` on PostgreSQL, one client
+
+| Measure | Target p95 | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|---|
+| `open_context` | 25 | 0.28 / 0.42 | 0.29 / 0.33 | 0.28 / 0.39 |
+| `read_row` | 10 | 0.30 / 0.33 | 0.30 / 0.34 | 0.30 / 0.42 |
+| `read_artifact_64k` | 10 | 0.48 / 0.71 | 0.49 / 0.83 | 0.48 / 0.61 |
+| `search_text` | 100 | 13.8 / 16.4 | 14.0 / 16.3 | 13.8 / 16.0 |
+| `query_data_where` | none | 100 / 118 | 101 / 107 | 100 / 107 |
+
+### `S1` on PostgreSQL, 16 clients
+
+The limit is 2 times the target of one client, with no failed call, as in the second run.
+
+| Measure | Limit p95 | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|---|
+| `open_context` | 50 | 1.4 / 1.6 | 1.4 / 2.2 | 1.4 / 3.1 |
+| `read_row` | 20 | 0.91 / 1.6 | 0.90 / 1.2 | 0.87 / 1.1 |
+| `read_artifact_64k` | 20 | 2.3 / 5.1 | 2.5 / 5.4 | 2.2 / 4.7 |
+| `search_text` | 200 | 85 / 110 | 90 / 118 | 86 / 112 |
+| `query_data_where` | none | 679 / 994 | 647 / 881 | 657 / 871 |
+
+No call failed. In each of the 3 runs, each measure is not more than its limit.
+
+### `S1`, the publication of 1 000 descriptors
+
+| Step | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| The `put` calls | 424 / 484 | 388 / 424 | 393 / 436 |
+| `create_snapshot` | 1 032 / 1 083 | 977 / 1 074 | 962 / 1 072 |
+| `create_candidate` | 33 / 65 | 32 / 66 | 33 / 62 |
+| `publish` | 1.1 / 3.3 | 0.79 / 3.1 | 0.77 / 1.9 |
+| The build of the store | 167 s | 157 s | 157 s |
+
+The PostgreSQL relations of `S1` took from 2 191 810 560 to 2 191 843 328 bytes, with all indexes and the derived tables. The size target is 3 630 825 472 bytes.
+
+### An earlier attempt
+
+An earlier set of 3 runs in the container, on the commit of #128 (`31982de`), had one run that was more than the limit. In that run, the p95 of `search_text` with 16 clients was 255 ms against the limit of 200 ms. That run started at a load of 1.99, and the load was 12.5 at its end. In that run, the p95 of `open_context`, `read_row` and `read_artifact_64k` was 3 to 9 times the value of the other two runs, and the p95 of `search_text` was about 2 times. The other two runs were not more than the limit. No call failed. This record does not include the result files of that attempt. The release run above replaces it.
+
 ## Findings of the first run
 
 - `open_context`, the row read and `search_text` miss their targets on each storage. On PostgreSQL, the time grows with the store: from `S0` to `S1`, the p95 of `open_context` grows from 1.6 s to 11.4 s and the p95 of `search_text` from 2.0 s to 6.5 s. #128 is the issue for the read indexes of the design.
@@ -349,3 +403,10 @@ The PostgreSQL relations of `S1` took 2 191 810 560 bytes in run A and in the co
 - The write to the storage in memory is slower, because it makes the token sets. On `S1` through the port forward, the `put` calls and `create_snapshot` were slower than in the first run, and `create_candidate` is about 90 times faster. The cause of the slower steps is not known from this record.
 - The derived tables add 46% to the PostgreSQL size of `S1`. The size is 60% of the size target.
 - The scan of the candidate bytes makes one allocation for each word. It is a possible later change to decrease the CPU of `search_text`.
+
+## Findings of the release run
+
+- On `S1` with one client, each read measure meets its target in each of the 3 runs.
+- On `S1` with 16 clients, in the container, each measure is not more than 2 times its target in each of the 3 runs, and no call failed. The highest p95 of `search_text` is 118 ms against the limit of 200 ms.
+- The record has no run through the port forward. The second run shows that the result through the port forward of this host is not stable.
+- An earlier attempt had one run of 3 that was more than the limit, at a high load of the host. Thus the limit for 16 clients depends on a quiet host.
