@@ -164,6 +164,13 @@ func Export(c *ops.Call) envelope.Envelope {
 			return stop("incompatible", inside)
 		}
 	}
+	if gone := c.RemovedIn(roots...); len(gone) > 0 { // REL-RMV-10: no bundle of a closure with a removed object
+		reasons := make([]envelope.Reason, len(gone))
+		for n, ref := range gone {
+			reasons[n] = envelope.R("removed", ref)
+		}
+		return stop("not_found", reasons)
+	}
 	objects := ops.Sorted(c.Closure(roots...))
 	var statements []read.Record
 	for _, r := range read.Records(c, objects, "observation") {

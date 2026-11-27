@@ -1,7 +1,9 @@
 // Package pg is the PostgreSQL storage of the Go core (docs/design/backend.md, section 2).
 //
 // Each table that has source content takes inserts only. A trigger refuses an UPDATE and a DELETE on these
-// tables. Each JSON string value of a request (a collection name, a policy name, a producer key, a context
+// tables. One exception applies: the update of `remove` or of `gc_collect` deletes rows of `objects`,
+// `edges`, `payloads` and `candidates` (REL-RMV-4, LIF-GC-5). The trigger of these tables permits a DELETE
+// only in a transaction that set `aavanam.removal` to `on`, and only LockRemoval sets it. Each JSON string value of a request (a collection name, a policy name, a producer key, a context
 // identity) is in a `bytea` column, because a PostgreSQL `text` value cannot have U+0000 and I-JSON permits
 // it. A reference or a digest is a `bytea` value of 32 bytes. Its byte order is the order of `sha256:<hex>`.
 //
@@ -169,12 +171,54 @@ CREATE TABLE table_rows (
 -- The layer profile (document 23). The column objects.collection of a layer has its base collection. The
 -- index finds the layers of a base collection, for the section declaration of LYR-DEF-5.
 CREATE INDEX objects_layers ON objects ((sha256(collection))) WHERE kind = 'layer';
+`, `
+-- The removal of content (documents 06, 08 and 17, base profile minor version 14).
+--
+-- removals: the removal records of the Evidence section (REL-RMV-5). A record has no content of the
+-- removed object. No statement changes or removes a record (REL-RMV-6).
+CREATE TABLE removals (
+    sequence bigint PRIMARY KEY,
+    ref bytea NOT NULL CHECK (octet_length(ref) = 32),
+    kind text COLLATE "C" NOT NULL,
+    time text COLLATE "C" NOT NULL,
+    reason bytea NOT NULL
+);
+CREATE INDEX removals_ref ON removals (ref);
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON removals FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
+-- removal_epoch: one row. Each update that removes content increments the number, so a different process
+-- drops the descriptors that it keeps in memory.
+CREATE TABLE removal_epoch (epoch bigint NOT NULL);
+INSERT INTO removal_epoch (epoch) VALUES (0);
+-- contexts.expires: the end of the declared life of a read context, in milliseconds from the Unix epoch
+-- (CTX-LIF-1). Null is a context with no declared life, so each context of an earlier version has none.
+-- contexts.gone: the removed objects in the closures of the roots at the time of open_context. They are
+-- not members of the context (REL-RMV-8), also if a later write adds one of them again (CTX-OPN-2).
+ALTER TABLE contexts ADD COLUMN expires bigint;
+ALTER TABLE contexts ADD COLUMN gone bytea[];
+-- The tables that remove and gc_collect delete rows from (REL-RMV-4, LIF-GC-5). The trigger permits a
+-- DELETE only in a transaction of these operations. It refuses each UPDATE and each other DELETE.
+CREATE FUNCTION aavanam_removal_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' AND current_setting('aavanam.removal', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'the table % takes inserts only', TG_TABLE_NAME;
+END $$;
+DROP TRIGGER inserts_only ON objects;
+DROP TRIGGER inserts_only ON edges;
+DROP TRIGGER inserts_only ON payloads;
+DROP TRIGGER inserts_only ON candidates;
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON objects FOR EACH STATEMENT EXECUTE FUNCTION aavanam_removal_only();
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON edges FOR EACH STATEMENT EXECUTE FUNCTION aavanam_removal_only();
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON payloads FOR EACH STATEMENT EXECUTE FUNCTION aavanam_removal_only();
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON candidates FOR EACH STATEMENT EXECUTE FUNCTION aavanam_removal_only();
 `}
 
-// tables has each table of the schema, for the reset of the conformance driver.
+// tables has each table of the schema that has rows of a store, for the reset of the conformance driver.
+// The one row of `removal_epoch` stays: a reset does not make the epoch go back.
 var tables = []string{"objects", "edges", "payloads", "deferred", "candidates", "heads", "publications", "gates", "sections",
 	"collection_locks", "contexts", "closures", "text_tokens", "table_heads", "table_rows", "producer_objects",
-	"producer_entries", "producer_removals"}
+	"producer_entries", "producer_removals", "removals"}
 
 // migrationLock is the key of the advisory lock that one migration run has.
 const migrationLock = 0x61617661_6e616d00

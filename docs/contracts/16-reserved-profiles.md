@@ -25,13 +25,14 @@ This document lists features that the specification names but does not yet defin
 
 **RSV-LST-4.** Document 24 specifies the profile `aavanam/semantic-index/v1`. The profile is not part of `aavanam/base/v1`, so its row stays in the reserved profile table. A store that does not declare the profile gives the response of RSV-RSP-1 for `semantic_search`. For a store that declares the profile, RSV-LST-1 and RSV-RSP-1 do not apply to `semantic_search`. That store uses the operation row of document 24 (IDX-PRF-4).
 
+**RSV-LST-5.** Earlier minor versions of the base profile reserved the operation `gc_collect` for the profile `aavanam/gc/v1`. From minor version 14, the base profile specifies the operation (LIF-GC-1), the removal from the Evidence section (REL-RMV-1) and the life of a read context (CTX-LIF-1). Thus the operation has no row in the reserved profile table, and RSV-RSP-1 does not apply to it. The name `aavanam/gc/v1` stays reserved (RSV-LST-3). No profile and no extension uses it.
+
 The reserved profile table:
 
 | Profile | Feature | Operations |
 |---|---|---|
 | `aavanam/workspace/v1` | A writable workspace that a consumer opens, appends to and reads before a snapshot | `workspace_open`, `workspace_append`, `workspace_read` |
-| `aavanam/gc/v1` | Garbage collection: the removal of objects and payloads that no retained root reaches | `gc_collect` |
-| `aavanam/lease/v1` | Leases: a hold that keeps a root and its closure from garbage collection for a declared period | `lease_acquire`, `lease_release` |
+| `aavanam/lease/v1` | Leases: a hold that keeps a root and its closure from `gc_collect` (LIF-GC-1) for a declared period | `lease_acquire`, `lease_release` |
 | `aavanam/cross-catalog/v1` | Cross-catalog contexts: a read context with roots from more than one catalog | `open_cross_catalog_context` |
 | `aavanam/query-build/v1` | Query-stable builds: a build lock whose inputs are the result of a declared data query | `query_build_inputs` |
 | `aavanam/semantic-index/v1` | Semantic indexes: search through a semantic index adapter (topic `SEM` of document 09) | `semantic_search` |

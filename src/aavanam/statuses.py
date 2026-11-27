@@ -11,6 +11,7 @@ REASON_STATUS = {
     'producer_removed': 'not_found',  # PRD-OBJ-3
     'not_in_context': 'not_found',
     'payload_missing': 'not_found',
+    'removed': 'not_found',  # REL-RMV-7
     'unbound_role': 'unresolved',
     'no_head': 'unresolved',
     'unknown_column': 'unresolved',
@@ -51,6 +52,7 @@ REASON_STATUS = {
     'capability_unavailable': 'unsupported',
     'read_only_store': 'unsupported',
     'producer_section_absent': 'unsupported',  # PRD-SEC-1
+    'unsupported_role': 'unsupported',  # REL-RMV-1, LIF-GC-1
     'reserved_profile': 'unsupported',
     'malformed_json': 'failed',
     'duplicate_key': 'failed',
@@ -79,7 +81,6 @@ RESERVED = {  # the profile of each reserved operation (RSV-LST-1)
     'workspace_open': 'aavanam/workspace/v1',
     'workspace_append': 'aavanam/workspace/v1',
     'workspace_read': 'aavanam/workspace/v1',
-    'gc_collect': 'aavanam/gc/v1',
     'lease_acquire': 'aavanam/lease/v1',
     'lease_release': 'aavanam/lease/v1',
     'open_cross_catalog_context': 'aavanam/cross-catalog/v1',

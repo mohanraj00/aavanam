@@ -39,10 +39,10 @@ REQUIRED_COUNTS = {'1', '1..n', '1..n list'}
 FIXTURE_EXCLUDED_KINDS = {'supersession'}
 VECTOR_FIELDS = {'format', 'title', 'clauses', 'provenance', 'profile', 'fixture', 'payloads', 'steps', 'pair', 'acceptance', 'gates', 'sections'}
 PROVENANCE = {'spec', 'spike', 'fault'}
-EXPECT_FIELDS = {'status', 'reasons', 'items', 'store_unchanged', 'unordered', 'reason_details'}
-UNORDERED_OPERATIONS = {'evidence', 'observations', 'coverage', 'execution_inputs', 'build_inputs', 'export', 'import', 'render'}  # REL-EVD-4, OBS-SUB-4, OBS-COV-3, LCK-EXE-4, LCK-BLD-3, BUN-EXP-3, BUN-IMP-3, RND-DOC-5
-ITEM_FIELDS = {'status', 'reasons', 'fields', 'reason_details'}
-STEP_FIELDS = {'operation', 'request', 'expect', 'as_context', 'as_bundle', 'as_ref', 'fresh_store', 'store', 'lock_store'}
+EXPECT_FIELDS = {'status', 'reasons', 'items', 'store_unchanged', 'unordered', 'reason_details', 'fields'}
+UNORDERED_OPERATIONS = {'evidence', 'observations', 'coverage', 'execution_inputs', 'build_inputs', 'export', 'import', 'render', 'gc_collect'}  # REL-EVD-4, OBS-SUB-4, OBS-COV-3, LCK-EXE-4, LCK-BLD-3, BUN-EXP-3, BUN-IMP-3, RND-DOC-5, LIF-GC-6
+ITEM_FIELDS = {'status', 'reasons', 'fields', 'reason_details', 'no_other_fields'}
+STEP_FIELDS = {'operation', 'request', 'expect', 'as_context', 'as_bundle', 'as_ref', 'fresh_store', 'store', 'lock_store', 'advance_clock'}
 STORES = ('writer', 'device', 'output')  # the stores of one vector (conformance/README.md)
 PRECEDENCE = ['failed', 'unsupported', 'incompatible', 'ambiguous', 'unresolved', 'not_found']
 EXT_CODE = re.compile(r'^ext:[^/]+/[^/]+/v[1-9][0-9]*#[a-z_]+$')
@@ -445,7 +445,12 @@ def check_expect(where: str, expect, ops: dict[str, set[str]], reasons: dict[str
             errors.append(f'{where} item {n}: unknown item field {f}')
         if not isinstance(item.get('fields', {}), dict):
             errors.append(f'{where} item {n}: fields is not a JSON object')
+        other = item.get('no_other_fields', [])
+        if not (isinstance(other, list) and all(isinstance(f, str) for f in other)):
+            errors.append(f'{where} item {n}: no_other_fields is not a list of field names')
         check_details(f'{where} item {n}', item, errors)
+    if not isinstance(expect.get('fields', {}), dict):
+        errors.append(f'{where}: fields is not a JSON object')
     check_details(where, expect, errors)
     entries = [(where, status, expect['reasons'])]
     entries += [(f'{where} item {n}', i['status'], i['reasons']) for n, i in enumerate(items or [])]
@@ -602,6 +607,9 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
             for f in ('as_context', 'as_bundle', 'as_ref'):
                 if not isinstance(step.get(f, ''), str):
                     errors.append(f'{at}: {f} is not a string')
+            clock = step.get('advance_clock', 1)
+            if not isinstance(clock, int) or isinstance(clock, bool) or clock < 1:
+                errors.append(f'{at}: advance_clock is not an integer of 1 or more')
             expect = step.get('expect') if isinstance(step.get('expect'), dict) else {}
             if step['operation'] == 'publish' and expect.get('status') == 'ok':
                 items = expect.get('items')

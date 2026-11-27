@@ -71,7 +71,13 @@ func (s *Store) Close() { s.pool.Close() }
 
 // Session returns the store for one call. The context gives the deadline of each statement.
 func (s *Store) Session(ctx context.Context) ops.Session {
-	return session{view{ctx, s.pool, time.Duration(s.life.Load())}, s.pool}
+	return session{view{ctx, s.pool, time.Duration(s.life.Load())}, s.pool, &seen{}}
+}
+
+// seen is the removal epoch that a session read at the start of its call, if it read one.
+type seen struct {
+	known bool
+	epoch int64
 }
 
 // raw returns the 32 bytes of a reference or a digest. A string of a different form names no row.
@@ -312,29 +318,140 @@ func (v view) Publications(collection string) []ops.Publication {
 func (v view) Context(id string) (ops.ContextRecord, bool) {
 	var roots [][]byte
 	var capabilities []string
-	// A context after the end of its life is a context that the store does not keep.
-	if !v.row([]any{&roots, &capabilities}, `SELECT roots, capabilities FROM contexts
+	var expires int64
+	// A context after the end of the life of SetContextLife is a context that the store does not keep. The
+	// core applies the declared life of the context with the store clock (CTX-LIF-2).
+	if !v.row([]any{&roots, &capabilities, &expires}, `SELECT roots, capabilities, coalesce(expires, 0) FROM contexts
 		WHERE id = $1 AND ($2::float8 = 0 OR opened > now() - make_interval(secs => $2::float8))`, []byte(id), v.life.Seconds()) {
 		return ops.ContextRecord{}, false
 	}
-	record := ops.ContextRecord{Roots: make([]string, len(roots)), Capabilities: capabilities}
+	record := ops.ContextRecord{Roots: make([]string, len(roots)), Capabilities: capabilities, Expires: expires}
 	for i, root := range roots {
 		record.Roots[i] = name(root)
 	}
 	return record, true
 }
 
-// The content of a read context is the closures of its roots (CTX-OPN-2, KND-DEP-3).
+// The content of a read context is the closures of its roots (CTX-OPN-2, KND-DEP-3), without the removed
+// objects of the column `gone` (REL-RMV-8).
 
 func (v view) IsMember(context, ref string) bool {
 	key, ok := raw(ref)
 	return ok && v.exists(`SELECT 1 FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
-		JOIN closures c ON c.root = r.root WHERE x.id = $1 AND c.member = $2`, []byte(context), key)
+		JOIN closures c ON c.root = r.root WHERE x.id = $1 AND c.member = $2
+		AND (x.gone IS NULL OR c.member <> ALL(x.gone))`, []byte(context), key)
 }
 
 func (v view) Members(context string) []string {
 	return v.refs(`SELECT DISTINCT c.member FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
-		JOIN closures c ON c.root = r.root WHERE x.id = $1 ORDER BY c.member`, []byte(context))
+		JOIN closures c ON c.root = r.root WHERE x.id = $1 AND (x.gone IS NULL OR c.member <> ALL(x.gone))
+		ORDER BY c.member`, []byte(context))
+}
+
+// texts returns the strings of a query with one `bytea` column.
+func (v view) texts(sql string, args ...any) []string {
+	var out []string
+	v.each(func(rows pgx.Rows) error {
+		var b []byte
+		if err := rows.Scan(&b); err != nil {
+			return err
+		}
+		out = append(out, string(b))
+		return nil
+	}, sql, args...)
+	return out
+}
+
+func (v view) ContextsWith(ref string) []string {
+	key, ok := raw(ref)
+	if !ok {
+		return nil
+	}
+	return v.texts(`SELECT x.id FROM contexts x WHERE (x.gone IS NULL OR $1 <> ALL(x.gone)) AND EXISTS (
+		SELECT 1 FROM unnest(x.roots) AS r(root) JOIN closures c ON c.root = r.root WHERE c.member = $1) ORDER BY x.id`, key)
+}
+
+// OpenRoots applies the declared life of each context and the life of SetContextLife.
+func (v view) OpenRoots(now int64) []string {
+	return v.refs(`SELECT DISTINCT r.root FROM contexts x CROSS JOIN LATERAL unnest(x.roots) AS r(root)
+		WHERE (x.expires IS NULL OR x.expires > $1) AND ($2::float8 = 0 OR x.opened > now() - make_interval(secs => $2::float8))
+		ORDER BY 1`, now, v.life.Seconds())
+}
+
+func (v view) EndedContexts(now int64) []string {
+	return v.texts(`SELECT id FROM contexts WHERE expires IS NOT NULL AND expires <= $1 ORDER BY id`, now)
+}
+
+func (v view) Removals() []ops.RemovalRecord {
+	var out []ops.RemovalRecord
+	v.each(func(rows pgx.Rows) error {
+		var r ops.RemovalRecord
+		var ref, reason []byte
+		if err := rows.Scan(&r.Sequence, &ref, &r.Kind, &r.Time, &reason); err != nil {
+			return err
+		}
+		r.Ref, r.Reason = name(ref), string(reason)
+		out = append(out, r)
+		return nil
+	}, `SELECT sequence, ref, kind, time, reason FROM removals ORDER BY sequence`)
+	return out
+}
+
+func (v view) HasRemoval(ref string) bool {
+	key, ok := raw(ref)
+	return ok && v.exists(`SELECT 1 FROM removals WHERE ref = $1`, key)
+}
+
+func (v view) RemovedRefs() []string {
+	return v.refs(`SELECT DISTINCT r.ref FROM removals r WHERE NOT EXISTS (SELECT 1 FROM objects o WHERE o.ref = r.ref) ORDER BY 1`)
+}
+
+func (v view) OwnObjects() []ops.Listed {
+	var out []ops.Listed
+	v.each(func(rows pgx.Rows) error {
+		var ref []byte
+		var kind string
+		if err := rows.Scan(&ref, &kind); err != nil {
+			return err
+		}
+		out = append(out, ops.Listed{Ref: name(ref), Kind: kind})
+		return nil
+	}, `SELECT ref, kind FROM objects ORDER BY ref`)
+	return out
+}
+
+func (v view) OwnBlobs() []string { return v.refs(`SELECT digest FROM payloads ORDER BY digest`) }
+
+// Naming reads each descriptor: no index has the text of a descriptor. Only `remove` calls it.
+func (v view) Naming(digest string) []string {
+	return v.refs(`SELECT ref FROM objects WHERE position($1::bytea in canonical) > 0 ORDER BY ref`, []byte(digest))
+}
+
+func (v view) AllHeads() map[string]string {
+	out := map[string]string{}
+	v.each(func(rows pgx.Rows) error {
+		var collection, snapshot []byte
+		if err := rows.Scan(&collection, &snapshot); err != nil {
+			return err
+		}
+		out[string(collection)] = name(snapshot)
+		return nil
+	}, `SELECT collection, snapshot FROM heads`)
+	return out
+}
+
+func (v view) Candidates() []ops.Candidate {
+	var out []ops.Candidate
+	v.each(func(rows pgx.Rows) error {
+		var id, snapshot, collection, policy, expected []byte
+		if err := rows.Scan(&id, &snapshot, &collection, &policy, &expected); err != nil {
+			return err
+		}
+		out = append(out, ops.Candidate{ID: name(id), Snapshot: name(snapshot), Collection: string(collection),
+			Policy: string(policy), ExpectedHead: name(expected)})
+		return nil
+	}, `SELECT id, snapshot, collection, policy, expected_head FROM candidates ORDER BY id`)
+	return out
 }
 
 // Closure returns the closure of a root in one statement (ops.ClosureIndex): the stored closure, or, for a
@@ -472,6 +589,16 @@ func (v view) ProducerEntries(producer, log string) []ops.Entry {
 type session struct {
 	view
 	pool *pgxpool.Pool
+	seen *seen // the removal epoch at the start of the call
+}
+
+// RemovalEpoch returns the removal epoch of the database (ops.RemovalEpoch). The session keeps it: an
+// update of the session that finds a different epoch stops before its first write (ops.ErrRemoved).
+func (s session) RemovalEpoch() int64 {
+	var epoch int64
+	s.row([]any{&epoch}, `SELECT epoch FROM removal_epoch`)
+	s.seen.known, s.seen.epoch = true, epoch
+	return epoch
 }
 
 // rollbackTime is the time that the rollback of a failed update can use.
@@ -492,7 +619,7 @@ func (s session) Update(fn func(tx ops.Tx)) {
 			_ = t.Rollback(ctx)
 		}
 	}()
-	work := tx{view{s.ctx, t, s.life}, &tokenBatch{}}
+	work := tx{view{s.ctx, t, s.life}, &tokenBatch{}, &gate{seen: *s.seen}}
 	fn(work)
 	work.flushTokens()
 	if err := t.Commit(s.ctx); err != nil {
@@ -506,7 +633,59 @@ func (s session) Update(fn func(tx ops.Tx)) {
 type tx struct {
 	view
 	tokens *tokenBatch // the text index rows that the update did not write yet
+	gate   *gate
 }
+
+// gate is the state of the removal lock of one update.
+type gate struct {
+	seen seen // the removal epoch at the start of the call of the session
+	held bool // the update has the shared lock or the exclusive lock
+}
+
+// removalLock is the key of the advisory lock between the updates that write and the updates that remove.
+const removalLock = 0x61617661_6e616d01
+
+// enter takes the shared removal lock before the first write of an update, and then reads the removal
+// epoch. An update of `remove` or of `gc_collect` has the exclusive lock (LockRemoval). Thus a write
+// either commits before such an update starts, or it starts after such an update committed. In the second
+// case, the checks of the call can have read content that the removal took, so the update stops with
+// ops.ErrRemoved and the dispatch runs the call again. The two statements go in one round trip. The read
+// of the epoch is a statement of its own, so its snapshot is later than the wait for the lock.
+func (t tx) enter() {
+	if t.gate.held {
+		return
+	}
+	t.gate.held = true
+	batch := &pgx.Batch{}
+	batch.Queue(`SELECT pg_advisory_xact_lock_shared($1)`, int64(removalLock))
+	batch.Queue(`SELECT epoch FROM removal_epoch`)
+	results := t.q.(pgx.Tx).SendBatch(t.ctx, batch)
+	_, err := results.Exec()
+	var epoch int64
+	if err == nil {
+		err = results.QueryRow().Scan(&epoch)
+	}
+	if closeErr := results.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		ops.Raise(err)
+	}
+	if t.gate.seen.known && epoch != t.gate.seen.epoch {
+		ops.Raise(ops.ErrRemoved)
+	}
+}
+
+// LockRemoval takes the exclusive removal lock and permits a DELETE on the content tables in this
+// transaction (ops.RemovalGate). It waits for each update that wrote, until it ends.
+func (t tx) LockRemoval() {
+	t.gate.held = true
+	t.exec(`SELECT pg_advisory_xact_lock($1)`, int64(removalLock))
+	t.exec(`SELECT set_config('aavanam.removal', 'on', true)`)
+}
+
+// AdvanceEpoch increments the removal epoch (ops.RemovalGate).
+func (t tx) AdvanceEpoch() { t.exec(`UPDATE removal_epoch SET epoch = epoch + 1`) }
 
 func (t tx) LockCollections(collections []string) {
 	names := append([]string(nil), collections...)
@@ -538,6 +717,7 @@ func (t tx) LockProducer(producer string) {
 }
 
 func (t tx) PutObject(o ops.Object) {
+	t.enter()
 	var collection []byte
 	if o.Kind == "snapshot" || o.Kind == "layer" { // the collection of a snapshot, or the base of a layer
 		collection = []byte(o.Collection)
@@ -550,6 +730,7 @@ func (t tx) PutObject(o ops.Object) {
 }
 
 func (t tx) PutBlob(digest string, data []byte) {
+	t.enter()
 	if data == nil {
 		data = []byte{}
 	}
@@ -561,6 +742,7 @@ func (t tx) ClearDeferred(digest string) {
 }
 
 func (t tx) PutDeferred(digest, ref string) {
+	t.enter()
 	t.exec(`INSERT INTO deferred (digest, ref) VALUES ($1, $2) ON CONFLICT DO NOTHING`, must(digest), must(ref))
 }
 
@@ -573,11 +755,13 @@ func (t tx) DeclareSection(collection, section string) {
 }
 
 func (t tx) PutCandidate(c ops.Candidate) {
+	t.enter()
 	t.exec(`INSERT INTO candidates (id, snapshot, collection, policy, expected_head) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
 		must(c.ID), must(c.Snapshot), []byte(c.Collection), []byte(c.Policy), optional(c.ExpectedHead))
 }
 
 func (t tx) Publish(p ops.Publication) {
+	t.enter()
 	t.exec(`INSERT INTO heads (collection, snapshot) VALUES ($1, $2) ON CONFLICT ((sha256(collection))) DO UPDATE SET snapshot = EXCLUDED.snapshot`,
 		[]byte(p.Collection), must(p.Head))
 	t.exec(`INSERT INTO publications (collection, candidate, receipt, activation, previous_head, head) VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -585,11 +769,16 @@ func (t tx) Publish(p ops.Publication) {
 }
 
 // PutContext adds a read context. It writes the closure of each root that has no stored closure, in one
-// recursive statement (KND-DEP-3). A stored closure is complete: one statement writes it, and the closure
-// of a stored root does not change. Two updates that write one closure write the same rows. The statement
-// writes the rows in ascending order, so two updates with the same roots in a different sequence do not
-// wait for each other in a circle.
+// recursive statement (KND-DEP-3). A stored closure is complete: one statement writes it, and the references
+// of the closure of a root do not change, also after a removal (REL-RMV-8). Two updates that write one
+// closure write the same rows. The statement writes the rows in ascending order, so two updates with the
+// same roots in a different sequence do not wait for each other in a circle.
+//
+// The column `gone` gets the removed objects of the closures: each reference of a removal record that
+// names no object now. Only a removal leaves a reference with no object, so the read uses the removal
+// records and not each member.
 func (t tx) PutContext(id string, record ops.ContextRecord) {
+	t.enter()
 	capabilities := record.Capabilities
 	if capabilities == nil {
 		capabilities = []string{}
@@ -604,7 +793,73 @@ func (t tx) PutContext(id string, record ops.ContextRecord) {
 				SELECT w.root, e.dst FROM walk w JOIN edges e ON e.src = w.ref)
 			SELECT root, ref FROM walk ORDER BY root, ref ON CONFLICT DO NOTHING`, roots)
 	}
-	t.exec(`INSERT INTO contexts (id, roots, capabilities) VALUES ($1, $2, $3)`, []byte(id), roots, capabilities)
+	var expires *int64
+	if record.Expires != 0 {
+		expires = &record.Expires
+	}
+	t.exec(`INSERT INTO contexts (id, roots, capabilities, expires, gone)
+		SELECT $1, $2::bytea[], $3::text[], $4::bigint, (SELECT array_agg(DISTINCT r.ref) FROM removals r
+			WHERE NOT EXISTS (SELECT 1 FROM objects o WHERE o.ref = r.ref)
+			AND EXISTS (SELECT 1 FROM closures c WHERE c.root = ANY($2::bytea[]) AND c.member = r.ref))`,
+		[]byte(id), roots, capabilities, expires)
+}
+
+func (t tx) DeleteContexts(ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	keys := make([][]byte, len(ids))
+	for i, id := range ids {
+		keys[i] = []byte(id)
+	}
+	t.exec(`DELETE FROM contexts WHERE id = ANY($1::bytea[])`, keys)
+}
+
+// The removal methods need LockRemoval first: the trigger of a content table refuses a DELETE of each
+// other transaction.
+
+func (t tx) DeleteObjects(refs []string) {
+	if len(refs) > 0 {
+		t.exec(`DELETE FROM objects WHERE ref = ANY($1::bytea[])`, raws(refs))
+	}
+}
+
+func (t tx) DeleteEdges(sources []string) {
+	if len(sources) == 0 {
+		return
+	}
+	keys := raws(sources)
+	t.exec(`DELETE FROM edges WHERE src = ANY($1::bytea[])`, keys)
+	t.exec(`DELETE FROM closures WHERE root = ANY($1::bytea[]) OR member = ANY($1::bytea[])`, keys)
+}
+
+func (t tx) DeleteDeferred(refs []string) {
+	if len(refs) > 0 {
+		t.exec(`DELETE FROM deferred WHERE ref = ANY($1::bytea[])`, raws(refs))
+	}
+}
+
+// DeleteBlobs removes the bytes, the text index row and the row cache of each digest.
+func (t tx) DeleteBlobs(digests []string) {
+	if len(digests) == 0 {
+		return
+	}
+	t.flushTokens()
+	keys := raws(digests)
+	for _, table := range []string{"payloads", "text_tokens", "table_heads", "table_rows"} {
+		t.exec(`DELETE FROM `+table+` WHERE digest = ANY($1::bytea[])`, keys)
+	}
+}
+
+func (t tx) DeleteCandidates(ids []string) {
+	if len(ids) > 0 {
+		t.exec(`DELETE FROM candidates WHERE id = ANY($1::bytea[])`, raws(ids))
+	}
+}
+
+func (t tx) PutRemoval(r ops.RemovalRecord) {
+	t.exec(`INSERT INTO removals (sequence, ref, kind, time, reason) VALUES ($1, $2, $3, $4, $5)`,
+		r.Sequence, must(r.Ref), r.Kind, r.Time, []byte(r.Reason))
 }
 
 func (t tx) PutProducerObject(producer, key string, data []byte) {

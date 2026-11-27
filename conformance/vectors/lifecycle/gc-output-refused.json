@@ -1,14 +1,13 @@
 {
   "format": "aavanam-vector/v1",
-  "title": "A call to gc_collect returns reserved_profile with the profile aavanam/gc/v1",
+  "title": "A local output store gives unsupported_role for gc_collect",
   "clauses": [
-    "RSV-LST-1",
-    "RSV-RSP-1",
+    "LIF-GC-1",
     "STS-MAL-4"
   ],
   "provenance": {
     "type": "spec",
-    "note": "Derived from the cited clauses and the reserved profile table."
+    "note": "Derived from the cited clauses and the planted data."
   },
   "profile": "aavanam/base/v1",
   "steps": [
@@ -18,11 +17,13 @@
       "expect": {
         "status": "unsupported",
         "reasons": [
-          "reserved_profile"
+          "unsupported_role"
         ],
+        "items": [],
         "store_unchanged": true
-      }
+      },
+      "store": "output"
     }
   ],
-  "pair": "kinds/put-source-ok"
+  "pair": "lifecycle/gc-roots-ok"
 }

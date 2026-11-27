@@ -68,7 +68,7 @@ class TablesTest(unittest.TestCase):
 
     def test_a_wrong_profile_operation_table_is_a_problem(self):  # IDX-PRF-4, RSV-LST-3
         text = (check_spec.CONTRACTS / '24-retrieval-indexes.md').read_text()
-        cases = (('| `semantic_search` | 24 |', '| `gc_collect` | 24 |', 'not a reserved operation of the profile'),
+        cases = (('| `semantic_search` | 24 |', '| `lease_acquire` | 24 |', 'not a reserved operation of the profile'),
                  ('| `semantic_search` | 24 |', '| `semantic_search` | 16 |', 'a different document'),
                  ('| `aavanam/semantic-index/v1` | `semantic_search` |', '| `aavanam/text/v1` | `semantic_search` |', 'is a base capability'),
                  ('| `aavanam/semantic-index/v1` | `semantic_search` |', '| `aavanam/semantic-index/v1` | `search` |', 'not in the operation table of the profile'))

@@ -18,12 +18,27 @@ type Call struct {
 	Operation string
 	Request   jsontext.Value // a JSON object from the Lenient reader: the operation checks each field
 	Raw       io.Reader      // the raw bundle of an `import` in place of its request, or nil (BUN-RAW-4)
+
+	removed     map[string]struct{} // the value of Removed for this call
+	removedRead bool
+	// epoch is the removal epoch of the storage at the start of the call. The call keeps a parsed
+	// descriptor in the store only while the store has this epoch. Thus a call that read an object before a
+	// removal does not put it back after the store dropped it (REL-RMV-7).
+	epoch int64
+	// synced tells that the storage of the call has a removal epoch (RemovalEpoch).
+	synced bool
 }
 
 // On returns a call of the same operation and request on a different store, for example on the local
 // output store of a device store (BUN-IMP-7).
 func (c *Call) On(store *Store) *Call {
-	return &Call{Ctx: c.Ctx, Store: store, S: store.Storage.Session(c.Ctx), Operation: c.Operation, Request: c.Request}
+	session := store.Storage.Session(c.Ctx)
+	// The checks of the call read the store before this point. The second session gets the epoch of the
+	// start of the call, so its update stops if a removal committed after those checks (LIF-GC-5).
+	if carrier, has := session.(RemovalSeen); has && c.synced {
+		carrier.SeeRemovalEpoch(c.epoch)
+	}
+	return &Call{Ctx: c.Ctx, Store: store, S: session, Operation: c.Operation, Request: c.Request, epoch: c.epoch, synced: c.synced}
 }
 
 // parse returns the value of a stored descriptor. The store wrote the text, so it is canonical.
@@ -57,10 +72,12 @@ func (c *Call) Descriptor(ref string) (jsontext.Value, bool) {
 		return jsontext.Value{}, false
 	}
 	s.mu.Lock()
-	if len(s.cache) >= cacheLimit {
-		s.cache = map[string]jsontext.Value{}
+	if s.epoch == c.epoch {
+		if len(s.cache) >= cacheLimit {
+			s.cache = map[string]jsontext.Value{}
+		}
+		s.cache[ref] = value
 	}
-	s.cache[ref] = value
 	s.mu.Unlock()
 	return value, true
 }
@@ -104,13 +121,16 @@ func (c *Call) Preload(refs []string) {
 		values[ref] = parse(text)
 	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.epoch != c.epoch {
+		return
+	}
 	if len(s.cache)+len(values) >= cacheLimit {
 		s.cache = map[string]jsontext.Value{}
 	}
 	for ref, value := range values {
 		s.cache[ref] = value
 	}
-	s.mu.Unlock()
 }
 
 // Deferred returns each descriptor of a list that a deferred record names (BUN-IMP-12).
@@ -173,7 +193,9 @@ func (c *Call) checked(data []byte, ref string, deferred bool) ([]byte, bool) {
 	return data, true
 }
 
-// ClosureIn returns the roots and each object that their references reach (KND-DEP-3), from a reader.
+// ClosureIn returns the roots and each reference that their references reach (KND-DEP-3), from a reader.
+// The walk follows the kept `refs` of a removed object, so the result can have a reference that names no
+// object of the store (REL-RMV-8).
 func ClosureIn(r Reader, roots []string) map[string]struct{} {
 	seen := make(map[string]struct{}, len(roots))
 	todo := append([]string(nil), roots...)
@@ -193,9 +215,10 @@ func ClosureIn(r Reader, roots []string) map[string]struct{} {
 	return seen
 }
 
-// Closure returns the roots and each object that their references reach (KND-DEP-3). A storage with
-// ClosureIndex gives the closure of each root in one read.
-func (c *Call) Closure(roots ...string) map[string]struct{} {
+// References returns the roots and each reference that their references reach (KND-DEP-3). The result has
+// the removed objects of the closure also, as references (REL-RMV-8). A storage with ClosureIndex gives the
+// closure of each root in one read.
+func (c *Call) References(roots ...string) map[string]struct{} {
 	index, ok := c.S.(ClosureIndex)
 	if !ok {
 		return ClosureIn(c.S, roots)
@@ -210,6 +233,57 @@ func (c *Call) Closure(roots ...string) map[string]struct{} {
 		}
 	}
 	return seen
+}
+
+// Closure returns the roots and each object that their references reach (KND-DEP-3), without the removed
+// objects (REL-RMV-8). An object that a root reaches only through a removed object is in the result.
+func (c *Call) Closure(roots ...string) map[string]struct{} {
+	seen := c.References(roots...)
+	for ref := range c.Removed() {
+		delete(seen, ref)
+	}
+	return seen
+}
+
+// Removed returns the references that name a removed object: a removal record has the reference, and the
+// store does not have the object (REL-RMV-7). Only a writer store has removal records (REL-RMV-1). The call
+// reads the list one time. The caller does not change the result.
+func (c *Call) Removed() map[string]struct{} {
+	if !c.removedRead {
+		c.removed, c.removedRead = nil, true
+		if c.Store.Role == Writer {
+			refs := c.S.RemovedRefs()
+			c.removed = make(map[string]struct{}, len(refs))
+			for _, ref := range refs {
+				c.removed[ref] = struct{}{}
+			}
+		}
+	}
+	return c.removed
+}
+
+// RemovedIn returns the removed objects in the closure of the roots, in ascending order (REL-RMV-9,
+// REL-RMV-10). The result is not nil.
+func (c *Call) RemovedIn(roots ...string) []string {
+	out := []string{}
+	removed := c.Removed()
+	if len(removed) == 0 {
+		return out
+	}
+	for ref := range c.References(roots...) {
+		if _, gone := removed[ref]; gone {
+			out = append(out, ref)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Forget drops what the call and its store keep in memory for each reference of the list, after an update
+// of the call removed the objects (REL-RMV-7).
+func (c *Call) Forget(refs []string) {
+	c.Store.Forget(refs)
+	c.removed, c.removedRead = nil, false
 }
 
 // Sorted returns the members of a set in ascending order.
@@ -424,7 +498,8 @@ func (rc *ReadContext) Locate(ref string) string {
 }
 
 // Context returns the read context that the request names (CTX-OPN-3). A field `context` that is not a
-// string gives `field_type`. A context that the store does not keep gives `context_expired`. If the
+// string gives `field_type`. A context that the store does not keep, or whose declared life ended at the
+// time of the store clock, gives `context_expired` (CTX-LIF-2, CTX-LIF-5). If the
 // operation of the call needs a capability that the context does not have, the result is
 // `capability_unavailable` (CTX-PRJ-4).
 func (c *Call) Context() *ReadContext {
@@ -433,7 +508,7 @@ func (c *Call) Context() *ReadContext {
 		Fail("field_type")
 	}
 	record, ok := c.S.Context(id.Str)
-	if !ok {
+	if !ok || (record.Expires != 0 && c.Store.Millis() >= record.Expires) {
 		Fail("context_expired")
 	}
 	if capability, ok := needs[c.Operation]; ok && !contains(record.Capabilities, capability) {

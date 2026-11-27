@@ -15,6 +15,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/memstore"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/read"
+	"github.com/mohanraj00/aavanam/backend/core/storagetest"
 	"github.com/mohanraj00/aavanam/backend/core/transfer"
 	"github.com/mohanraj00/aavanam/backend/core/write"
 )
@@ -25,6 +26,8 @@ type imports struct {
 	roots [][]string
 	fail  bool // the record gives a storage fault
 }
+
+func (x *imports) ImportRoots() []string { return nil }
 
 func (x *imports) PutImport(roots []string) {
 	if x.fail {
@@ -140,5 +143,62 @@ func TestDeviceImportRecord(t *testing.T) {
 	}
 	if broken.mem.Fingerprint() != empty {
 		t.Fatal("an import whose record failed changed the store")
+	}
+}
+
+// LIF-GC-5, BUN-IMP-7: a lock call on a device store checks its inputs, and its update writes the lock to
+// the local output store. A different call ends the context and collects the inputs after the checks and
+// before that update. The update does not write, and the call runs again.
+func TestLockAfterCollect(t *testing.T) {
+	writer := ops.New(ops.Writer, memstore.New(), registry())
+	bindings := `{` + profile + `,"kind":"binding-set"}`
+	unit := `{` + profile + `,"kind":"knowledge-unit","binding_set":"` + ref(t, bindings) + `"}`
+	snapshot := `{` + profile + `,"kind":"snapshot","collection":"c","units":["` + ref(t, unit) + `"]}`
+	var texts []string
+	for _, d := range []string{bindings, unit, snapshot} {
+		texts = append(texts, string(canon.AppendString(nil, d)))
+	}
+	if e := call(t, writer, "put", `{"descriptors":[`+strings.Join(texts, ",")+`]}`); e.Status != "ok" {
+		t.Fatalf("put: %s", e.JSON())
+	}
+	opened := call(t, writer, "open_context", `{"roots":["`+ref(t, snapshot)+`"]}`)
+	exported := call(t, writer, "export", `{"context":"`+opened.Context.Str+`","roots":["`+ref(t, snapshot)+`"]}`)
+	if exported.Status != "ok" {
+		t.Fatalf("export: %s", exported.JSON())
+	}
+	var bundle jsontext.Value
+	for _, f := range exported.Fields {
+		if f.Key == "bundle" {
+			bundle = f.Val
+		}
+	}
+	deviceFile := memstore.New()
+	outputFile := deviceFile.Output()
+	other := ops.New(ops.Device, deviceFile, registry())
+	other.Output = ops.New(ops.Output, outputFile, registry())
+	if e := call(t, other, "import", string(canon.Canonical(jsontext.O(jsontext.M("bundle", bundle))))); e.Status != "ok" {
+		t.Fatalf("import: %s", e.JSON())
+	}
+	contextID := call(t, other, "open_context", `{"roots":["`+ref(t, snapshot)+`"]}`).Context.Str
+	ran := false
+	device := ops.New(ops.Device, deviceFile, registry())
+	device.Output = ops.New(ops.Output, storagetest.Racing(outputFile, func() {
+		if ran {
+			return
+		}
+		ran = true
+		if e := call(t, other, "close_context", `{"context":"`+contextID+`"}`); e.Status != "ok" {
+			t.Errorf("close_context: %s", e.JSON())
+		}
+		if e := call(t, other, "gc_collect", `{"roots":[]}`); e.Status != "ok" || len(e.Items) != 3 {
+			t.Errorf("gc_collect: %s", e.JSON())
+		}
+	}), registry())
+	e := call(t, device, "build_inputs", `{"context":"`+contextID+`","inputs":["`+ref(t, unit)+`"],"consumer":"sample/emitter/build/v1","completeness":"sample/declared/v1"}`)
+	if got := storagetest.Summary(e); !ran || got != "failed:context_expired" {
+		t.Errorf("a lock call after a collection of its inputs: %s", got)
+	}
+	if listed := outputFile.Session(context.Background()).OwnObjects(); len(listed) != 0 {
+		t.Errorf("the output store has %d objects", len(listed))
 	}
 }

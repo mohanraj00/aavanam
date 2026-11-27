@@ -32,9 +32,11 @@ var fingerprints = []struct{ table, query string }{
 		encode(sha256(entry), 'hex') FROM producer_entries ORDER BY producer, log, sequence`},
 	{"producer_removals", `SELECT encode(producer, 'hex') || ' ' || sequence || ' ' || encode(key, 'hex') || ' ' || time || ' ' ||
 		encode(reason, 'hex') FROM producer_removals ORDER BY producer, sequence`},
+	{"removals", `SELECT sequence || ' ' || encode(ref, 'hex') || ' ' || kind || ' ' || time || ' ' || encode(reason, 'hex')
+		FROM removals ORDER BY sequence`},
 }
 
-// Fingerprint returns a digest of the content, the catalog and the producer records of the store, from one
+// Fingerprint returns a digest of the content, the catalog, the producer records and the removal records of the store, from one
 // snapshot of the database. Two equal stores have equal fingerprints. A failure is a storage fault.
 func (s *Store) Fingerprint() string {
 	ctx := context.Background()
@@ -59,7 +61,7 @@ func (s *Store) Fingerprint() string {
 }
 
 // Truncate removes each row of the store. Only the conformance driver and the tests use it: a service
-// has no operation that removes content.
+// removes content only with `remove` and `gc_collect`.
 func (s *Store) Truncate(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `TRUNCATE `+strings.Join(tables, ", ")+` RESTART IDENTITY`)
 	return err

@@ -131,7 +131,7 @@ func TestCallGivesTheEnvelopeOfTheStore(t *testing.T) {
 // NET-SCP-2: a name with no row gives the envelope of STS-MAL-4, and the server does not check the body.
 func TestNameThatIsNotInTheBinding(t *testing.T) {
 	s := start(t, nil, api.Config{MaxBodyBytes: 8})
-	for name, reason := range map[string]string{"sample_operation": "unsupported_operation", "gc_collect": "reserved_profile",
+	for name, reason := range map[string]string{"sample_operation": "unsupported_operation", "lease_acquire": "reserved_profile",
 		"a%20b": "unsupported_operation", "%E2%82%AC": "unsupported_operation"} {
 		status, kind, body := s.do("POST", "/v1/op/"+name, strings.NewReader("this body is not JSON, and it is larger than the limit"))
 		if status != 200 || kind != "application/json" || !strings.Contains(body, `"status":"unsupported"`) || !strings.Contains(body, reason) {
@@ -163,6 +163,9 @@ func TestRequestsThatAreNotCallsOfTheBinding(t *testing.T) {
 		{"POST", "/v1/op/producer_removals", `{}`, 404},
 		{"POST", "/v1/op/producer_append", `{}`, 404},
 		{"POST", "/v1/op/producer_read", `{}`, 404},
+		{"POST", "/v1/op/remove", `{}`, 404},
+		{"POST", "/v1/op/removals", `{}`, 404},
+		{"POST", "/v1/op/gc_collect", `{}`, 404},
 		{"GET", "/v1/op/get", ``, 405},
 		{"PUT", "/v1/op/get", `{}`, 405},
 		{"POST", "/v1/about", `{}`, 405},
@@ -235,10 +238,10 @@ func TestDeadline(t *testing.T) {
 func TestAbout(t *testing.T) {
 	s := start(t, nil, api.Config{MaxBodyBytes: 1000, Deadline: 2 * time.Second})
 	status, kind, body := s.do("GET", "/v1/about", nil)
-	want := `{"api":"aavanam-read/v1","api_minor":0,"deadline_ms":2000,"max_body_bytes":1000,` +
-		`"operations":["compare","context_bundle","coverage","evidence","export","get","impact","item_history","list_items",` +
+	want := `{"api":"aavanam-read/v1","api_minor":1,"deadline_ms":2000,"max_body_bytes":1000,` +
+		`"operations":["close_context","compare","context_bundle","coverage","evidence","export","get","impact","item_history","list_items",` +
 		`"observations","open_context","publications","query_data","read","render","search","search_text","snapshot_changes"],` +
-		`"profile":"aavanam/base/v1","profile_minor":13}`
+		`"profile":"aavanam/base/v1","profile_minor":14}`
 	if status != 200 || kind != "application/json" || body != want {
 		t.Errorf("the description: HTTP %d %s\n got  %s\n want %s", status, kind, body, want)
 	}
@@ -270,7 +273,7 @@ func TestWriteListener(t *testing.T) {
 	if status, body := post("/v1/op/publications", `{"collection":"c"}`); status != 200 || !strings.Contains(body, `"status":"ok"`) {
 		t.Errorf("a read on the listener for the writes: HTTP %d %s", status, body)
 	}
-	if status, body := post("/v1/op/gc_collect", `{}`); status != 200 || !strings.Contains(body, "reserved_profile") {
+	if status, body := post("/v1/op/lease_acquire", `{}`); status != 200 || !strings.Contains(body, "reserved_profile") {
 		t.Errorf("a reserved operation: HTTP %d %s", status, body)
 	}
 	response, err := http.Get(server.URL + "/v1/about")

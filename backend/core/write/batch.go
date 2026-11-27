@@ -3,6 +3,7 @@
 package write
 
 import (
+	"errors"
 	"sort"
 
 	"github.com/mohanraj00/aavanam/backend/core/canon"
@@ -193,6 +194,9 @@ func (b Batch) write(c *ops.Call, checked []Checked) (failed found, fault *envel
 		case found:
 			failed = p
 		case *ops.Fault:
+			if errors.Is(p.Err, ops.ErrRemoved) {
+				panic(p) // the dispatch runs the call again (REL-RMV-4)
+			}
 			fault = ops.FaultFailure(p)
 		default:
 			panic(p)

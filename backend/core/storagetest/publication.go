@@ -169,6 +169,105 @@ func gateDuringValidation(t *testing.T, f *fixture) {
 	}
 }
 
+// LIF-GC-5, PUB-HED-3: a `gc_collect` removes the receipt while a publish runs its validator. No retained
+// root reaches the receipt of a publication that the store did not record (LIF-GC-2). The atomic step finds
+// that the receipt is not in the store, the call runs again, and step 1 gives the result.
+func collectDuringValidation(t *testing.T, f *fixture) {
+	snapshot, receipt := snapshotOf(t, f, "g", "1"), receiptOf(t, f)
+	calls := 0
+	f.store.Accept("pol", func(context.Context, string, string, string) ops.Decision {
+		calls++
+		if e := f.call("gc_collect", `{}`); e.Status != "ok" || len(e.Items) != 1 || field(e.Items[0], "ref") != receipt {
+			t.Errorf("gc_collect in the validation: %s", Summary(e))
+		}
+		return ops.Accepted
+	})
+	candidate := candidateOf(t, f, snapshot, "")
+	if got := Summary(publish(f, candidate, receipt)); got != "not_found:unknown_ref | not_found:unknown_ref" {
+		t.Errorf("a publish with a receipt that a gc_collect removed: %s", got)
+	}
+	if calls != 1 {
+		t.Errorf("the validator ran %d times", calls)
+	}
+	if got := Summary(f.call("publications", `{"collection":"g"}`)); got != "ok" {
+		t.Errorf("a refused publish recorded a publication: %s", got)
+	}
+}
+
+// racing is a storage whose updates run a step of the test first. Thus the step runs after the checks of
+// a call and before its update, as an update of a different call can.
+type racing struct {
+	ops.Storage
+	before func()
+}
+
+type racingSession struct {
+	ops.Session
+	before func()
+}
+
+// Racing returns the storage with a step that runs before each update.
+func Racing(storage ops.Storage, before func()) ops.Storage { return racing{storage, before} }
+
+func (r racing) Session(ctx context.Context) ops.Session {
+	return racingSession{r.Storage.Session(ctx), r.before}
+}
+
+func (s racingSession) Update(fn func(tx ops.Tx)) {
+	s.before()
+	s.Session.Update(fn)
+}
+
+func (s racingSession) RemovalEpoch() int64 {
+	if source, has := s.Session.(ops.RemovalEpoch); has {
+		return source.RemovalEpoch()
+	}
+	return 0
+}
+
+func (s racingSession) SeeRemovalEpoch(epoch int64) {
+	if carrier, has := s.Session.(ops.RemovalSeen); has {
+		carrier.SeeRemovalEpoch(epoch)
+	}
+}
+
+// REL-RMV-4, LIF-GC-5: a `gc_collect` or a `remove` commits after the checks of a different call and before
+// its update. The update does not write, and the call runs again on the content that the store has.
+func removalBeforeTheUpdate(t *testing.T, f *fixture) {
+	snapshot := snapshotOf(t, f, "g", "1")
+	ran := false
+	collect := Racing(f.storage, func() {
+		if ran {
+			return
+		}
+		ran = true
+		if e := f.call("gc_collect", `{}`); e.Status != "ok" || len(e.Items) != 3 {
+			t.Errorf("gc_collect before the update: %s", Summary(e))
+		}
+	})
+	e := ops.New(ops.Writer, collect, Registry()).Call(context.Background(), jsontext.S("open_context"), []byte(`{"roots":["`+snapshot+`"]}`))
+	if got := Summary(e); !ran || got != "not_found:unknown_ref | not_found:unknown_ref" {
+		t.Errorf("open_context on a snapshot that a gc_collect removed before the update: %s", got)
+	}
+	if e := f.call("put", Put([]string{Source("alpha")}, "alpha")); e.Status != "ok" {
+		t.Fatal(Summary(e))
+	}
+	ran = false
+	remove := Racing(f.storage, func() {
+		if ran {
+			return
+		}
+		ran = true
+		if e := f.call("remove", `{"ref":"`+revision(t, Source("alpha"))+`","reason":"sample request"}`); e.Status != "ok" {
+			t.Errorf("remove before the update: %s", Summary(e))
+		}
+	})
+	e = ops.New(ops.Writer, remove, Registry()).Call(context.Background(), jsontext.S("put"), []byte(Put([]string{Source("beta")}, "beta")))
+	if got := Summary(e); !ran || got != "ok | ok" {
+		t.Errorf("a put after a removal of a different call: %s", got)
+	}
+}
+
 // A gate declaration of a different open waits for an update that has the lock of the collection, as the
 // atomic step of a `publish` has (PUB-GAT-3, PUB-HED-3 step 5). Thus no declaration ends between the gate
 // check of that step and its commit.

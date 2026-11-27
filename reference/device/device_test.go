@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/mohanraj00/aavanam/backend/core/ops"
+	"github.com/mohanraj00/aavanam/backend/core/storagetest"
 )
 
 func open(t *testing.T) (string, *Store, *Store) {
@@ -183,5 +184,58 @@ func TestOpenRelativeDirectory(t *testing.T) {
 	dev.Session(ctx).Update(func(tx ops.Tx) { tx.PutBlob(ref(2), []byte("abc")) })
 	if data, ok := out.Session(ctx).Blob(ref(2)); !ok || string(data) != "abc" {
 		t.Fatalf("output Blob: %q %v", data, ok)
+	}
+}
+
+// The contract of the removal methods of a storage, on the device file and on the output file. A device
+// store and a local output store have no catalog and no removal record (BUN-RMV-2, DEV-RMV-1).
+func TestRemovalContract(t *testing.T) {
+	t.Run("Device", func(t *testing.T) {
+		storagetest.Removal(t, func(t *testing.T) storagetest.Backing { _, dev, _ := open(t); return dev }, false)
+	})
+	t.Run("Output", func(t *testing.T) {
+		storagetest.Removal(t, func(t *testing.T) storagetest.Backing { _, _, out := open(t); return out }, false)
+	})
+}
+
+// DEV-LAY-5: a file of an earlier version of the layout has no table `context_ends`. An open of the file
+// adds the table, and the table `contexts` keeps its three columns.
+func TestOpenAddsContextEnds(t *testing.T) {
+	dir := t.TempDir()
+	if err := Create(dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{DeviceFile, OutputFile} {
+		db, err := sql.Open("sqlite", filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = db.Exec(`DROP TABLE context_ends; INSERT INTO contexts (id, roots, capabilities) VALUES ('old', CAST('[]' AS BLOB), CAST('[]' AS BLOB))`)
+		db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	dev, out, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	defer out.Close()
+	for _, s := range []*Store{dev, out} {
+		s.Session(context.Background()).Update(func(tx ops.Tx) {
+			tx.PutContext("new", ops.ContextRecord{Expires: 5})
+		})
+		r := s.Session(context.Background())
+		if record, ok := r.Context("old"); !ok || record.Expires != 0 {
+			t.Errorf("%s: a context of the earlier layout: %+v, %t", s.role, record, ok)
+		}
+		if record, ok := r.Context("new"); !ok || record.Expires != 5 || !reflect.DeepEqual(r.EndedContexts(5), []string{"new"}) {
+			t.Errorf("%s: a context with a life in a file of the earlier layout: %+v", s.role, record)
+		}
+		var columns int
+		if err := s.db.QueryRow(`SELECT count(*) FROM pragma_table_info('contexts')`).Scan(&columns); err != nil || columns != 3 {
+			t.Errorf("%s: the table contexts has %d columns, want 3 (DEV-LAY-3): %v", s.role, columns, err)
+		}
 	}
 }

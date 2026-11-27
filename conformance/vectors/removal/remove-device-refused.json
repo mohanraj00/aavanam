@@ -1,0 +1,29 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A device store gives unsupported_role for remove and does not read the request",
+  "clauses": [
+    "REL-RMV-1",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "remove",
+      "request": {},
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_role"
+        ],
+        "items": [],
+        "store_unchanged": true
+      },
+      "store": "device"
+    }
+  ],
+  "pair": "removal/remove-ok"
+}

@@ -31,6 +31,17 @@ INSERT INTO context_members (context, ref)
     JOIN closures c ON c.root = r.root;
 DROP TABLE closures, text_tokens, table_heads, table_rows;
 DROP INDEX objects_layers;
+DROP TRIGGER inserts_only ON objects;
+DROP TRIGGER inserts_only ON edges;
+DROP TRIGGER inserts_only ON payloads;
+DROP TRIGGER inserts_only ON candidates;
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON objects FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON edges FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON payloads FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
+CREATE TRIGGER inserts_only BEFORE UPDATE OR DELETE ON candidates FOR EACH STATEMENT EXECUTE FUNCTION aavanam_inserts_only();
+DROP FUNCTION aavanam_removal_only();
+ALTER TABLE contexts DROP COLUMN expires, DROP COLUMN gone;
+DROP TABLE removals, removal_epoch;
 DELETE FROM schema_migrations WHERE version > 2;
 `
 
@@ -133,6 +144,11 @@ func TestUpgradeFromVersion040(t *testing.T) {
 		t.Errorf("the schema change made %d rows of the text index and the row cache", n)
 	}
 	r := upgraded.Session(ctx)
+	// A context of the old version has no declared life (CTX-LIF-1), and the store has no removal record.
+	if record, kept := r.Context(opened.Context.Str); !kept || record.Expires != 0 || len(r.Removals()) != 0 ||
+		count(t, upgraded, `SELECT count(*) FROM removal_epoch`) != 1 {
+		t.Errorf("the old context after the schema change: %+v, kept %v", record, kept)
+	}
 	if got := r.Members(opened.Context.Str); !reflect.DeepEqual(got, members) {
 		t.Errorf("the members of the old context after the schema change: %v, want %v", got, members)
 	}

@@ -18,7 +18,7 @@ type column struct {
 	key     bool
 }
 
-// DEV-PRF-2, DEV-LAY-1 to DEV-LAY-3 and DEV-OUT-1 specify the files and tables.
+// DEV-PRF-2, DEV-LAY-1 to DEV-LAY-3, DEV-LAY-5 and DEV-OUT-1 specify the files and tables.
 func TestSQLiteDeviceLayout(t *testing.T) {
 	dir, writer, reader := newStores(t)
 	const entry = "Maps and atlases.\n"
@@ -26,14 +26,15 @@ func TestSQLiteDeviceLayout(t *testing.T) {
 	call(t, reader, "import", fields{"bundle": exportBundle(t, writer, unit)}, "ok")
 
 	common := map[string]map[string]column{
-		"meta":       {"key": {"TEXT", true}, "value": {"TEXT", false}},
-		"objects":    {"ref": {"BLOB", true}, "kind": {}, "logical_id": {"BLOB", false}, "collection": {"BLOB", false}, "canonical": {"BLOB", false}},
-		"edges":      {"src": {"BLOB", true}, "dst": {"BLOB", true}, "field": {"", true}},
-		"payloads":   {"digest": {"BLOB", true}, "size": {}, "data": {"BLOB", false}},
-		"deferred":   {"digest": {"BLOB", true}, "ref": {"BLOB", true}},
-		"contexts":   {"id": {"TEXT", true}, "roots": {"BLOB", false}, "capabilities": {"BLOB", false}},
-		"closures":   {"root": {"BLOB", true}, "member": {"BLOB", true}},
-		"table_rows": {"digest": {"BLOB", false}, "idx": {}, "row": {"BLOB", false}},
+		"meta":         {"key": {"TEXT", true}, "value": {"TEXT", false}},
+		"objects":      {"ref": {"BLOB", true}, "kind": {}, "logical_id": {"BLOB", false}, "collection": {"BLOB", false}, "canonical": {"BLOB", false}},
+		"edges":        {"src": {"BLOB", true}, "dst": {"BLOB", true}, "field": {"", true}},
+		"payloads":     {"digest": {"BLOB", true}, "size": {}, "data": {"BLOB", false}},
+		"deferred":     {"digest": {"BLOB", true}, "ref": {"BLOB", true}},
+		"contexts":     {"id": {"TEXT", true}, "roots": {"BLOB", false}, "capabilities": {"BLOB", false}},
+		"context_ends": {"id": {"TEXT", true}, "expires": {"INTEGER", false}},
+		"closures":     {"root": {"BLOB", true}, "member": {"BLOB", true}},
+		"table_rows":   {"digest": {"BLOB", false}, "idx": {}, "row": {"BLOB", false}},
 	}
 	deviceTables := maps.Clone(common)
 	deviceTables["imports"] = map[string]column{"seq": {"INTEGER", true}, "roots": {"BLOB", false}}

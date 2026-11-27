@@ -7,6 +7,7 @@ import "github.com/mohanraj00/aavanam/backend/core/ops"
 // Register adds the operations of this package to a registry.
 func Register(r *ops.Registry) {
 	r.Handle("open_context", OpenContext)
+	r.Handle("close_context", CloseContext)
 	r.Handle("get", Get)
 	r.Handle("read", Read)
 	r.Handle("evidence", Evidence)

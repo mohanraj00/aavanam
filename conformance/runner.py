@@ -216,6 +216,8 @@ class Expander:
             return digest(f'aavanam-vector absent {v["$absent"]}'.encode())
         if '$payload' in v:
             return self.payload(v['$payload'], v.get('fault'), sent)
+        if '$digest' in v:
+            return self.payload(v['$digest'], None, {})['digest']
         return {k: self.value(x, sent) for k, x in v.items()}
 
     def request(self, operation: str, request: dict) -> tuple[dict, list[str | None]]:
@@ -285,6 +287,10 @@ def item_problems(e: dict, a: dict, where: str) -> list[str]:
     for k, v in sorted(e.get('fields', {}).items()):
         if k not in a or same(a[k]) != same(v):
             problems.append(f'{where}: {k} is {a.get(k, "absent")!r}, not {v!r}')
+    if 'no_other_fields' in e:
+        other = sorted(set(a) - set(e.get('fields', {})) - set(e['no_other_fields']) - {'status', 'reasons'})
+        if other:
+            problems.append(f'{where}: the item has the fields {other}, which the vector does not permit')
     if 'reason_details' in e:
         problems += detail_problems(e['reason_details'], a.get('reasons'), where)
     return problems
@@ -312,6 +318,9 @@ def compare(expect: dict, actual, operation: str) -> list[str]:
         problems.append(f'reasons are {got}, not {sorted(expect["reasons"])}')
     if 'reason_details' in expect:
         problems += detail_problems(expect['reason_details'], actual.get('reasons'), 'envelope')
+    for k, v in sorted(expect.get('fields', {}).items()):
+        if k not in actual or same(actual[k]) != same(v):
+            problems.append(f'envelope: {k} is {actual.get(k, "absent")!r}, not {v!r}')
     items = actual.get('items')
     if 'items' in actual:
         if not isinstance(items, list):
@@ -913,6 +922,11 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
         except StepProblem as e:
             return [f'step {n} ({operation}): {e}']
         expect = expander.value(step['expect'], {})
+        if 'advance_clock' in step:
+            try:
+                adapter.advance(step['advance_clock'])  # CTX-LIF-2: the clock of each store, before the call
+            except Exception as e:  # noqa: BLE001  an adapter with no clock fails this vector only
+                return [f'step {n} ({operation}): the adapter did not advance the store clock: {e!r} (CTX-LIF-2)']
         prints = {s: adapter.fingerprint(store=s) for s in check_spec.STORES}
         before = prints[store]
         calls.clear()

@@ -29,7 +29,9 @@ class Adapter(Protocol):
     `import` request is a byte sequence, `call` gives it to the
     implementation as a raw bundle in place of the request (BUN-RAW-4).
     `raw_bundle` returns the raw form that the implementation of the given
-    store makes from a bundle (BUN-RAW-3).
+    store makes from a bundle (BUN-RAW-3). `advance` moves the clock of each
+    store forward by a number of seconds (CTX-LIF-2). After `reset`, each store
+    clock is the system clock again.
     """
 
     def reset(self) -> None: ...
@@ -46,6 +48,7 @@ class Adapter(Protocol):
 
     def declare(self, profiles: list[str]) -> None: ...
 
+    def advance(self, seconds: int) -> None: ...
     def raw_bundle(self, bundle: dict, store: str = 'writer') -> bytes: ...
 
 

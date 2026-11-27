@@ -16,11 +16,14 @@ type row struct {
 var table = map[string]row{
 	"put":               {"02", false},
 	"open_context":      {"08", false},
+	"close_context":     {"08", false},
 	"get":               {"09", false},
 	"query_data":        {"09", true},
 	"search":            {"09", true},
 	"context_bundle":    {"09", true},
 	"evidence":          {"06", true},
+	"remove":            {"06", false},
+	"removals":          {"06", false},
 	"coverage":          {"07", true},
 	"observations":      {"07", true},
 	"execution_inputs":  {"10", false},
@@ -35,7 +38,8 @@ var table = map[string]row{
 	"export":            {"11", false},
 	"import":            {"11", false},
 	"snapshot_changes":  {"17", true},
-	"item_history":      {"17", false},
+	"item_history":      {"17", true},
+	"gc_collect":        {"17", false},
 	"list_items":        {"18", true},
 	"read":              {"20", false},
 	"search_text":       {"20", true},
@@ -47,20 +51,21 @@ var table = map[string]row{
 	"producer_read":     {"19", false},
 }
 
-// readBinding has the operations of the network read binding, which do not write content (NET-SCP-1).
+// readBinding has the operations of the network read binding, which do not write or remove content
+// (NET-SCP-1).
 var readBinding = map[string]bool{
-	"open_context": true, "get": true, "query_data": true, "search": true, "context_bundle": true, "evidence": true,
+	"open_context": true, "close_context": true, "get": true, "query_data": true, "search": true, "context_bundle": true, "evidence": true,
 	"coverage": true, "observations": true, "render": true, "compare": true, "impact": true, "list_items": true,
 	"read": true, "search_text": true, "snapshot_changes": true, "item_history": true, "publications": true, "export": true,
 }
 
 // Reserved has the profile of each reserved operation (RSV-LST-1). A store of the base profile does not
-// support these operations (STS-MAL-4, RSV-RSP-1).
+// support these operations (STS-MAL-4, RSV-RSP-1). `gc_collect` is an operation of the base profile from
+// minor version 14, so it is not in this table (RSV-LST-5).
 var Reserved = map[string]string{
 	"workspace_open":             "aavanam/workspace/v1",
 	"workspace_append":           "aavanam/workspace/v1",
 	"workspace_read":             "aavanam/workspace/v1",
-	"gc_collect":                 "aavanam/gc/v1",
 	"lease_acquire":              "aavanam/lease/v1",
 	"lease_release":              "aavanam/lease/v1",
 	"open_cross_catalog_context": "aavanam/cross-catalog/v1",

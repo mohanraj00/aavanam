@@ -3,6 +3,7 @@
 package memstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,13 +12,15 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 )
 
 type object struct {
-	kind string
-	text []byte
+	kind       string
+	text       []byte
+	collection string // the collection of a snapshot, or the base collection of a layer
 }
 
 type producerKey struct{ producer, key string }
@@ -25,6 +28,7 @@ type producerKey struct{ producer, key string }
 type logKey struct{ producer, log string }
 
 type state struct {
+	advance    bool // the update removed content: its commit increments the removal epoch
 	objects    map[string]object
 	targets    map[string][]string
 	sources    map[string]map[string]struct{}
@@ -43,6 +47,8 @@ type state struct {
 	producer   map[producerKey][]byte
 	removals   map[string][]ops.Removal
 	entries    map[logKey][]ops.Entry
+	gone       []ops.RemovalRecord // the removal records of the Evidence section (REL-RMV-5)
+	imports    [][]string          // the roots of each `ok` import of a device store (BUN-RMV-1)
 	tokens     map[string][]uint64 // derived: the different word tokens of a text digest, in ascending order
 	tables     map[string]*table   // derived: the columns and the rows of a table digest
 }
@@ -69,13 +75,39 @@ type Store struct {
 	mu     sync.RWMutex
 	st     *state
 	device *Store
+	output *Store // the local output store of a device store, or nil
+	// epoch is the number of updates of this store that removed content (ops.RemovalEpoch).
+	epoch atomic.Int64
+}
+
+// removals returns the removal epoch that a call of the store reads. A local output store reads the
+// objects of its device store (BUN-IMP-8), and a removal changes only the device store, so the two stores
+// have the epoch of the device store.
+func (s *Store) removals() *atomic.Int64 {
+	if s.device != nil {
+		return &s.device.epoch
+	}
+	return &s.epoch
+}
+
+// seen has the removal epoch at the start of a call.
+type seen struct {
+	known bool
+	epoch int64
 }
 
 // New returns an empty store.
 func New() *Store { return &Store{st: newState()} }
 
-// Output returns an empty local output store of a device store.
-func (s *Store) Output() *Store { return &Store{st: newState(), device: s} }
+// Output returns an empty local output store of a device store. A device store has one local output
+// store (BUN-IMP-5), so the application calls it one time.
+func (s *Store) Output() *Store {
+	out := &Store{st: newState(), device: s}
+	s.mu.Lock()
+	s.output = out
+	s.mu.Unlock()
+	return out
+}
 
 // Reset removes each record of the store.
 func (s *Store) Reset() {
@@ -85,10 +117,24 @@ func (s *Store) Reset() {
 }
 
 // Session returns the store for one call. A storage in memory has no deadline.
-func (s *Store) Session(context.Context) ops.Session { return session{s} }
+func (s *Store) Session(context.Context) ops.Session { return session{s, &seen{}} }
 
 // session reads with the read lock of the store. An update has the write lock for all of its work.
-type session struct{ s *Store }
+type session struct {
+	s    *Store
+	seen *seen // the removal epoch at the start of the call
+}
+
+// RemovalEpoch returns the removal epoch of the store (ops.RemovalEpoch). The session keeps it: an update
+// of the session that finds a different epoch stops before its first write (ops.ErrRemoved).
+func (v session) RemovalEpoch() int64 {
+	epoch := v.s.removals().Load()
+	v.seen.known, v.seen.epoch = true, epoch
+	return epoch
+}
+
+// SeeRemovalEpoch gives the session the epoch that a call read at its start (ops.RemovalSeen).
+func (v session) SeeRemovalEpoch(epoch int64) { v.seen.known, v.seen.epoch = true, epoch }
 
 func (v session) Update(fn func(tx ops.Tx)) {
 	if v.s.device != nil { // the order is always the device store, then the output store
@@ -97,8 +143,17 @@ func (v session) Update(fn func(tx ops.Tx)) {
 	}
 	v.s.mu.Lock()
 	defer v.s.mu.Unlock()
+	// The checks of the call read the store before this update had the lock. If an update removed content
+	// after the start of the call, the dispatch runs the call again (REL-RMV-4, LIF-GC-5).
+	if v.seen.known && v.s.removals().Load() != v.seen.epoch {
+		ops.Raise(ops.ErrRemoved)
+	}
 	work := tx{view{v.s, v.s.st.clone()}}
 	fn(work)
+	if work.st.advance {
+		work.st.advance = false
+		v.s.removals().Add(1)
+	}
 	v.s.st = work.st // the commit. A panic of fn keeps the old state.
 }
 
@@ -120,6 +175,7 @@ func (st *state) clone() *state {
 		candidates: copyMap(st.candidates), published: copyMap(st.published), log: st.log[:len(st.log):len(st.log)],
 		contexts: copyMap(st.contexts), members: copyMap(st.members), producer: copyMap(st.producer),
 		removals: copyMap(st.removals), entries: copyMap(st.entries), tokens: copyMap(st.tokens), tables: copyMap(st.tables),
+		gone: st.gone[:len(st.gone):len(st.gone)], imports: st.imports[:len(st.imports):len(st.imports)],
 	}
 }
 
@@ -128,13 +184,20 @@ type tx struct{ view }
 
 func (t tx) LockCollections([]string) {} // an update has the write lock of the store
 
+// LockRemoval has no effect: an update has the write lock of the store (ops.RemovalGate).
+func (t tx) LockRemoval() {}
+
+// AdvanceEpoch increments the removal epoch when the update commits (ops.RemovalGate).
+func (t tx) AdvanceEpoch() { t.st.advance = true }
+
 func (t tx) LockDigests([]string) {}
 
 func (t tx) PutObject(o ops.Object) {
 	if _, _, ok := t.Object(o.Ref); ok {
 		return // the store has the descriptor, or its device store has it (IDN-CAN-3, BUN-IMP-8)
 	}
-	t.st.objects[o.Ref] = object{o.Kind, append([]byte(nil), o.Text...)}
+	// A removal keeps the `refs` of an object, so a second write of a removed descriptor finds them (REL-RMV-11).
+	t.st.objects[o.Ref] = object{o.Kind, append([]byte(nil), o.Text...), o.Collection}
 	t.st.targets[o.Ref] = append([]string(nil), o.Targets...)
 	sort.Strings(t.st.targets[o.Ref])
 	for _, target := range o.Targets {
@@ -180,10 +243,107 @@ func (t tx) Publish(p ops.Publication) {
 	t.st.log = append(t.st.log, p)
 }
 
-// PutContext adds a read context with the closure of its roots as its content (CTX-OPN-2).
+// PutContext adds a read context with the closure of its roots as its content, without the removed objects
+// (CTX-OPN-2, REL-RMV-8).
 func (t tx) PutContext(id string, record ops.ContextRecord) {
+	members := ops.ClosureIn(t, record.Roots)
+	for _, ref := range t.RemovedRefs() {
+		delete(members, ref)
+	}
 	t.st.contexts[id] = record
-	t.st.members[id] = ops.ClosureIn(t, record.Roots)
+	t.st.members[id] = members
+}
+
+func (t tx) DeleteContexts(ids []string) {
+	for _, id := range ids {
+		delete(t.st.contexts, id)
+		delete(t.st.members, id)
+	}
+}
+
+// DeleteObjects removes the descriptors. The entries of `targets` and `sources` stay (REL-RMV-8).
+func (t tx) DeleteObjects(refs []string) {
+	for _, ref := range refs {
+		o, ok := t.st.objects[ref]
+		if !ok {
+			continue
+		}
+		switch o.kind {
+		case "snapshot":
+			t.st.snapshots[o.collection]--
+		case "layer":
+			t.st.layers[o.collection]--
+		}
+		delete(t.st.objects, ref)
+	}
+}
+
+func (t tx) DeleteEdges(sources []string) {
+	for _, ref := range sources {
+		for _, target := range t.st.targets[ref] {
+			set := copyMap(t.st.sources[target])
+			delete(set, ref)
+			if len(set) == 0 {
+				delete(t.st.sources, target)
+			} else {
+				t.st.sources[target] = set
+			}
+		}
+		delete(t.st.targets, ref)
+	}
+}
+
+func (t tx) DeleteDeferred(refs []string) {
+	for digest, waiting := range t.st.deferred {
+		var set map[string]struct{}
+		for _, ref := range refs {
+			if _, ok := waiting[ref]; ok {
+				if set == nil {
+					set = copyMap(waiting)
+				}
+				delete(set, ref)
+			}
+		}
+		switch {
+		case set == nil:
+		case len(set) == 0:
+			delete(t.st.deferred, digest)
+		default:
+			t.st.deferred[digest] = set
+		}
+	}
+}
+
+// DeleteBlobs removes the bytes, the tokens and the table of each digest.
+func (t tx) DeleteBlobs(digests []string) {
+	for _, digest := range digests {
+		delete(t.st.blobs, digest)
+		delete(t.st.tokens, digest)
+		delete(t.st.tables, digest)
+	}
+}
+
+func (t tx) DeleteCandidates(ids []string) {
+	for _, id := range ids {
+		delete(t.st.candidates, id)
+	}
+}
+
+func (t tx) PutRemoval(r ops.RemovalRecord) { t.st.gone = append(t.st.gone, r) }
+
+// PutImport adds the record of one import (ops.ImportLog).
+func (t tx) PutImport(roots []string) {
+	t.st.imports = append(t.st.imports, append([]string(nil), roots...))
+}
+
+// Output returns a reader of the local output store (ops.OutputView). The update has the write lock of the
+// device store, and each read and each update of the local output store takes the read lock of the device
+// store first. Thus the local output store does not change until the update ends.
+func (t tx) Output() (ops.Reader, bool) {
+	if t.s.output == nil {
+		return nil, false
+	}
+	return view{t.s.output, t.s.output.st}, true
 }
 
 // tokenValue returns the number of a token of package text: the letter `t` and 16 hexadecimal digits.
@@ -398,6 +558,113 @@ func (v view) IsMember(context, ref string) bool {
 
 func (v view) Members(context string) []string { return keys(v.st.members[context]) }
 
+func (v view) ContextsWith(ref string) []string {
+	var out []string
+	for id, members := range v.st.members {
+		if _, ok := members[ref]; ok {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (v view) OpenRoots(now int64) []string {
+	set := map[string]struct{}{}
+	for _, record := range v.st.contexts {
+		if record.Expires == 0 || record.Expires > now {
+			for _, root := range record.Roots {
+				set[root] = struct{}{}
+			}
+		}
+	}
+	return keys(set)
+}
+
+func (v view) EndedContexts(now int64) []string {
+	var out []string
+	for id, record := range v.st.contexts {
+		if record.Expires != 0 && record.Expires <= now {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (v view) Removals() []ops.RemovalRecord { return append([]ops.RemovalRecord(nil), v.st.gone...) }
+
+func (v view) HasRemoval(ref string) bool {
+	for _, r := range v.st.gone {
+		if r.Ref == ref {
+			return true
+		}
+	}
+	return false
+}
+
+func (v view) RemovedRefs() []string {
+	set := map[string]struct{}{}
+	for _, r := range v.st.gone {
+		if _, ok := v.st.objects[r.Ref]; !ok {
+			set[r.Ref] = struct{}{}
+		}
+	}
+	return keys(set)
+}
+
+// OwnObjects gives the objects of this store only, not those of its device store.
+func (v view) OwnObjects() []ops.Listed {
+	out := make([]ops.Listed, 0, len(v.st.objects))
+	for ref, o := range v.st.objects {
+		out = append(out, ops.Listed{Ref: ref, Kind: o.kind})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Ref < out[j].Ref })
+	return out
+}
+
+func (v view) OwnBlobs() []string {
+	out := make([]string, 0, len(v.st.blobs))
+	for digest := range v.st.blobs {
+		out = append(out, digest)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (v view) Naming(digest string) []string {
+	var out []string
+	for ref, o := range v.st.objects {
+		if bytes.Contains(o.text, []byte(digest)) {
+			out = append(out, ref)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (v view) AllHeads() map[string]string { return copyMap(v.st.heads) }
+
+func (v view) Candidates() []ops.Candidate {
+	out := make([]ops.Candidate, 0, len(v.st.candidates))
+	for _, c := range v.st.candidates {
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+// ImportRoots returns each root of each recorded import (ops.ImportLog).
+func (v view) ImportRoots() []string {
+	set := map[string]struct{}{}
+	for _, roots := range v.st.imports {
+		for _, root := range roots {
+			set[root] = struct{}{}
+		}
+	}
+	return keys(set)
+}
+
 // TextIndexed tells if the store, or its device store, has the tokens of a digest.
 func (v view) TextIndexed(digest string) bool {
 	if _, ok := v.st.tokens[digest]; ok {
@@ -604,6 +871,72 @@ func (v session) Members(context string) []string {
 	return r.Members(context)
 }
 
+func (v session) ContextsWith(ref string) []string {
+	r, done := v.read()
+	defer done()
+	return r.ContextsWith(ref)
+}
+
+func (v session) OpenRoots(now int64) []string {
+	r, done := v.read()
+	defer done()
+	return r.OpenRoots(now)
+}
+
+func (v session) EndedContexts(now int64) []string {
+	r, done := v.read()
+	defer done()
+	return r.EndedContexts(now)
+}
+
+func (v session) Removals() []ops.RemovalRecord {
+	r, done := v.read()
+	defer done()
+	return r.Removals()
+}
+
+func (v session) HasRemoval(ref string) bool {
+	r, done := v.read()
+	defer done()
+	return r.HasRemoval(ref)
+}
+
+func (v session) RemovedRefs() []string {
+	r, done := v.read()
+	defer done()
+	return r.RemovedRefs()
+}
+
+func (v session) OwnObjects() []ops.Listed {
+	r, done := v.read()
+	defer done()
+	return r.OwnObjects()
+}
+
+func (v session) OwnBlobs() []string {
+	r, done := v.read()
+	defer done()
+	return r.OwnBlobs()
+}
+
+func (v session) Naming(digest string) []string {
+	r, done := v.read()
+	defer done()
+	return r.Naming(digest)
+}
+
+func (v session) AllHeads() map[string]string {
+	r, done := v.read()
+	defer done()
+	return r.AllHeads()
+}
+
+func (v session) Candidates() []ops.Candidate {
+	r, done := v.read()
+	defer done()
+	return r.Candidates()
+}
+
 func (v session) TextIndexed(digest string) bool {
 	r, done := v.read()
 	defer done()
@@ -664,8 +997,9 @@ func (v session) ProducerEntries(producer, log string) []ops.Entry {
 	return r.ProducerEntries(producer, log)
 }
 
-// Fingerprint returns a digest of the content, the catalog and the producer records of the store. It does
-// not include the read contexts, the gates or the sections. Two equal stores have equal fingerprints.
+// Fingerprint returns a digest of the content, the catalog, the producer records and the removal records of
+// the store. It does not include the read contexts, the gates, the sections or the import records. Two
+// equal stores have equal fingerprints.
 func (s *Store) Fingerprint() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -704,6 +1038,9 @@ func (s *Store) Fingerprint() string {
 		for _, r := range removals {
 			add("producer_removals", producer, r)
 		}
+	}
+	for _, r := range st.gone {
+		add("removals", r)
 	}
 	sort.Strings(lines)
 	h := sha256.New()

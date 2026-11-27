@@ -159,7 +159,8 @@ type Store struct {
 	Output *Store
 	// Debug lets a panic that is not a failure or a storage fault continue, for tests.
 	Debug bool
-	// Clock is the store clock, for the time of a removal record (PRD-RMV-1). Nil is the system clock.
+	// Clock is the store clock, for the time of a removal record (PRD-RMV-1, REL-RMV-5) and for the life of
+	// a read context (CTX-LIF-2). Nil is the system clock.
 	Clock func() time.Time
 	// Profiles has the profiles that the store declares separately from the base profile (LYR-PRF-1,
 	// IDX-PRF-1). The application sets it before the first call, and it does not change after that. A nil
@@ -173,6 +174,7 @@ type Store struct {
 	cache    map[string]jsontext.Value // descriptors do not change (IDN-CAN-1)
 	memo     map[memoKey]any           // the content of a context does not change (CTX-OPN-2)
 	memoCost int
+	epoch    int64 // the removal epoch of the storage at the last call, if the storage has one
 }
 
 // New returns a store. The registry does not change after this call.
@@ -196,13 +198,50 @@ func (s *Store) Policy(policy string) (Validator, bool) {
 	return v, ok
 }
 
-// Now returns the UTC time of the store clock in the form `YYYY-MM-DDTHH:MM:SSZ` (PRD-RMV-1).
-func (s *Store) Now() string {
-	now := time.Now
+// Time returns the time of the store clock.
+func (s *Store) Time() time.Time {
 	if s.Clock != nil {
-		now = s.Clock
+		return s.Clock()
 	}
-	return now().UTC().Format("2006-01-02T15:04:05Z")
+	return time.Now()
+}
+
+// Now returns the UTC time of the store clock in the form `YYYY-MM-DDTHH:MM:SSZ` (PRD-RMV-1, REL-RMV-5).
+func (s *Store) Now() string { return s.Time().UTC().Format("2006-01-02T15:04:05Z") }
+
+// Millis returns the time of the store clock in milliseconds from 1970-01-01T00:00:00Z (CTX-LIF-2).
+func (s *Store) Millis() int64 { return s.Time().UnixMilli() }
+
+// Forget drops the parsed descriptor of each reference of the list. `remove` and `gc_collect` call it for
+// each object that they remove, so no later call reads a removed descriptor (REL-RMV-7).
+func (s *Store) Forget(refs []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, ref := range refs {
+		delete(s.cache, ref)
+	}
+}
+
+// flush drops each parsed descriptor and each value of ReadContext.Memo.
+func (s *Store) flush() {
+	s.cache, s.memo, s.memoCost = map[string]jsontext.Value{}, map[memoKey]any{}, 0
+}
+
+// sync reads the removal epoch of a storage that has one (RemovalEpoch), and returns it. If the epoch
+// changed after the last call, an update removed content, so the store drops what it kept in memory.
+func (s *Store) sync(session Session) (epoch int64, has bool) {
+	source, ok := session.(RemovalEpoch)
+	if !ok {
+		return 0, false
+	}
+	epoch = source.RemovalEpoch()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if epoch != s.epoch {
+		s.flush()
+		s.epoch = epoch
+	}
+	return epoch, true
 }
 
 // Supports tells if the operation has a row with more than `unsupported` for this store: a row of the
@@ -345,6 +384,10 @@ func empty(operation string) []jsontext.Member {
 	return []jsontext.Member{jsontext.M("document", jsontext.Value{}), jsontext.M("document_id", jsontext.Value{})}
 }
 
+// attempts is the number of times that the dispatch runs one call that a removal of a different call
+// stopped (ErrRemoved).
+const attempts = 4
+
 // Call returns the envelope of one call. The operation is the JSON value that names it. The request is
 // JSON text that no decoder changed (NET-TRN-2). The order of the checks is the order of STS-MAL-4.
 func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []byte) envelope.Envelope {
@@ -365,11 +408,24 @@ func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byt
 	if profile, reserved := Reserved[name]; reserved && !s.Supports(name) { // RSV-RSP-1, RSV-LST-4
 		return envelope.New(operation, "unsupported", envelope.Reason{Code: "reserved_profile", Capabilities: []string{profile}})
 	}
-	handler := s.registry.handlers[name]
 	if !s.Supports(name) {
 		return envelope.New(operation, "unsupported", envelope.R("unsupported_operation"))
 	}
 	s.called.Store(true)
+	for attempt := 1; ; attempt++ {
+		// A removal that committed after the start of the call stops the update of the call (ErrRemoved).
+		// The update did not write, so the dispatch runs the call again on the content that the store has now.
+		// The store reads a raw bundle only one time, so a call with a raw bundle does not run again.
+		if out, again := s.once(ctx, name, operation, request, raw, raw == nil && attempt < attempts); !again {
+			return out
+		}
+	}
+}
+
+// once runs one call one time. `again` tells that a removal stopped the call and that the caller can run
+// it again. `retry` permits that outcome.
+func (s *Store) once(ctx context.Context, name string, operation jsontext.Value, request []byte, raw io.Reader, retry bool) (out envelope.Envelope, again bool) {
+	handler := s.registry.handlers[name]
 	// The envelope of a failure has the context of the request, if the request names one (LIF-ITM-4).
 	value, formError := jsontext.O(), (*jsontext.FormError)(nil)
 	if raw == nil {
@@ -379,6 +435,7 @@ func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byt
 	if formError == nil {
 		context = echo(name, value)
 	}
+	var call *Call
 	defer func() {
 		p := recover()
 		if p == nil {
@@ -389,6 +446,10 @@ func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byt
 		case *envelope.Failure:
 			failure = v
 		case *Fault:
+			if retry && errors.Is(v.Err, ErrRemoved) {
+				again = true
+				return
+			}
 			failure = FaultFailure(v)
 		default:
 			if s.Debug {
@@ -398,12 +459,17 @@ func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byt
 		}
 		out = envelope.Envelope{Status: failure.Status, Reasons: failure.Reasons, Operation: operation, Context: context,
 			HasItems: true, Fields: empty(name)}
+		if call != nil {
+			out = s.marked(call, out)
+		}
 	}()
 	switch {
 	case s.Role == Device && writes[name]:
 		Fail("read_only_store") // BUN-IMP-6: after STS-MAL-4, before the request
 	case strings.HasPrefix(name, "producer_") && s.Role != Writer:
 		Fail("producer_section_absent") // PRD-SEC-1: after STS-MAL-4, before the request
+	case (name == "remove" || name == "removals") && s.Role != Writer, name == "gc_collect" && s.Role == Output:
+		Fail("unsupported_role") // REL-RMV-1, LIF-GC-1: after STS-MAL-4, before the request
 	case handler == nil:
 		Fail("unsupported_operation") // a store that does not have each operation of the base profile
 	}
@@ -413,7 +479,89 @@ func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byt
 	if value.Kind != jsontext.Object {
 		Fail("field_type")
 	}
-	return handler(&Call{Ctx: ctx, Store: s, S: s.Storage.Session(ctx), Operation: name, Request: value, Raw: raw})
+	session := s.Storage.Session(ctx)
+	epoch, synced := s.sync(session)
+	call = &Call{Ctx: ctx, Store: s, S: session, Operation: name, Request: value, Raw: raw, epoch: epoch, synced: synced}
+	return s.marked(call, handler(call)), false
+}
+
+// marked gives the reason `removed` in place of `unknown_ref` and `not_in_context` for a reference that
+// names a removed object (REL-RMV-7). Only a writer store has removal records (REL-RMV-1). In a layered
+// context, the reason stays `unknown_ref` (LYR-ISO-2). A failure of the read of the removal records is a
+// storage fault of the call.
+func (s *Store) marked(c *Call, e envelope.Envelope) (out envelope.Envelope) {
+	if s.Role != Writer {
+		return e
+	}
+	candidate := func(r envelope.Reason) bool {
+		return (r.Code == "unknown_ref" || r.Code == "not_in_context") && len(r.Refs) > 0
+	}
+	found := false
+	for _, r := range e.Reasons {
+		found = found || candidate(r)
+	}
+	for _, i := range e.Items {
+		for _, r := range i.Reasons {
+			found = found || candidate(r)
+		}
+	}
+	if !found {
+		return e
+	}
+	defer func() {
+		switch p := recover().(type) {
+		case nil:
+		case *Fault:
+			failure := FaultFailure(p)
+			out = envelope.Envelope{Status: failure.Status, Reasons: failure.Reasons, Operation: e.Operation, Context: e.Context,
+				HasItems: true, Fields: empty(c.Operation)}
+		default:
+			panic(p)
+		}
+	}()
+	removed := c.Removed()
+	if len(removed) == 0 {
+		return e
+	}
+	if id, ok := c.Request.Get("context"); ok && id.Kind == jsontext.String {
+		if record, kept := c.S.Context(id.Str); kept && len(record.Roots) == 2 && c.Kind(record.Roots[1]) == "layer" {
+			return e
+		}
+	}
+	change := func(reasons []envelope.Reason) []envelope.Reason {
+		var changed []envelope.Reason
+		for n, r := range reasons {
+			if !candidate(r) {
+				continue
+			}
+			all := true
+			for _, ref := range r.Refs {
+				if _, gone := removed[ref]; !gone {
+					all = false
+					break
+				}
+			}
+			if all {
+				if changed == nil { // the reasons of an item can be the reasons of the envelope also
+					changed = append([]envelope.Reason(nil), reasons...)
+				}
+				changed[n].Code = "removed"
+			}
+		}
+		if changed == nil {
+			return reasons
+		}
+		return changed
+	}
+	e.Reasons = change(e.Reasons)
+	if len(e.Items) > 0 {
+		items := append([]envelope.Item(nil), e.Items...)
+		for n := range items {
+			items[n].Reasons = change(items[n].Reasons)
+		}
+		e.Items = items
+	}
+	return e
 }
 
 // FaultFailure returns the failure of a storage fault: `deadline_exceeded` for a deadline, and

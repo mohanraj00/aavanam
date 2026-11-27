@@ -38,6 +38,9 @@ class Scripted:
         self.probe = None  # the lock that the runner reads next with a put (IDN-CAN-3)
         self.reset()
 
+    def advance(self, seconds):
+        self.advanced = getattr(self, 'advanced', 0) + seconds  # CTX-LIF-2
+
     def reset(self):
         self.state = {s: 0 for s in runner.check_spec.STORES}
         self.created = {s: set() for s in runner.check_spec.STORES}
@@ -214,6 +217,28 @@ class CompareTest(unittest.TestCase):
         actual['items'][0]['ref'] = REF_A
         problems = runner.compare({'status': 'ok', 'reasons': [], 'items': e, 'unordered': True}, actual, 'evidence')
         self.assertEqual(problems, ['the items do not match the expected items in any order'])
+
+    def test_no_other_fields_and_envelope_fields(self):
+        item = {'status': 'ok', 'reasons': [], 'ref': REF_A, 'time': 't', 'payload': 'p'}
+        actual = dict(envelope('removals', 'ok', [], [item]), payloads=[REF_A], candidates=[])
+        expect = {'status': 'ok', 'reasons': [], 'fields': {'payloads': [REF_A], 'candidates': []},
+                  'items': [{'status': 'ok', 'reasons': [], 'fields': {'ref': REF_A}, 'no_other_fields': ['time', 'payload']}]}
+        self.assertEqual(runner.compare(expect, actual, 'removals'), [])
+        expect['items'][0]['no_other_fields'] = ['time']  # REL-RMV-5: a record has no other field
+        self.assertEqual(len(runner.compare(expect, actual, 'removals')), 1)
+        expect['items'][0]['no_other_fields'] = ['time', 'payload']
+        for fields in ({'payloads': []}, {'absent': 1}):
+            expect['fields'] = fields
+            self.assertEqual(len(runner.compare(expect, actual, 'removals')), 1, fields)
+
+    def test_digest_handle_and_clock(self):
+        expander = runner.Expander('v', {'payloads': PAYLOADS, 'steps': []})
+        self.assertEqual(expander.value({'$digest': 'p'}, {}), runner.digest(b'abc'))
+        step = {'operation': 'get', 'request': {}, 'advance_clock': 60, 'expect': {'status': 'failed', 'reasons': ['storage_error']}}
+        vector = {'format': 'aavanam-vector/v1', 'profile': runner.BASE_PROFILE, 'steps': [step]}
+        adapter = Scripted(envelope('get', 'failed', ['storage_error']))
+        self.assertEqual(runner.run_vector(adapter, 'v', vector), [])
+        self.assertEqual(adapter.advanced, 60)  # CTX-LIF-2: before the call
 
     def test_item_fields_are_present_and_typed(self):
         for want, got in ((None, {}), (1, {'v': True}), (True, {'v': 1})):
@@ -692,6 +717,7 @@ def echo(vector: dict) -> list[dict]:
             if 'as_ref' in step:
                 expander.refs[step['as_ref']] = value
         result = envelope(op, e['status'], e['reasons'], items[::-1] if e.get('unordered') else items)
+        result.update(expander.value(e.get('fields', {}), {}))
         if 'reason_details' in e:
             result['reasons'] = [{'code': r['code'], 'refs': r.get('refs', []), 'capabilities': r.get('capabilities', [])}
                                  for r in expander.value(e['reason_details'], {})]
@@ -1008,12 +1034,12 @@ class FixtureTest(unittest.TestCase):
         cs = runner.check_spec
         statuses, reserved = cs.STATUSES.read_text(), cs.RESERVED.read_text()
         cases = [
-            (statuses.replace('| `gc_collect` | 16 | `unsupported` |\n', ''), reserved, 'gc_collect has no row'),
-            (statuses.replace('| `gc_collect` | 16 |', '| `gc_collect` | 09 |'), reserved, 'gc_collect has no row'),
+            (statuses.replace('| `workspace_open` | 16 | `unsupported` |\n', ''), reserved, 'workspace_open has no row'),
+            (statuses.replace('| `workspace_open` | 16 |', '| `workspace_open` | 09 |'), reserved, 'workspace_open has no row'),
             (statuses + '', reserved.replace(', `lease_release`', ''), 'lease_release is reserved but not'),
-            (statuses, reserved.replace('`aavanam/gc/v1`', '`ext:gc/v1`'), 'not a reserved profile name'),
-            (statuses, reserved.replace('`aavanam/gc/v1`', '`aavanam/lease/v1`'), 'listed twice'),
-            (statuses, reserved.replace('`gc_collect` |', '`gc_collect`, `semantic_search` |'), 'semantic_search is listed twice'),
+            (statuses, reserved.replace('`aavanam/workspace/v1`', '`ext:workspace/v1`'), 'not a reserved profile name'),
+            (statuses, reserved.replace('`aavanam/workspace/v1`', '`aavanam/lease/v1`'), 'listed twice'),
+            (statuses, reserved.replace('`workspace_read` |', '`workspace_read`, `semantic_search` |'), 'semantic_search is listed twice'),
         ]
         with tempfile.TemporaryDirectory() as d:
             old = cs.STATUSES, cs.RESERVED

@@ -28,7 +28,7 @@ import (
 // The identity of the API and its minor version (NET-VER-1).
 const (
 	Identity = "aavanam-read/v1"
-	Minor    = 0
+	Minor    = 1
 )
 
 // The limits of a listener with no configured value.

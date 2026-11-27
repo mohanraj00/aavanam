@@ -29,14 +29,17 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# The operations that write content. The network read binding does not have them (NET-SCP-3). Each other
-# operation name goes to the read binding, also a name with no row in the operation table (NET-SCP-2).
+# The operations that write or remove content, the operations of the producer section and `removals`. The
+# network read binding does not have them (NET-SCP-3). Each other operation name goes to the read binding,
+# also a name with no row in the operation table (NET-SCP-2).
 WRITES = frozenset({'put', 'create_snapshot', 'create_candidate', 'publish', 'import', 'execution_inputs', 'build_inputs',
-                    'producer_put', 'producer_get', 'producer_forget', 'producer_removals', 'producer_append', 'producer_read'})
+                    'producer_put', 'producer_get', 'producer_forget', 'producer_removals', 'producer_append', 'producer_read',
+                    'remove', 'removals', 'gc_collect'})
 # The operations that a declared profile adds and that the read binding does not have (NET-SCP-1). The read
 # listener gives HTTP 404 for such an operation (NET-SCP-3), so the call goes over the line protocol.
 PROFILE_OPERATIONS = {'aavanam/semantic-index/v1': frozenset({'semantic_search'})}
@@ -229,6 +232,14 @@ class BackendAdapter:
         for driver in self.processes():
             driver.request({'cmd': 'declare', 'profiles': list(profiles)})
         self.open_local()
+
+    def advance(self, seconds: int) -> None:
+        """Move the clock of each store forward (CTX-LIF-2). After `reset`, each store clock is the system clock:
+        a driver puts its clock back, and `open_local` makes new Python stores."""
+        for store in {id(s): s for s in self.local.values()}.values():
+            store.clock = lambda base=store.clock: base() + timedelta(seconds=seconds)
+        for driver in self.processes():
+            driver.request({'cmd': 'clock', 'advance': seconds})
 
     def call(self, operation: str, request: dict, store: str = 'writer') -> dict:
         raw = operation == 'import' and isinstance(request.get('bundle'), bytes)

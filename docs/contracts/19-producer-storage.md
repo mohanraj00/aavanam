@@ -73,7 +73,7 @@ The producer section is not the workspace of the reserved profile `aavanam/works
 
 **PRD-RMV-4.** `producer_removals` gives the removal records of the producer in the order of their sequence numbers. Each record is one `ok` item with its fields. No operation changes or removes a removal record.
 
-**PRD-RMV-5.** A removal from the producer section MUST NOT remove or change an object, a descriptor or payload bytes outside the producer section. This is also true if the removed bytes are equal to the bytes of a payload. The removal of a source from the closure of a snapshot is a feature of the reserved profile `aavanam/gc/v1` (RSV-LST-1). It is not part of this document.
+**PRD-RMV-5.** A removal from the producer section MUST NOT remove or change an object, a descriptor or payload bytes outside the producer section. This is also true if the removed bytes are equal to the bytes of a payload. The removal of an object of the Evidence section is the operation `remove` (REL-RMV-1). It is not part of this document, and it does not change the producer section.
 
 ### The calibration data of a producer
 
