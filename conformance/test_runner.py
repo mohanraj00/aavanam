@@ -81,6 +81,9 @@ class Scripted:
             self.created[store].add(value)
         return result
 
+    def raw_bundle(self, bundle, store='writer'):
+        return b''.join(runner.raw_form(bundle))  # the raw form of the clauses (BUN-RAW-3)
+
     def fingerprint(self, store='writer'):
         return str(self.state[store])
 
@@ -507,6 +510,112 @@ class RunVectorTest(unittest.TestCase):
         self.assertEqual(adapter.requests[1]['bundle']['filter'], {})
         self.assertNotIn('filter', bundle)
 
+    def test_raw_form_handles_and_faults(self):
+        # BUN-RAW-1 to BUN-RAW-3: the manifest line, then the bytes of each entry in ascending digest order.
+        (text_a, digest_a), (text_b, digest_b) = source(b'a'), source(b'bb')
+        bundle = {'format': 'aavanam-bundle/v1', 'roots': ['r'], 'descriptors': [text_a, text_b],
+                  'payloads': {digest_a: 'YQ==', digest_b: 'YmI='}, 'withheld': [REF_A]}
+        expander = runner.Expander('t', {})
+        expander.bundles['x'] = copy.deepcopy(bundle)
+        raw = expander.bundle('x', None, 'raw')
+        line, _, section = raw.partition(b'\n')
+        manifest = json.loads(line)
+        order = sorted([(digest_a, b'a'), (digest_b, b'bb')])
+        self.assertEqual(manifest['format'], 'aavanam-bundle-raw/v1')
+        self.assertEqual(manifest['payloads'], [{'digest': d, 'size': len(data)} for d, data in order])
+        self.assertEqual(section, b''.join(data for _, data in order))
+        self.assertEqual({k: manifest[k] for k in ('roots', 'descriptors', 'withheld')},
+                         {k: bundle[k] for k in ('roots', 'descriptors', 'withheld')})
+        self.assertIsNone(runner.raw_problem(raw, bundle))
+        self.assertEqual(expander.bundle('x', 'raw_trailing', 'raw'), raw + b'\x00')
+        self.assertEqual(expander.bundle('x', 'raw_truncated', 'raw'), raw[:-1])
+        changed = expander.bundle('x', 'raw_digest', 'raw')
+        self.assertEqual((changed[:len(line) + 1], changed[len(line) + 2:]), (raw[:len(line) + 1], raw[len(line) + 2:]))
+        self.assertEqual(changed[len(line) + 1] ^ raw[len(line) + 1], 1)
+        self.assertEqual(json.loads(expander.bundle('x', 'raw_format', 'raw').partition(b'\n')[0])['format'], 'aavanam-bundle/v1')
+        cut = expander.bundle('x', 'raw_manifest', 'raw').partition(b'\n')
+        self.assertEqual((cut[0], cut[2]), (line[:(len(line) + 1) // 2], section))
+        with self.assertRaises(ValueError):
+            json.loads(cut[0])
+        dropped = json.loads(expander.bundle('x', 'drop_withheld', 'raw').partition(b'\n')[0])  # a fault of BUN-MAN-1, then the raw form
+        self.assertNotIn('withheld', dropped)
+        for problem, data in (('manifest line', b'no line'), ('manifest line', b'{\n'), ('format and the fields', b'{"format":"x"}\n'),
+                              ('bytes of the entry', raw[:-1]), ('after the last entry', raw + b'x'),
+                              ('roots, descriptors', raw.replace(b'"r"', b'"q"', 1)),
+                              ('not the payloads of its bundle', b''.join(runner.raw_form({**bundle, 'payloads': {digest_a: 'YQ=='}})))):
+            self.assertIn(problem, runner.raw_problem(data, bundle), data[:40])
+        for fault, form, encoder in ((None, 'text', None), ('raw_digest', None, None), ('format', 'raw', 'store'), (None, None, 'store')):
+            with self.assertRaisesRegex(runner.VectorError, 'does not have'):
+                expander.bundle('x', fault, form, encoder)
+        expander.bundles['empty'] = {**bundle, 'payloads': {}}
+        with self.assertRaisesRegex(runner.VectorError, 'no payload bytes'):
+            expander.bundle('empty', 'raw_digest', 'raw')
+
+    def test_raw_form_of_the_implementation(self):
+        # The runner checks the raw form of the implementation before the import step uses it (BUN-RAW-3).
+        ok = {'status': 'ok', 'reasons': []}
+        text, digest = source(b'a')
+        bundle = {'format': 'aavanam-bundle/v1', 'roots': ['r'], 'descriptors': [text], 'payloads': {digest: 'YQ=='}}
+        vector = {'steps': [{'operation': 'export', 'request': {'roots': ['r']}, 'as_bundle': 'x', 'expect': ok},
+                            {'operation': 'import', 'store': 'device', 'expect': ok,
+                             'request': {'bundle': {'$bundle': 'x', 'form': 'raw', 'encoder': 'store'}}}]}
+        good = b''.join(runner.raw_form(bundle))
+
+        def adapter(encode):
+            scripted = Scripted({**envelope('export', 'ok', []), 'bundle': bundle}, envelope('import', 'ok', []))
+            scripted.raw_bundle = encode  # None is an adapter with no raw form
+            return scripted
+        stores = []
+        passing = adapter(lambda value, store: stores.append(store) or good)
+        self.assertEqual(runner.run_vector(passing, 't', vector), [])
+        self.assertEqual((passing.requests[1]['bundle'], stores), (good, ['device']))
+        for encode, words in ((lambda value, store: good + b'x', 'after the last entry'), (None, 'did not give the raw form'),
+                              (lambda value, store: 'text', 'not a byte sequence')):
+            failing = adapter(encode)
+            problems = runner.run_vector(failing, 't', vector)
+            self.assertTrue(problems and 'step 2 (import)' in problems[0] and words in problems[0], problems)
+            self.assertEqual(len(failing.requests), 1)  # the import step made no call
+
+    def test_delta_export_bundle_checks(self):
+        # BUN-DLT-2: no descriptor of the base closure, no bytes of a base digest, and the base roots in `base`.
+        schemas = runner.check_spec.schemas()
+        ok = {'status': 'ok', 'reasons': []}
+
+        def artifact(kind, data):
+            digest = 'sha256:' + hashlib.sha256(data).hexdigest()
+            return {'descriptor_profile': 'aavanam/base/v1', 'kind': 'artifact', 'artifact_type': kind,
+                    'payload': {'digest': digest, 'media_type': 'text/plain', 'size': len(data)}}
+        old, same, new = artifact('sample/a/v1', b'a'), artifact('sample/b/v1', b'a'), artifact('sample/c/v1', b'cc')
+        sets = [{'descriptor_profile': 'aavanam/base/v1', 'kind': 'binding-set', 'bindings': {'x': rev(old)}},
+                {'descriptor_profile': 'aavanam/base/v1', 'kind': 'binding-set', 'bindings': {'x': rev(same), 'y': rev(new)}}]
+        stored = {rev(v): json.dumps(v) for v in (old, same, new, *sets)}
+        base, root = rev(sets[0]), rev(sets[1])
+        self.assertEqual(runner.stored_closure([base], stored, schemas), {base, rev(old)})
+        self.assertIsNone(runner.stored_closure([REF_A], stored, schemas))
+        digest_a, digest_c = old['payload']['digest'], new['payload']['digest']
+        good = {'format': 'aavanam-bundle/v1', 'roots': [root], 'base': [base], 'payloads': {digest_c: 'Y2M='},
+                'descriptors': [json.dumps(v) for v in (sets[1], same, new)]}
+        request = {'roots': [root], 'base_context': 'c'}
+
+        def problems(bundle, request=request, roots=(base,)):
+            actual = {**envelope('export', 'ok', []), 'bundle': bundle}
+            return runner.bundle_problems('export', request, ok, actual, stored, list(roots) if roots is not None else None)
+        self.assertEqual(problems(good), [])
+        self.assertEqual(problems({**good, 'payloads': {}, 'withheld': [digest_c]}), [])
+        self.assertEqual(problems({**good, 'withheld': [digest_a]}), [])  # a withheld base digest that a descriptor names
+        cases = [({**good, 'base': [REF_A]}, 'base roots'), ({k: v for k, v in good.items() if k != 'base'}, 'base roots'),
+                 ({**good, 'descriptors': good['descriptors'] + [json.dumps(old)]}, 'descriptor of the base closure'),
+                 ({**good, 'payloads': {digest_c: 'Y2M=', digest_a: 'YQ=='}}, 'without the base digests'),
+                 ({**good, 'payloads': {}}, 'without the base digests'), ({**good, 'withheld': [REF_A]}, 'without the base digests')]
+        for bundle, words in cases:
+            found = problems(bundle)
+            self.assertTrue(found and any(words in p for p in found), (words, found))
+        self.assertIn('base roots', problems(good, roots=None)[0])
+        self.assertIn('cannot check the delta bundle', problems({**good, 'base': [REF_A]}, roots=(REF_A,))[-1])
+        full = {k: v for k, v in good.items() if k != 'base'}
+        self.assertIn('no base context has a base', problems(good, request={'roots': [root]})[0])
+        self.assertTrue(problems({**full, 'payloads': {digest_c: 'Y2M=', digest_a: 'YQ=='}}, request={'roots': [root]}) == [])
+
     def test_export_compares_canonical_descriptors(self):
         ok = {'status': 'ok', 'reasons': []}
         refs = ['sha256:' + c * 64 for c in 'abc']
@@ -555,6 +664,8 @@ def echo(vector: dict) -> list[dict]:
     expander = runner.Expander('echo', vector)
     results, stored, sent, fields = [], {}, {}, runner.check_spec.schemas()
     views = {}  # the base snapshot and the layer of each layered context (LYR-LCK-1)
+    bases = {}  # the roots of each read context (BUN-DLT-1)
+    expander.encode = lambda bundle: b''.join(runner.raw_form(bundle))  # BUN-RAW-3
     for n, step in enumerate(vector['steps']):
         if step.get('fresh_store'):
             expander.contexts.clear()
@@ -589,6 +700,9 @@ def echo(vector: dict) -> list[dict]:
                 r['capabilities'] = [runner.check_spec.reserved()[op]]
         if op == 'open_context' and e['status'] == 'ok':
             result['context'] = f'context-{n}'  # CTX-OPN-2
+            for item, root in zip(items, request.get('roots', [])):
+                item.setdefault('ref', root)  # CTX-OPN-1: an ok item has its root
+            bases[result['context']] = sorted({i['ref'] for i in items if 'ref' in i} | ({request['layer']['ref']} if 'layer' in request else set()))
             if 'as_context' in step:
                 expander.contexts[step['as_context']] = result['context']
             if 'layer' in request:  # LYR-LCK-1: the view of a layered context
@@ -602,6 +716,15 @@ def echo(vector: dict) -> list[dict]:
                                 'payloads': {d: sent[d] for d in digests - withheld}}
             if 'filter' in request:  # BUN-FLT-3, BUN-FLT-4
                 result['bundle'].update(roots=sorted(i['ref'] for i in items if i.get('matched') is True), filter=request['filter'])
+            if 'base_context' in request:  # BUN-DLT-2: the items are the objects that are not in the base closure
+                base = bases[request['base_context']]
+                omitted = runner.stored_closure(base, stored, fields)
+                held = {p['digest'] for r in omitted for p in runner.payload_objects(json.loads(stored[r]), fields)}
+                result['bundle'].update(base=base, payloads={d: sent[d] for d in digests - withheld - held})
+                if 'filter' in request:  # each unit of the vector matches, also a unit of the base closure
+                    units = {r for r in omitted & runner.stored_closure(request['roots'], stored, fields)
+                             if json.loads(stored[r]).get('kind') == 'knowledge-unit'}
+                    result['bundle']['roots'] = sorted(set(result['bundle']['roots']) | units)
             if withheld:
                 result['bundle']['withheld'] = sorted(withheld)
             if 'as_bundle' in step:

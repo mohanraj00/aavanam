@@ -933,7 +933,7 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
             problems += render_problems(operation, request, actual)
         problems += validator_problems(operation, request, expect, calls)
         if operation == 'open_context' and expect['status'] == 'ok' and not problems:
-            roots = {i['ref'] for i in actual['items'] if isinstance(i.get('ref'), str)}  # CTX-OPN-1: a root or a head snapshot
+            roots = {i['ref'] for i in actual.get('items') or [] if isinstance(i, dict) and isinstance(i.get('ref'), str)}  # CTX-OPN-1
             if isinstance(request.get('layer'), dict):
                 roots.add(request['layer']['ref'])  # LYR-OPN-3
             bases[(store, actual['context'])] = sorted(roots)

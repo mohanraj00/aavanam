@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import threading
 import uuid
 from collections import deque
@@ -374,7 +375,7 @@ def raw_parts(source) -> tuple[dict, dict[str, bytes]]:
         raise fail('field_type')  # step 2
     data = {}
     for e in entries:  # step 3
-        piece = reader.read(e['size'])
+        piece = reader.read(min(e['size'], sys.maxsize))  # a size of the input can be more than a read permits
         if not isinstance(piece, bytes) or len(piece) != e['size']:
             raise fail('field_type')
         if digest(piece) != e['digest']:
