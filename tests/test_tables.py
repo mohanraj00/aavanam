@@ -85,5 +85,57 @@ class TablesTest(unittest.TestCase):
         self.assertEqual(statuses.RESERVED, check_spec.reserved())
 
 
+
+def documents() -> dict[str, tuple[str, str]]:
+    """The prefix, the name and the text of each contract document of the checkout."""
+    out = {}
+    for path in sorted(check_spec.CONTRACTS.glob('*.md')):
+        text = path.read_text()
+        out[check_spec.HEADER.search(text)[2]] = (path.name, text)
+    return out
+
+
+class StatesTest(unittest.TestCase):  # SPEC.md, "Document states"
+    LOCKS = '10-consumer-input-locks.md'
+    ROW = '| `EXE` | Execution input locks |'
+
+    def setUp(self):
+        self.documents, self.readme = documents(), (check_spec.ROOT / 'README.md').read_text()
+
+    def changed(self, prefix: str, old: str, new: str) -> dict[str, tuple[str, str]]:
+        name, text = self.documents[prefix]
+        self.assertEqual(text.count(old), 1, old)
+        return {**self.documents, prefix: (name, text.replace(old, new))}
+
+    def test_each_document_is_normative_and_no_topic_is_draft(self):
+        self.assertEqual(len(self.documents), 24)
+        self.assertEqual(check_spec.check_states(self.documents, self.readme), [])
+
+    def test_an_unknown_state_is_a_problem(self):
+        for state, problem in (('final', 'unknown state final'), ('draft', 'the state is draft, not normative'),
+                               ('stub', 'the state is stub, not normative')):
+            documents = self.changed('CRD', 'State: normative.', f'State: {state}.')
+            self.assertEqual(check_spec.check_states(documents, self.readme), [f'20-content-reads-and-text-search.md: {problem}'])
+
+    def test_a_draft_topic_needs_the_list_of_the_compatibility_statement(self):
+        marked = self.changed('LCK', self.ROW, self.ROW[:-2] + ' (draft) |')
+        self.assertEqual(check_spec.check_states(marked, self.readme),
+                         ['LCK-EXE: a draft topic that the compatibility statement does not list'])
+        listed = self.readme.replace('The topics in the `draft` state: none.', 'The topics in the `draft` state: `LCK-EXE`.')
+        self.assertNotEqual(listed, self.readme)
+        self.assertEqual(check_spec.check_states(marked, listed), [])
+        self.assertEqual(check_spec.check_states(self.documents, listed),
+                         ['README.md: LCK-EXE is listed as a draft topic, but its document does not mark it'])
+
+    def test_a_readme_with_no_list_of_draft_topics_is_a_problem(self):
+        for readme in (self.readme.replace('## 0.6 compatibility', '## 0.5 compatibility'),
+                       self.readme.replace('The topics in the `draft` state: none.', '')):
+            self.assertEqual(check_spec.check_states(self.documents, readme),
+                             ['README.md: the 0.6 compatibility statement does not list the draft topics'])
+        other = self.readme.replace('The topics in the `draft` state: none.', 'The topics in the `draft` state: some.')
+        self.assertEqual(check_spec.check_states(self.documents, other),
+                         ['README.md: the list of draft topics is not "none" or a list of topics'])
+
+
 if __name__ == '__main__':
     unittest.main()

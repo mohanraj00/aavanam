@@ -1,6 +1,6 @@
 # Observations and coverage
 
-State: draft. Prefix: `OBS`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `OBS`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

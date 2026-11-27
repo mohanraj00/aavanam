@@ -1,6 +1,6 @@
 # Reserved profiles
 
-State: draft. Prefix: `RSV`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `RSV`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

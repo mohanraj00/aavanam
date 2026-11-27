@@ -1,6 +1,6 @@
 # Device stores
 
-State: draft. Prefix: `DEV`. Profile: `aavanam/device-sqlite/v1`.
+State: normative. Prefix: `DEV`. Profile: `aavanam/device-sqlite/v1`.
 
 ## Scope
 

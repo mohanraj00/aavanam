@@ -1,6 +1,6 @@
 # Network read binding
 
-State: draft. Prefix: `NET`. Profile: `aavanam-read/v1`.
+State: normative. Prefix: `NET`. Profile: `aavanam-read/v1`.
 
 ## Scope
 

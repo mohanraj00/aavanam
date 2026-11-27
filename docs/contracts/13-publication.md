@@ -1,6 +1,6 @@
 # Publication
 
-State: draft. Prefix: `PUB`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `PUB`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

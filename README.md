@@ -115,7 +115,7 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.5.0 is the current version. All 24 contract documents are drafts. Version 0.5.0 adds the layer profile (document 23) and the retrieval index profile (document 24). Each of the three implementations declares and passes both profiles. The backend reads through derived indexes, and its service can serve the read binding on a Unix socket. The release also adds a budget bench and an example page that browses a store through the read API. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.5.0 is the current version. In version 0.5.0, the contract documents are drafts. On the main branch, for the 0.6 series, all 24 contract documents are normative. Version 0.5.0 adds the layer profile (document 23) and the retrieval index profile (document 24). Each of the three implementations declares and passes both profiles. The backend reads through derived indexes, and its service can serve the read binding on a Unix socket. The release also adds a budget bench and an example page that browses a store through the read API. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
@@ -163,15 +163,27 @@ Aavanam has no stable release. Until version 1.0, a minor version (for example 0
 - The Python API of the reference implementation, and the request and result forms of `Store.call`.
 - The SQLite layout of a store file. A new version can refuse a store file of an older version.
 - The conformance runner interface and the producer adapter interface.
-- The draft contracts and the conformance vectors. A changed vector keeps its reason in the history.
+- A clause of a `draft` topic, and the conformance vectors. A changed vector keeps its reason in the history.
 
 A patch version (for example 0.1.0 to 0.1.1) keeps the guarantees in the next section. Use a versioned bundle to transfer a snapshot between store versions.
 
-## 0.1 compatibility
+## 0.6 compatibility
 
-Within the 0.1 series, the reference store preserves the documented `aavanam/base/v1` minor version 3 descriptor meanings, canonical reference digests, `aavanam-bundle/v1` transfer format and the outcomes of the 0.1.0 conformance vectors. A later 0.1 version can add compatible behavior and vectors.
+Each 0.6.x release keeps these:
 
-The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. The producer seam test is pending, and reserved operations return their specified unsupported status. The source version identifies the draft specification, conformance vectors and reference store together.
+- The normative clauses of contract documents 01 to 24. A change of the meaning of a normative clause withdraws the clause, adds a new clause and names the affected vectors (SPEC.md, "Clause IDs").
+- The descriptor meanings of `aavanam/base/v1` at minor version 14, and of the profiles of documents 21 to 24.
+- The canonical reference digests.
+- The transfer formats `aavanam-bundle/v1` and `aavanam-bundle-raw/v1`.
+- The outcomes of the 0.6.0 conformance vectors.
+
+A later 0.6 release can add compatible clauses, kinds, fields, reasons and vectors. Such an addition increments the minor version of its profile.
+
+The topics in the `draft` state: none.
+
+Each topic of documents 01 to 24 is normative. If a later 0.6 release keeps a new topic in the `draft` state, this list names it, and a clause of that topic can change in place.
+
+The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. Reserved operations return their specified unsupported status. The source version identifies the specification, the conformance vectors and the reference store together.
 
 See [the changelog](CHANGELOG.md) for the contents of 0.1.0, 0.2.0, 0.3.0, 0.4.0 and 0.5.0.
 

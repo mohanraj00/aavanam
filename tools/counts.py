@@ -44,7 +44,7 @@ def actual(root: Path) -> dict[str, int]:
     passed, failed = null_result(root)
     return {
         'documents': len(documents),
-        'drafts': sum(STATE.search(t) is not None and STATE.search(t).group(1) == 'draft' for t in texts),
+        'normative': sum(STATE.search(t) is not None and STATE.search(t).group(1) == 'normative' for t in texts),
         'clauses': sum(len(CLAUSE.findall(t)) for t in texts),
         'vectors': len(vectors),
         'acceptance': sum(v.startswith('conformance/vectors/acceptance/') for v in vectors),
@@ -55,13 +55,13 @@ def actual(root: Path) -> dict[str, int]:
 
 # Each stated count: the file, a pattern with one group for each count, and the names of the counts.
 STATED = [
-    ('README.md', r'All (\d+) contract documents are drafts\.', ['documents']),
-    ('README.md', r'All \d+ contract documents are drafts\.', ['drafts']),
+    ('README.md', r'all (\d+) contract documents are normative\.', ['documents']),
+    ('README.md', r'all \d+ contract documents are normative\.', ['normative']),
     ('README.md', r'\| Contract clauses \| (\d+), in (\d+) documents under', ['clauses', 'documents']),
     ('README.md', r'\| Conformance vectors \| (\d+)\.', ['vectors']),
     ('README.md', r'\| Null implementation \| Passes (\d+) vectors? and fails (\d+)\.', ['null_passed', 'null_failed']),
     ('README.md', r'\| End-to-end acceptance \| (\d+) vectors\.', ['acceptance']),
-    ('docs/STATUS.md', r'The specification has (\d+) contract documents in the `draft` state\.', ['documents']),
+    ('docs/STATUS.md', r'The specification has (\d+) contract documents in the `normative` state\.', ['documents']),
 ]
 # A count of a released version: the file, the pattern, and the tag of the version.
 RELEASED = [
@@ -79,10 +79,10 @@ def stated_problems(root: Path, counts: dict[str, int]) -> list[str]:
         if match is None:
             problems.append(f'{name}: no stated count matches {pattern!r}')
             continue
-        if keys == ['drafts']:
-            if counts['drafts'] != counts['documents']:
-                problems.append(f'{name}: states that all documents are drafts, but {counts["drafts"]} of '
-                                f'{counts["documents"]} are drafts')
+        if keys == ['normative']:
+            if counts['normative'] != counts['documents']:
+                problems.append(f'{name}: states that all documents are normative, but {counts["normative"]} of '
+                                f'{counts["documents"]} are normative')
             continue
         for key, value in zip(keys, match.groups()):
             if int(value) != counts[key]:

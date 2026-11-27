@@ -1,6 +1,6 @@
 # Evidence and relations
 
-State: draft. Prefix: `REL`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `REL`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

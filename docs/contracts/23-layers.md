@@ -1,6 +1,6 @@
 # Layers
 
-State: draft. Prefix: `LYR`. Profile: `aavanam/layer/v1`.
+State: normative. Prefix: `LYR`. Profile: `aavanam/layer/v1`.
 
 ## Scope
 

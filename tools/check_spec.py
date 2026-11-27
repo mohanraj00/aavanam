@@ -16,6 +16,9 @@ HEADER = re.compile(r'^State: (\w+)\. Prefix: `([A-Z]{3})`\.', re.M)
 PROFILE = re.compile(r'^State: \w+\. Prefix: `([A-Z]{3})`\. Profile: `([^`]+)`\.', re.M)
 BASE_PROFILE = 'aavanam/base/v1'
 TOPIC_ROW = re.compile(r'^\| `([A-Z]{2,4})` \|', re.M)
+DRAFT_TOPIC = re.compile(r'^\| `([A-Z]{2,4})` \|.*\(draft\) \|$', re.M)  # a draft topic of a normative document
+COMPATIBILITY = re.compile(r'^## 0\.6 compatibility$(.*?)(?=^## |\Z)', re.M | re.S)
+DRAFT_LIST = re.compile(r'^The topics in the `draft` state: (.+)\.$', re.M)
 CLAUSE = re.compile(r'^\*\*([A-Z]{3})-([A-Z]{2,4})-([1-9][0-9]*)\.\*\*', re.M)
 LOOSE_ID = re.compile(r'\b[A-Z]{3}-[A-Z]{2,4}-[0-9]+\b')
 REGISTRY = ROOT / 'docs/contracts/02-kinds-and-typed-references.md'
@@ -1066,6 +1069,33 @@ def check_fixtures(root: Path = FIXTURES) -> list[str]:
     return errors
 
 
+def check_states(documents: dict[str, tuple[str, str]], readme: str) -> list[str]:
+    """Each contract document is normative. The compatibility statement of README.md lists each draft topic, and
+    the document of each listed topic marks it (SPEC.md, "Document states"). `documents` maps a prefix to the name
+    and the text of its document."""
+    errors, marked = [], set()
+    for prefix, (name, text) in documents.items():
+        header = HEADER.search(text)
+        if not header:
+            continue  # check() gives the problem
+        state = header[1]
+        if state not in STATES:
+            errors.append(f'{name}: unknown state {state}')
+        elif state != 'normative':
+            errors.append(f'{name}: the state is {state}, not normative')
+        marked |= {f'{prefix}-{topic}' for topic in DRAFT_TOPIC.findall(text)}
+    section = COMPATIBILITY.search(readme)
+    line = DRAFT_LIST.search(section[1]) if section else None
+    if not line:
+        return errors + ['README.md: the 0.6 compatibility statement does not list the draft topics']
+    listed = set() if line[1] == 'none' else set(re.findall(r'`([A-Z]{3}-[A-Z]{2,4})`', line[1]))
+    if line[1] != 'none' and not listed:
+        errors.append('README.md: the list of draft topics is not "none" or a list of topics')
+    errors += [f'{t}: a draft topic that the compatibility statement does not list' for t in sorted(marked - listed)]
+    errors += [f'README.md: {t} is listed as a draft topic, but its document does not mark it' for t in sorted(listed - marked)]
+    return errors
+
+
 def check(vectors: Path = VECTORS) -> list[str]:
     errors = []
     index = {}
@@ -1091,8 +1121,6 @@ def check(vectors: Path = VECTORS) -> list[str]:
             errors.append(f'{path.name}: no state and prefix line')
             continue
         state, own = header.groups()
-        if state not in STATES:
-            errors.append(f'{path.name}: unknown state {state}')
         if own != prefix:
             errors.append(f'{path.name}: prefix {own} does not match index prefix {prefix}')
         topics = set(TOPIC_ROW.findall(text))
@@ -1115,6 +1143,8 @@ def check(vectors: Path = VECTORS) -> list[str]:
         for cid in set(LOOSE_ID.findall(path.read_text())):
             if cid not in seen and path.name != 'SPEC.md':
                 errors.append(f'{path.name}: {cid} is cited but not defined')
+    documents = {prefix: (path.name, path.read_text()) for prefix, path in index.items() if path.exists()}
+    errors += check_states(documents, (ROOT / 'README.md').read_text())
     return (errors + check_registry() + check_profile_tables() + check_statuses(list(index.values())) + check_reserved()
             + check_vectors(set(seen), withdrawn, vectors) + check_fixtures())
 

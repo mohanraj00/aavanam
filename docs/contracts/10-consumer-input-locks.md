@@ -1,6 +1,6 @@
 # Consumer input locks
 
-State: draft. Prefix: `LCK`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `LCK`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

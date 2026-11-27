@@ -1,6 +1,6 @@
 # Views, contexts and capabilities
 
-State: draft. Prefix: `CTX`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `CTX`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

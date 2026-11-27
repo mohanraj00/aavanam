@@ -1,6 +1,6 @@
 # Change and impact
 
-State: draft. Prefix: `CHG`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `CHG`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

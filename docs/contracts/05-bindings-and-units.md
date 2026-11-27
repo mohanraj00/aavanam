@@ -1,6 +1,6 @@
 # Bindings and units
 
-State: draft. Prefix: `BND`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `BND`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

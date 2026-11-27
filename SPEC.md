@@ -1,6 +1,6 @@
 # Aavanam specification
 
-Status: draft. Documents 01 to 24 are in the `draft` state. No clause is normative yet.
+Status: normative. Documents 01 to 24 are in the `normative` state. No topic is in the `draft` state.
 
 This file is the index. The normative text is in `docs/contracts/`. The [constitution](CONSTITUTION.md) has authority over this specification. This specification has authority over the implementation.
 
@@ -45,7 +45,7 @@ Each normative statement is one clause. A clause starts a paragraph with its ID 
 - `N` is a positive integer. Numbers increase in a topic.
 - An ID is never used again. If a clause is withdrawn, keep its ID and write `(withdrawn)` after it, with the reason.
 - If the meaning of a clause changes, withdraw it and write a new clause.
-- The two rules above apply when a document is `normative`. In a `draft` document, a clause can change in place. The PR that changes it names the clause and the affected vectors.
+- The two rules above apply to each clause of a `normative` document, except a clause of a `draft` topic. A clause of a `draft` document or of a `draft` topic can change in place. The PR that changes it names the clause and the affected vectors.
 
 `tools/check_spec.py` checks the prefixes, the topics and the uniqueness of IDs. It also checks the kind registry tables in document 02, the status, reason and operation tables in document 03, the reserved profile table in document 16, the tables of each profile document, for example document 23, and each conformance vector against these tables.
 
@@ -73,3 +73,7 @@ Each contract document has one state: `stub`, `draft` or `normative`.
 - `stub`: scope and topics only. No clauses.
 - `draft`: clauses for review. Vectors can cite them.
 - `normative`: clauses that the maintainers approved. A change needs a PR that names the affected vectors.
+
+A `normative` document can keep a topic in the `draft` state. The row of that topic in the topic table of the document then ends with `(draft)`, for example ``| `EXE` | Execution input locks (draft) |``. The compatibility statement in [README.md](README.md) lists each `draft` topic.
+
+Each contract document is `normative`. `tools/check_spec.py` refuses a document in a different state. It also refuses a `draft` topic that the compatibility statement does not list, and a listed topic that its document does not mark.

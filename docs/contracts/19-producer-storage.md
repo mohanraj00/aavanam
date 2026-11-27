@@ -1,6 +1,6 @@
 # Producer storage
 
-State: draft. Prefix: `PRD`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `PRD`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

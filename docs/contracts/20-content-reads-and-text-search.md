@@ -1,6 +1,6 @@
 # Content reads and text search
 
-State: draft. Prefix: `CRD`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `CRD`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
