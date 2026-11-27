@@ -115,7 +115,7 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 
 ## Where it stands
 
-Version 0.5.0 is the current version. In version 0.5.0, the contract documents are drafts. On the main branch, for the 0.6 series, all 24 contract documents are normative. Version 0.5.0 adds the layer profile (document 23) and the retrieval index profile (document 24). Each of the three implementations declares and passes both profiles. The backend reads through derived indexes, and its service can serve the read binding on a Unix socket. The release also adds a budget bench and an example page that browses a store through the read API. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.6.0 is the current version. In version 0.6.0, all 24 contract documents are normative. Version 0.6.0 adds the delta bundle and the raw bundle form for a device update. It also adds the removal from the Evidence section, the life of a read context and `gc_collect`. The spec now states the scope of input-lock capabilities, the locks for emission and gated publication, and the link from an output artifact to its input lock. The service holds a lock on its Unix socket while it runs. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
 
 | Fact | Value |
 |---|---|
@@ -185,7 +185,7 @@ Each topic of documents 01 to 24 is normative. If a later 0.6 release keeps a ne
 
 The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. Reserved operations return their specified unsupported status. The source version identifies the specification, the conformance vectors and the reference store together.
 
-See [the changelog](CHANGELOG.md) for the contents of 0.1.0, 0.2.0, 0.3.0, 0.4.0 and 0.5.0.
+See [the changelog](CHANGELOG.md) for the contents of 0.1.0, 0.2.0, 0.3.0, 0.4.0, 0.5.0 and 0.6.0.
 
 ## Run the checks
 
