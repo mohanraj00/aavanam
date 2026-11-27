@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-// Take the lock before the socket check and bind. Keep the file when the lock is released.
+// Take the lock before the socket check and bind. The listener holds the lock until it closes.
+// Keep the file when the lock is released.
 func lockSocketFile(path string) (func(), error) {
 	// Use a nonblocking open in case the path has a special file.
 	flags := syscall.O_RDWR | syscall.O_CREAT | syscall.O_NOFOLLOW | syscall.O_CLOEXEC | syscall.O_NONBLOCK

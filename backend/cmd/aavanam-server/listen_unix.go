@@ -39,9 +39,14 @@ func socketListener(path string, mode os.FileMode, listen func(string, os.FileMo
 	if err != nil {
 		return nil, fmt.Errorf("the socket lock %q: %w", lockPath, err)
 	}
-	if unlock != nil {
-		defer unlock()
-	}
+	// Keep the lock until the listener closes. A second start on the same path then gets no lock, so it
+	// never reaches the connection check and cannot remove the socket of a service that runs.
+	held := false
+	defer func() {
+		if !held && unlock != nil {
+			unlock()
+		}
+	}()
 	if info, err := os.Lstat(path); err == nil {
 		if info.Mode()&os.ModeSocket == 0 {
 			return nil, errors.New("the path has a file that is not a socket")
@@ -84,5 +89,23 @@ func socketListener(path string, mode os.FileMode, listen func(string, os.FileMo
 		_ = listener.Close()
 		return nil, fmt.Errorf("the socket file must have mode %04o", mode)
 	}
-	return listener, nil
+	if unlock == nil {
+		return listener, nil
+	}
+	held = true
+	return &lockedListener{Listener: listener, unlock: unlock}, nil
+}
+
+// lockedListener is a socket listener that holds the socket lock of its path.
+type lockedListener struct {
+	net.Listener
+	unlock func()
+	once   sync.Once
+}
+
+// Close removes the socket file first, then releases the lock.
+func (l *lockedListener) Close() error {
+	err := l.Listener.Close()
+	l.once.Do(l.unlock)
+	return err
 }

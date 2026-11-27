@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Hold the socket lock while the service runs (#137). A second start of the service on the same socket path gets no lock, so it cannot remove the socket of a service that runs. Before this change, a full accept queue on macOS made a live socket look stale to a second start. `backend/README.md` has a note on inheritable ACLs: do not put an inheritable ACL on the socket directory. The service still checks only the mode bits of the socket file.
 - State the scope of input-lock capabilities and application-owned run dependencies (LCK-CAP-4, #143), the two locks for emission and gated publication (PUB-ACT-6, #144), and the opaque link from an output artifact to its input lock (KND-OPQ-4, #145). Add the vector `publication/act-emission-gated-ok`. The base profile stays at minor version 12.
 
 ## 0.5.0
