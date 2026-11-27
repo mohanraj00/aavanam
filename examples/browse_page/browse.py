@@ -37,8 +37,8 @@ SHOWN_CHARS = 65536  # the characters of text that one item page shows
 HTTP_TIMEOUT = 30  # seconds, for one call of the read API
 
 # The pinned mugham UI kit. The page uses only its two style files.
-KIT_URL = 'https://github.com/mohanraj00/mugham/releases/download/v0.4.0/mugham.tar'
-KIT_SHA256 = 'af966b8402e89ba711f8831b6d40ce67b54b2af60fe00e847ff25996adea7934'
+KIT_URL = 'https://github.com/mohanraj00/mugham/releases/download/v0.7.0/mugham.tar'
+KIT_SHA256 = 'c9390dd6b13a8269ed3ddfb20865f481d884ac5e88f48a68d0659cb6b3399fd4'
 KIT_FILES = {'tokens.css': 'mugham/src/tokens/tokens.css', 'page.css': 'mugham/src/styles/page.css'}
 KIT_MAX_BYTES = 16 << 20
 

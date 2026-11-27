@@ -65,9 +65,9 @@ The page uses the published release artifact of the kit, not a local build:
 
 | Field | Value |
 |---|---|
-| Version | v0.4.0 |
-| URL | `https://github.com/mohanraj00/mugham/releases/download/v0.4.0/mugham.tar` |
-| SHA-256 | `af966b8402e89ba711f8831b6d40ce67b54b2af60fe00e847ff25996adea7934` |
+| Version | v0.7.0 |
+| URL | `https://github.com/mohanraj00/mugham/releases/download/v0.7.0/mugham.tar` |
+| SHA-256 | `c9390dd6b13a8269ed3ddfb20865f481d884ac5e88f48a68d0659cb6b3399fd4` |
 
 The page checks the SHA-256 digest of the archive after the download, before it keeps the archive in the cache. It checks the digest again each time that it reads the archive from the cache. If a digest is different, the page stops. The default cache is `~/.cache/aavanam-browse`. Use `--kit-cache` to change it. The page reads the two style files from the archive in memory. It does not extract the archive to disk.
 

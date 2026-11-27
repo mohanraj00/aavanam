@@ -15,9 +15,13 @@ NET-TRN-1 specifies HTTP/1.1 over TCP. NET-TRN-5 sets the default TCP address an
 
 On Linux, the socket mode can prevent other local users from reading the store. Use `0660` to give access to the socket owner and members of its group. Set the group through the service account or the socket directory. Give permitted clients search permission on the directories in the path. Keep the socket directory and its parents under the control of the service or its administrator. Give client users no write permission on those directories. Use directory permissions to restrict access on systems that do not check socket modes on connect.
 
+Do not put an inheritable ACL on the socket directory. The service checks only the mode bits of the socket file. On macOS, a new socket file inherits the entries of an inheritable ACL of its directory. Such an entry can give a different local account access to a socket with mode `0600`. Only the owner of the directory or an administrator can set that ACL. On macOS, `ls -lde <directory>` shows the ACL of a directory.
+
 On AIX and on Solaris other than illumos, the service refuses to start if a socket file already exists at the specified path. After an unclean stop, make sure that no service uses the socket. Then remove the socket file by hand before you restart the service.
 
-On the other supported Unix systems, the service adds `.lock` to each socket path and creates a private lock file with mode `0600`. If the lock is in use, the service waits up to two seconds before the start fails. The lock file stays in place after the service stops. The service replaces a socket left by an earlier run only if it gets the lock and the operating system refuses a connection. If the connection check gives a permission error, the service stops and keeps the socket.
+On the other supported Unix systems, the service adds `.lock` to each socket path and creates a private lock file with mode `0600`. The service holds the lock from its start until its listener closes. If the lock is in use, a second start waits up to two seconds, then fails. Thus a second start on the same socket path cannot remove the socket of a service that runs. The lock file stays in place after the service stops. Do not remove the lock file while a service runs. The service replaces a socket left by an earlier run only if it gets the lock and the operating system refuses a connection. If the connection check gives a permission error, the service stops and keeps the socket.
+
+A service of version 0.5.0 does not hold the lock while it runs. Stop that service before you start a later version on the same socket path.
 
 ## Profiles
 

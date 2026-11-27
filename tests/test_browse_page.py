@@ -75,7 +75,7 @@ class KitTest(unittest.TestCase):
             browse.fetch_kit(cache, url='http://127.0.0.1:9/never', digest=self.digest)
 
     def test_pin_is_the_release_artifact(self):
-        self.assertEqual(browse.KIT_URL, 'https://github.com/mohanraj00/mugham/releases/download/v0.4.0/mugham.tar')
+        self.assertEqual(browse.KIT_URL, 'https://github.com/mohanraj00/mugham/releases/download/v0.7.0/mugham.tar')
         readme = (FOLDER / 'README.md').read_text(encoding='utf-8')
         self.assertIn(browse.KIT_URL, readme)
         self.assertIn(browse.KIT_SHA256, readme)
