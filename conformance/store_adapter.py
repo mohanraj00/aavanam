@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
 
 from aavanam import Store  # noqa: E402
+from aavanam.store import raw_form  # noqa: E402
 
 
 class StoreAdapter:
@@ -28,7 +29,12 @@ class StoreAdapter:
         self.reset(profiles)  # the runner calls it after reset(), so each store is empty (LYR-PRF-1)
 
     def call(self, operation: str, request: dict, store: str = 'writer') -> dict:
+        if operation == 'import' and isinstance(request.get('bundle'), bytes):
+            return self.stores[store].call(operation, request['bundle'])  # BUN-RAW-4: a raw bundle in place of the request
         return self.stores[store].call(operation, request)
+
+    def raw_bundle(self, bundle: dict, store: str = 'writer') -> bytes:
+        return raw_form(bundle)  # BUN-RAW-3: the form needs no store
 
     def fingerprint(self, store: str = 'writer') -> str:
         return self.stores[store].fingerprint()

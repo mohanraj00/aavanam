@@ -25,7 +25,11 @@ class Adapter(Protocol):
     (PUB-SEC-1). `declare` makes each of the three stores declare the given
     profiles, for example the layer profile (LYR-PRF-1). The runner calls it
     after `reset`, only for a vector whose profile is not the base profile.
-    After `reset`, a store declares no profile.
+    After `reset`, a store declares no profile. If the `bundle` of an
+    `import` request is a byte sequence, `call` gives it to the
+    implementation as a raw bundle in place of the request (BUN-RAW-4).
+    `raw_bundle` returns the raw form that the implementation of the given
+    store makes from a bundle (BUN-RAW-3).
     """
 
     def reset(self) -> None: ...
@@ -41,6 +45,8 @@ class Adapter(Protocol):
     def section(self, collection: str, section: str) -> None: ...
 
     def declare(self, profiles: list[str]) -> None: ...
+
+    def raw_bundle(self, bundle: dict, store: str = 'writer') -> bytes: ...
 
 
 def envelope(operation: str, status: str, codes: list[str], items: list[dict] | None = None) -> dict:

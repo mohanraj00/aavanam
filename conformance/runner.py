@@ -45,6 +45,59 @@ def digest(data: bytes) -> str:
     return 'sha256:' + hashlib.sha256(data).hexdigest()
 
 
+RAW_FORMAT = 'aavanam-bundle-raw/v1'  # BUN-RAW-1
+RAW_FAULTS = ('raw_digest', 'raw_truncated', 'raw_trailing', 'raw_format', 'raw_manifest')
+
+
+class StepProblem(Exception):
+    """The implementation did not give a value that the step needs. The step fails."""
+
+
+def raw_form(bundle: dict, name: str = RAW_FORMAT) -> tuple[bytes, bytes]:
+    """Return the manifest line and the payload section of a raw form of a bundle (BUN-RAW-1 to BUN-RAW-3).
+
+    The entries are in ascending digest order. The runner makes this form from the clauses, with no call to an implementation.
+    """
+    data = {k: base64.b64decode(v, validate=True) for k, v in sorted(bundle['payloads'].items())}
+    manifest = {**bundle, 'format': name, 'payloads': [{'digest': k, 'size': len(v)} for k, v in data.items()]}
+    line = json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False).encode() + b'\n'
+    return line, b''.join(data.values())
+
+
+def raw_problem(data, bundle: dict) -> str | None:
+    """Check that `data` is a raw form of the bundle (BUN-RAW-1 to BUN-RAW-3)."""
+    if not isinstance(data, bytes) or b'\n' not in data:
+        return 'the raw form is not a byte sequence with a manifest line (BUN-RAW-1)'
+    line, _, section = data.partition(b'\n')
+    try:
+        manifest = json.loads(line.decode('utf-8'), object_pairs_hook=unique_keys)
+    except ValueError:
+        return 'the manifest line of the raw form is not the text of one JSON object (BUN-RAW-1)'
+    if not isinstance(manifest, dict) or manifest.get('format') != RAW_FORMAT or set(manifest) != set(bundle):
+        return 'the manifest of the raw form does not have the format and the fields of its bundle (BUN-RAW-1, BUN-RAW-3)'
+    same = {k: v for k, v in bundle.items() if k not in ('format', 'payloads')}
+    if json.dumps({k: manifest[k] for k in same}, sort_keys=True) != json.dumps(same, sort_keys=True):
+        return 'the manifest of the raw form does not have the roots, descriptors, withheld, filter and base of its bundle (BUN-RAW-3)'
+    entries = manifest.get('payloads')
+    if not (isinstance(entries, list) and all(isinstance(e, dict) and set(e) == {'digest', 'size'} and isinstance(e['digest'], str)
+                                              and isinstance(e['size'], int) and not isinstance(e['size'], bool) and e['size'] >= 0
+                                              for e in entries)
+            and len({e['digest'] for e in entries}) == len(entries)):
+        return 'the payloads of the raw manifest are not a list of entries with different digests (BUN-RAW-1)'
+    found, at = {}, 0
+    for e in entries:
+        piece = section[at:at + e['size']]
+        if len(piece) != e['size'] or digest(piece) != e['digest']:
+            return f'the payload section does not have the bytes of the entry {e["digest"]} (BUN-RAW-2)'
+        found[e['digest']] = base64.b64encode(piece).decode()
+        at += e['size']
+    if at != len(section):
+        return 'the payload section has bytes after the last entry (BUN-RAW-2)'
+    if found != bundle['payloads']:
+        return 'the entries of the raw form are not the payloads of its bundle (BUN-RAW-3)'
+    return None
+
+
 class Expander:
     """Replace the handles of one vector with values for the adapter."""
 
@@ -55,6 +108,7 @@ class Expander:
         self.contexts: dict[str, str] = {}
         self.bundles: dict[str, dict] = {}
         self.stored: dict[str, str] = {}
+        self.encode = None  # the raw form of a bundle from the implementation of the current step (BUN-RAW-3)
 
     def payload(self, name: str, fault: str | None, sent: dict[str, str]) -> dict:
         if name not in self.payloads:
@@ -72,10 +126,39 @@ class Expander:
             sent[value['digest']] = base64.b64encode(data).decode()
         return value
 
-    def bundle(self, name: str, fault: str | None) -> dict:
+    def bundle(self, name: str, fault: str | None, form: str | None = None, encoder: str | None = None):
+        """Return the bundle, or a raw form of it as bytes if `form` is `raw` (BUN-RAW-3)."""
         if name not in self.bundles:
             raise VectorError(f'{self.vid}: bundle handle {name} is not bound')
         value = copy.deepcopy(self.bundles[name])
+        if form not in (None, 'raw') or encoder not in (None, 'store') or (encoder and (form != 'raw' or fault)) \
+                or (fault in RAW_FAULTS and form != 'raw'):
+            raise VectorError(f'{self.vid}: bundle {name} has a form, an encoder or a fault that the runner does not have')
+        if form == 'raw' and encoder == 'store':
+            # The implementation makes the raw form. The runner checks it against the clauses before the step uses it.
+            try:
+                data = self.encode(value)
+            except Exception as e:  # noqa: BLE001  an implementation with no raw form fails this step only
+                raise StepProblem(f'the adapter did not give the raw form of the bundle: {e!r} (BUN-RAW-3)') from None
+            if problem := raw_problem(data, value):
+                raise StepProblem(problem)
+            return data
+        if form == 'raw' and fault in RAW_FAULTS + (None,):
+            line, section = raw_form(value, 'aavanam-bundle/v1' if fault == 'raw_format' else RAW_FORMAT)
+            if fault in ('raw_digest', 'raw_truncated') and not section:
+                raise VectorError(f'{self.vid}: bundle {name} has no payload bytes for {fault}')
+            if fault == 'raw_digest':  # the first entry has bytes with a different digest (BUN-RAW-4 step 3)
+                first = next(e['size'] for e in json.loads(line)['payloads'])
+                if not first:
+                    raise VectorError(f'{self.vid}: the first payload of bundle {name} is empty')
+                section = bytes([section[0] ^ 1]) + section[1:]
+            elif fault == 'raw_truncated':  # the payload section ends before the bytes of the last entry
+                section = section[:-1]
+            elif fault == 'raw_trailing':  # one byte after the last entry (BUN-RAW-4 step 4)
+                section += b'\x00'
+            elif fault == 'raw_manifest':  # the manifest line is not a JSON text (BUN-RAW-4 step 1)
+                line = line[:len(line) // 2] + b'\n'
+            return line + section
         if fault == 'drop_payload':
             payloads = value.get('payloads') if isinstance(value, dict) else None
             if not isinstance(payloads, dict) or not payloads:
@@ -110,6 +193,8 @@ class Expander:
             value['filter'] = {}  # not a filter (DSC-FLT-1, BUN-FLT-4)
         elif fault is not None:
             raise VectorError(f'{self.vid}: unknown bundle fault {fault}')
+        if form == 'raw':
+            return b''.join(raw_form(value))  # a fault of BUN-MAN-1 in a raw form
         return value
 
     def value(self, v, sent: dict[str, str]):
@@ -126,7 +211,7 @@ class Expander:
                 raise VectorError(f'{self.vid}: context handle {v["$context"]} is not bound')
             return self.contexts[v['$context']]
         if '$bundle' in v:
-            return self.bundle(v['$bundle'], v.get('fault'))
+            return self.bundle(v['$bundle'], v.get('fault'), v.get('form'), v.get('encoder'))
         if '$absent' in v:
             return digest(f'aavanam-vector absent {v["$absent"]}'.encode())
         if '$payload' in v:
@@ -366,6 +451,34 @@ def payload_objects(descriptor, schemas: dict) -> list:
     return [descriptor[f] for f, (vtype, _) in sorted(fields.items()) if vtype == 'payload' and f in descriptor]
 
 
+def reference_values(descriptor, schemas: dict) -> list[str]:
+    """Return the references in the reference fields of a descriptor (KND-DEP-1). Other JSON is opaque."""
+    out = []
+    if not isinstance(descriptor, dict):
+        return out
+    for field, (vtype, _) in schema_of(descriptor, schemas).items():
+        value = descriptor.get(field)
+        if vtype not in check_spec.REF_TYPES or value is None:
+            continue
+        values = value.values() if isinstance(value, dict) else value if isinstance(value, list) else [value]
+        out += [r for r in values if isinstance(r, str)]
+    return out
+
+
+def stored_closure(roots: list, stored: dict[str, str], schemas: dict) -> set[str] | None:
+    """Return the closure of the roots over the descriptors that the vector stored (KND-DEP-3), or None if one is not known."""
+    seen, todo = set(), list(roots)
+    while todo:
+        ref = todo.pop()
+        if ref in seen:
+            continue
+        if not isinstance(ref, str) or ref not in stored:
+            return None
+        seen.add(ref)
+        todo += reference_values(json.loads(stored[ref]), schemas)
+    return seen
+
+
 def normal(descriptor, schemas: dict):
     """Return the descriptor without empty optional lists and with sorted reference sets (KND-SCH-3, KND-SCH-5)."""
     if not isinstance(descriptor, dict):
@@ -389,16 +502,27 @@ def unique_keys(pairs: list) -> dict:
     return dict(pairs)
 
 
-def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, stored: dict[str, str]) -> list[str]:
-    """Check the bundle of an export result (BUN-MAN-1, BUN-EXP-1, BUN-EXP-2, BUN-RED-5, BUN-FLT-3 and BUN-FLT-4)."""
+def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, stored: dict[str, str], base=None) -> list[str]:
+    """Check the bundle of an export result (BUN-MAN-1, BUN-EXP-1, BUN-EXP-2, BUN-RED-5, BUN-FLT-3, BUN-FLT-4 and BUN-DLT-2)."""
     if operation != 'export':
         return []
     bundle = actual.get('bundle')
     if expect['status'] != 'ok':
         return [] if bundle is None else ['a refused export has a bundle (BUN-EXP-1)']
-    if not isinstance(bundle, dict) or set(bundle) - {'withheld', 'filter'} != {'format', 'roots', 'descriptors', 'payloads'}:
+    if not isinstance(bundle, dict) or set(bundle) - {'withheld', 'filter', 'base'} != {'format', 'roots', 'descriptors', 'payloads'}:
         return ['bundle does not have the fields of BUN-MAN-1']
     problems = []
+    schemas = check_spec.schemas()
+    delta = 'base_context' in request  # `base` has the roots of the base context, from its open_context step (BUN-DLT-1)
+    if delta and (base is None or bundle.get('base') != base):
+        problems.append('bundle base is not the base roots in ascending order (BUN-DLT-2)')
+    elif not delta and 'base' in bundle:
+        problems.append('a bundle of an export with no base context has a base (BUN-DLT-3)')
+    omitted = stored_closure(base, stored, schemas) if delta and base is not None else set()
+    if omitted is None:
+        return problems + ['the runner does not have each descriptor of the base closure, so it cannot check the delta bundle (BUN-DLT-2)']
+    base_digests = {p['digest'] for r in omitted for p in payload_objects(json.loads(stored[r]), schemas)
+                    if isinstance(p, dict) and isinstance(p.get('digest'), str)}
     withheld = bundle.get('withheld', [])
     if not isinstance(withheld, list) or ('withheld' in bundle and not withheld) or not all(isinstance(w, str) for w in withheld) \
             or len(set(withheld)) != len(withheld):
@@ -411,7 +535,11 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
         matched = [i.get('ref') for i in items if isinstance(i, dict) and i.get('matched') is True]
         if not all(isinstance(i, dict) and isinstance(i.get('matched'), bool) for i in items):
             problems.append('an item of a filtered export has no boolean field matched (BUN-FLT-3)')
-        if not matched or bundle['roots'] != sorted(map(str, matched)):
+        roots = bundle['roots'] if isinstance(bundle['roots'], list) else []
+        if delta:  # BUN-DLT-2: a matched root in the base closure has no item
+            if not roots or roots != sorted(map(str, roots)) or not set(matched) <= set(roots) or not set(roots) - set(matched) <= omitted:
+                problems.append('bundle roots are not the matched items and matched objects of the base closure, in ascending order (BUN-FLT-3, BUN-DLT-2)')
+        elif not matched or bundle['roots'] != sorted(map(str, matched)):
             problems.append('bundle roots are not the matched items in ascending order (BUN-FLT-3)')
         if 'filter' not in bundle or json.dumps(bundle['filter'], sort_keys=True) != json.dumps(request['filter'], sort_keys=True):
             problems.append('bundle filter is not the filter of the request (BUN-FLT-4)')
@@ -430,7 +558,8 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
             canonical(v)
     except (ValueError, RecursionError):
         return problems + ['a bundle descriptor is not JSON, has a duplicate key or a number that is not finite (BUN-MAN-1, STS-MAL-3, IDN-CAN-1)']
-    schemas = check_spec.schemas()
+    if delta and any(revision(normal(v, schemas), schemas) in omitted for v in values):
+        problems.append('a delta bundle has a descriptor of the base closure (BUN-DLT-2)')
     refs = [i.get('fields', {}).get('ref') for i in expect.get('items', [])]
     if refs and all(r in stored for r in refs):
         mine = sorted(canonical(normal(v, schemas)) for v in values)
@@ -443,14 +572,20 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
         for p in payload_objects(value, schemas):
             if isinstance(p, dict) and isinstance(p.get('digest'), str):
                 wanted[p['digest']] = p.get('size')
-    if set(wanted) != set(payloads) | set(withheld) or set(payloads) & set(withheld):
+    parents = set()  # BUN-DLT-2 rule 3: a delta bundle can also list the withheld digest of the parent of an excerpt (BUN-EXC-3)
+    if delta:  # BUN-DLT-2 rules 2 and 3: no bytes of a base digest, and only the withheld digests that a check reads
+        parents = {p['digest'] for v in values if v.get('kind') == 'excerpt' and v.get('parent') in stored
+                   for p in payload_objects(json.loads(stored[v['parent']]), schemas) if isinstance(p, dict)}
+        if set(payloads) != set(wanted) - set(withheld) - base_digests or not set(withheld) <= set(wanted) | parents:
+            problems.append('the payloads and withheld digests of a delta bundle are not those of its descriptors without the base digests (BUN-DLT-2)')
+    elif set(wanted) != set(payloads) | set(withheld) or set(payloads) & set(withheld):
         problems.append('bundle payloads and withheld digests are not the byte closure of its descriptors (BUN-EXP-2, BUN-RED-5)')
     flagged = [i.get('fields', {}) for i in expect.get('items', [])]
     if flagged and all('withheld' in f and f.get('ref') in stored for f in flagged):
         mine = {p['digest'] for f in flagged if f['withheld'] is True
                 for p in payload_objects(json.loads(stored[f['ref']]), schemas)
                 if isinstance(p, dict) and isinstance(p.get('digest'), str)}
-        if mine != set(withheld):
+        if not mine <= set(withheld) <= mine | parents:
             problems.append('bundle withheld digests are not the payload digests of the withheld items (BUN-RED-5)')
     for digest, text in payloads.items():
         try:
@@ -756,6 +891,7 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
     kept = {s: set() for s in check_spec.STORES}  # the revisions that each store has, for the lock check (LCK-EXE-4, LCK-BLD-3)
     known = {s: set() for s in check_spec.STORES}  # the candidate identities that each store has (PUB-CND-4)
     views: dict[tuple, list] = {}  # the base snapshot and the layer of each layered context (LYR-LCK-1)
+    bases: dict[tuple, list] = {}  # the roots of each read context, the base roots of a delta export (BUN-DLT-1)
     for n, step in enumerate(vector['steps'], 1):
         if step.get('fresh_store'):
             adapter.reset()
@@ -766,11 +902,16 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
                 kept[s].clear()
                 known[s].clear()
             views.clear()
+            bases.clear()
         operation = step['operation']
         store = step.get('store', 'writer')
         lock_store = step.get('lock_store', store)
         stored, candidates = kept[store], known[store]
-        request, names = expander.request(operation, step.get('request', {}))
+        expander.encode = lambda bundle, store=store: adapter.raw_bundle(bundle, store=store)  # BUN-RAW-3
+        try:
+            request, names = expander.request(operation, step.get('request', {}))
+        except StepProblem as e:
+            return [f'step {n} ({operation}): {e}']
         expect = expander.value(step['expect'], {})
         prints = {s: adapter.fingerprint(store=s) for s in check_spec.STORES}
         before = prints[store]
@@ -782,7 +923,9 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
         problems = compare(expect, actual, operation)
         if isinstance(actual, dict):
             problems += context_problems(operation, step, request, expect, actual)
-            problems += bundle_problems(operation, request, expect, actual, expander.stored)
+            base = request.get('base_context')
+            problems += bundle_problems(operation, request, expect, actual, expander.stored,
+                                        bases.get((store, base)) if isinstance(base, str) else None)
             view = views.get((store, request.get('context')))  # LYR-LCK-1
             problems += lock_problems(operation, request, expect, actual, view)
             problems += value_problems(operation, actual)
@@ -792,6 +935,11 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
             problems += complete_problems(operation, actual, complete)
             problems += render_problems(operation, request, actual)
         problems += validator_problems(operation, request, expect, calls)
+        if operation == 'open_context' and expect['status'] == 'ok' and not problems:
+            roots = {i['ref'] for i in actual.get('items') or [] if isinstance(i, dict) and isinstance(i.get('ref'), str)}  # CTX-OPN-1
+            if isinstance(request.get('layer'), dict):
+                roots.add(request['layer']['ref'])  # LYR-OPN-3
+            bases[(store, actual['context'])] = sorted(roots)
         if operation == 'open_context' and isinstance(request.get('layer'), dict) and expect['status'] == 'ok' and not problems:
             root = request['roots'][0] if request.get('roots') else actual['items'][0]['ref']  # the head snapshot (CTX-VIW-2)
             views[(store, actual['context'])] = [root, request['layer']['ref']]

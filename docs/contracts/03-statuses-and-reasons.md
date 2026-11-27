@@ -111,7 +111,7 @@ The reason table:
 | `excerpt_mismatch` | `failed` | The bytes of an excerpt do not agree with its ranges in the parent payload (BUN-EXC-3) |
 | `payload_form` | `failed` | A payload does not agree with the form that its data or selector profile gives (DAT-TBL-3, ADP-SEL-4) |
 | `values_form` | `failed` | The values of an observation do not agree with the form that its observation type gives (OBS-COV-3) |
-| `bundle_incomplete` | `failed` | A bundle does not have a reference target or payload bytes that the store does not have (BUN-IMP-2) |
+| `bundle_incomplete` | `failed` | A bundle does not have a reference target or payload bytes that the store does not have (BUN-IMP-2), or the store does not have a base root or a root of a delta bundle (BUN-DLT-4) |
 | `native_id_conflict` | `failed` | One native identity has more than one subject in a snapshot (IDN-NAT-3) |
 | `section_violation` | `failed` | The closure of a snapshot in a `serving` collection has a descriptor of a kind that the section does not permit (PUB-SEC-3) |
 | `replacement_kind` | `failed` | A supersession replacement has a different kind than its target (REL-RET-2) |

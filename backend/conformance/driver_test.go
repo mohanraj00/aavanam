@@ -123,3 +123,67 @@ func TestServeDeclaresProfiles(t *testing.T) {
 		t.Errorf("calls: %q", got)
 	}
 }
+
+// rawScript is a store with the raw bundle form. It records the bytes of each raw import.
+type rawScript struct {
+	script
+	imported [][]byte
+}
+
+func (s *rawScript) ImportRaw(store string, raw []byte, _ Validate) (json.RawMessage, error) {
+	s.calls = append(s.calls, "raw "+store)
+	s.imported = append(s.imported, raw)
+	return Unsupported(json.RawMessage(`"import"`)), nil
+}
+
+func (s *rawScript) RawBundle(bundle json.RawMessage) ([]byte, error) {
+	if string(bundle) == `{}` {
+		return nil, errors.New("not a bundle")
+	}
+	return []byte("line\n\x00\xff"), nil
+}
+
+// A call with `raw` gives the bytes of the base64 text to the raw import of the store (BUN-RAW-4). The
+// command `raw_bundle` gives the raw form of a bundle as base64 text (BUN-RAW-3). A store with no raw
+// bundle form gives an error line.
+func TestServeRawBundle(t *testing.T) {
+	s := &rawScript{}
+	input := strings.Join([]string{
+		`{"cmd":"call","store":"device","op":"import","raw":"bGluZQoA/w=="}`,
+		`{"cmd":"call","store":"device","op":"import","raw":""}`,
+		`{"cmd":"raw_bundle","bundle":{"format":"x"}}`,
+		`{"cmd":"call","store":"device","op":"import","raw":"not base64"}`,
+		`{"cmd":"call","store":"device","op":"get","raw":"bGluZQ=="}`,
+		`{"cmd":"call","store":"cloud","op":"import","raw":"bGluZQ=="}`,
+		`{"cmd":"raw_bundle"}`,
+		`{"cmd":"raw_bundle","bundle":{}}`,
+	}, "\n")
+	lines := serve(t, s, input)
+	if len(lines) != 9 {
+		t.Fatalf("%d lines: %q", len(lines), lines)
+	}
+	if len(s.imported) != 2 || string(s.imported[0]) != "line\n\x00\xff" || len(s.imported[1]) != 0 {
+		t.Fatalf("the raw imports: %q", s.imported)
+	}
+	if strings.Join(s.calls, ",") != "raw device,raw device" {
+		t.Fatalf("the calls: %q", s.calls)
+	}
+	for _, line := range lines[1:3] {
+		if !strings.HasPrefix(line, `{"result":`) {
+			t.Fatalf("a raw import gave no result: %s", line)
+		}
+	}
+	if lines[3] != `{"raw":"bGluZQoA/w=="}` {
+		t.Fatalf("the raw form: %s", lines[3])
+	}
+	for i, line := range lines[4:] {
+		if !strings.HasPrefix(line, `{"error":`) {
+			t.Fatalf("line %d is not an error line: %s", i+4, line)
+		}
+	}
+	for _, line := range serve(t, &script{}, `{"cmd":"call","store":"device","op":"import","raw":"bGluZQ=="}`+"\n"+`{"cmd":"raw_bundle","bundle":{"a":1}}`)[1:] {
+		if !strings.HasPrefix(line, `{"error":`) {
+			t.Fatalf("a store with no raw bundle form gave: %s", line)
+		}
+	}
+}

@@ -84,7 +84,7 @@ func canonEqual(a, b jsontext.Value) bool {
 // Export is the operation `export` (BUN-EXP-1, BUN-EXP-2, BUN-RED-1 to BUN-RED-7, BUN-FLT-1 to BUN-FLT-4).
 func Export(c *ops.Call) envelope.Envelope {
 	c.Form("field_type", ops.Req("context", ops.IsStr), ops.Req("roots", ops.IsRefs), ops.Opt("permit", isPermit),
-		ops.Opt("filter", read.IsFilter))
+		ops.Opt("filter", read.IsFilter), ops.Opt("base_context", ops.IsStr)) // BUN-DLT-1
 	permitValue, hasPermit := c.Request.Get("permit")
 	if hasPermit && ops.HasDuplicate(permitValue.Arr) {
 		ops.Fail("field_count") // KND-SCH-5
@@ -96,6 +96,21 @@ func Export(c *ops.Call) envelope.Envelope {
 	rc := c.Context()
 	stop := func(status string, reasons []envelope.Reason) envelope.Envelope {
 		return c.Envelope(status, reasons, nil).WithContext(rc.ID)
+	}
+	// BUN-DLT-1: the base roots are the roots of the base context and, for a layered context, its layer.
+	// The store checks the base context before the roots.
+	var base []string
+	baseContext, hasBase := c.Request.Get("base_context")
+	if hasBase {
+		record, ok := c.S.Context(baseContext.Str)
+		if !ok {
+			ops.Fail("context_expired")
+		}
+		seen := map[string]struct{}{}
+		for _, r := range record.Roots {
+			seen[r] = struct{}{}
+		}
+		base = ops.Sorted(seen)
 	}
 	requested := ops.Strings(field(c.Request, "roots"))
 	var located []envelope.Reason
@@ -173,11 +188,42 @@ func Export(c *ops.Call) envelope.Envelope {
 			}
 		}
 	}
+	// BUN-DLT-2: a delta bundle has the objects that are not in the base closure, and no bytes of a base
+	// digest. With no base, `kept` has each object, and `named` has each digest of the byte closure.
+	omitted, baseDigests := map[string]struct{}{}, map[string]bool{}
+	if hasBase {
+		omitted = c.Closure(base...)
+		for r := range omitted {
+			desc, _ := c.Descriptor(r)
+			for _, p := range check.Payloads(desc) {
+				baseDigests[p.Digest] = true
+			}
+		}
+	}
+	var kept []int
+	named := map[string]bool{}
+	for n, r := range objects {
+		if _, isBase := omitted[r]; isBase {
+			continue
+		}
+		kept = append(kept, n)
+		for _, p := range check.Payloads(descs[n]) {
+			named[p.Digest] = true
+		}
+		// BUN-DLT-2 rule 3: the check of an excerpt reads the bytes of its parent (BUN-EXC-3), also for a
+		// parent of the base closure.
+		if check.Kind(descs[n]) == "excerpt" {
+			parent, _ := c.Descriptor(field(descs[n], "parent").Str)
+			for _, p := range check.Payloads(parent) {
+				named[p.Digest] = true
+			}
+		}
+	}
 	// BUN-IMP-12: only descriptors in this closure can withhold a shared digest.
 	payloads := map[string][]byte{}
 	for n, r := range objects {
 		for _, p := range check.Payloads(descs[n]) {
-			if withheld[p.Digest] {
+			if withheld[p.Digest] || !named[p.Digest] {
 				continue
 			}
 			if data, ok := c.Blob(p.Digest, r); ok {
@@ -188,13 +234,15 @@ func Export(c *ops.Call) envelope.Envelope {
 			}
 		}
 	}
-	texts := make([]jsontext.Value, len(objects))
-	for n := range objects {
-		texts[n] = jsontext.S(string(canon.Canonical(descs[n])))
+	texts := make([]jsontext.Value, len(kept))
+	for i, n := range kept {
+		texts[i] = jsontext.S(string(canon.Canonical(descs[n])))
 	}
 	digests := make([]string, 0, len(payloads))
 	for digest := range payloads {
-		digests = append(digests, digest)
+		if !baseDigests[digest] { // BUN-DLT-2 rule 2
+			digests = append(digests, digest)
+		}
 	}
 	sort.Strings(digests)
 	encoded := make([]jsontext.Member, len(digests))
@@ -203,13 +251,18 @@ func Export(c *ops.Call) envelope.Envelope {
 	}
 	bundle := []jsontext.Member{jsontext.M("format", jsontext.S(bundleFormat)), jsontext.M("roots", jsontext.Strings(roots)),
 		jsontext.M("descriptors", jsontext.A(texts)), jsontext.M("payloads", jsontext.O(encoded...))} // BUN-EXP-2
-	if len(withheld) > 0 {
-		list := make([]string, 0, len(withheld))
-		for digest := range withheld {
+	list := make([]string, 0, len(withheld))
+	for digest := range withheld {
+		if named[digest] { // BUN-RED-5, BUN-DLT-2 rule 3
 			list = append(list, digest)
 		}
+	}
+	if len(list) > 0 {
 		sort.Strings(list)
 		bundle = append(bundle, jsontext.M("withheld", jsontext.Strings(list)))
+	}
+	if hasBase {
+		bundle = append(bundle, jsontext.M("base", jsontext.Strings(base))) // BUN-DLT-2 rule 4
 	}
 	matched := map[string]bool{}
 	if hasFilter {
@@ -218,9 +271,9 @@ func Export(c *ops.Call) envelope.Envelope {
 			matched[r] = true
 		}
 	}
-	items := make([]envelope.Item, len(objects))
-	for n, r := range objects { // BUN-RED-6
-		held := false
+	items := make([]envelope.Item, len(kept))
+	for i, n := range kept { // BUN-RED-6
+		r, held := objects[n], false
 		for _, p := range check.Payloads(descs[n]) {
 			held = held || withheld[p.Digest]
 		}
@@ -229,21 +282,22 @@ func Export(c *ops.Call) envelope.Envelope {
 		if hasFilter {
 			fields = append(fields, jsontext.M("matched", jsontext.B(matched[r]))) // BUN-FLT-3
 		}
-		items[n] = envelope.OK(fields...)
+		items[i] = envelope.OK(fields...)
 	}
 	e := c.Envelope("ok", nil, items).WithContext(rc.ID)
 	e.Fields = append(e.Fields, jsontext.M("bundle", jsontext.O(bundle...)))
 	return e
 }
 
-// isBundle checks the form of a bundle (BUN-IMP-1, BUN-MAN-1, BUN-FLT-4).
-func isBundle(b jsontext.Value) bool {
+// isManifest checks the fields that a bundle and the manifest of a raw bundle share (BUN-MAN-1, BUN-RAW-1,
+// BUN-FLT-4, BUN-DLT-3). It does not check `payloads`.
+func isManifest(b jsontext.Value, format string) bool {
 	if b.Kind != jsontext.Object {
 		return false
 	}
 	for _, mem := range b.Obj {
 		switch mem.Key {
-		case "format", "roots", "descriptors", "payloads", "withheld", "filter":
+		case "format", "roots", "descriptors", "payloads", "withheld", "filter", "base":
 		default:
 			return false
 		}
@@ -253,14 +307,31 @@ func isBundle(b jsontext.Value) bool {
 			return false
 		}
 	}
-	format, descriptors, payloads := field(b, "format"), field(b, "descriptors"), field(b, "payloads")
-	if format.Kind != jsontext.String || format.Str != bundleFormat || !ops.IsRefs(field(b, "roots")) {
+	if name := field(b, "format"); name.Kind != jsontext.String || name.Str != format || !ops.IsRefs(field(b, "roots")) {
 		return false
 	}
 	if filter, ok := b.Get("filter"); ok && !read.IsFilter(filter) {
 		return false
 	}
-	if !ops.ListOf(ops.IsStr, true)(descriptors) || payloads.Kind != jsontext.Object {
+	if base, ok := b.Get("base"); ok && !ops.IsRefs(base) {
+		return false
+	}
+	if !ops.ListOf(ops.IsStr, true)(field(b, "descriptors")) {
+		return false
+	}
+	if withheld, ok := b.Get("withheld"); ok && (!ops.IsRefs(withheld) || ops.HasDuplicate(withheld.Arr)) {
+		return false
+	}
+	return true
+}
+
+// isBundle checks the form of a bundle (BUN-IMP-1, BUN-MAN-1).
+func isBundle(b jsontext.Value) bool {
+	if !isManifest(b, bundleFormat) {
+		return false
+	}
+	payloads := field(b, "payloads")
+	if payloads.Kind != jsontext.Object {
 		return false
 	}
 	for _, mem := range payloads.Obj {
@@ -268,14 +339,9 @@ func isBundle(b jsontext.Value) bool {
 			return false
 		}
 	}
-	if withheld, ok := b.Get("withheld"); ok {
-		if !ops.IsRefs(withheld) || ops.HasDuplicate(withheld.Arr) {
+	for _, digest := range field(b, "withheld").Arr {
+		if payloads.Has(digest.Str) {
 			return false
-		}
-		for _, digest := range withheld.Arr {
-			if payloads.Has(digest.Str) {
-				return false
-			}
 		}
 	}
 	return true
@@ -299,15 +365,22 @@ func revisions(texts []jsontext.Value, declared kinds.Profiles) map[string]bool 
 	return out
 }
 
-// Import is the operation `import` (BUN-IMP-1 to BUN-IMP-12, BUN-UPD-1 to BUN-UPD-6).
+// Import is the operation `import` (BUN-IMP-1 to BUN-IMP-12, BUN-UPD-1 to BUN-UPD-6, BUN-DLT-4, BUN-RAW-4,
+// BUN-RAW-5).
 func Import(c *ops.Call) envelope.Envelope {
-	bundle, ok := c.Request.Get("bundle")
-	if len(c.Request.Obj) != 1 || !ok || !isBundle(bundle) {
-		ops.Fail("field_type") // BUN-IMP-1, BUN-MAN-1
-	}
 	batch := write.Batch{Data: map[string][]byte{}, Incomplete: true, Withheld: map[string]bool{}}
-	for _, mem := range field(bundle, "payloads").Obj {
-		batch.Data[mem.Key] = ops.Unb64(mem.Val)
+	var bundle jsontext.Value
+	if c.Raw != nil {
+		bundle, batch.Data = rawParts(c.Raw) // BUN-RAW-4; then the import of its bundle (BUN-RAW-5)
+	} else {
+		var ok bool
+		bundle, ok = c.Request.Get("bundle")
+		if len(c.Request.Obj) != 1 || !ok || !isBundle(bundle) {
+			ops.Fail("field_type") // BUN-IMP-1, BUN-MAN-1
+		}
+		for _, mem := range field(bundle, "payloads").Obj {
+			batch.Data[mem.Key] = ops.Unb64(mem.Val)
+		}
 	}
 	for _, digest := range field(bundle, "withheld").Arr { // BUN-IMP-9: the full set for BUN-IMP-11
 		batch.Withheld[digest.Str] = true
@@ -317,8 +390,19 @@ func Import(c *ops.Call) envelope.Envelope {
 	present := revisions(texts, c.Store.Profiles) // a root with a failed check is present (BUN-IMP-2)
 	var absent []envelope.Item
 	roots := ops.Strings(field(bundle, "roots"))
+	base, delta := bundle.Get("base")
+	inStore := func(ref string) bool {
+		_, ok := c.Descriptor(ref)
+		return ok
+	}
 	for _, r := range roots {
-		if !present[r] {
+		// BUN-DLT-4 rule 2: a root of a delta bundle can be an object in the store
+		if !present[r] && !(delta && inStore(r)) {
+			absent = append(absent, envelope.Refused([]string{"bundle_incomplete"}, r))
+		}
+	}
+	for _, r := range ops.Strings(base) { // BUN-DLT-4 rule 1: the store has each base root
+		if !inStore(r) {
 			absent = append(absent, envelope.Refused([]string{"bundle_incomplete"}, r))
 		}
 	}

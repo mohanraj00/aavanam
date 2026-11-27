@@ -238,7 +238,7 @@ func TestAbout(t *testing.T) {
 	want := `{"api":"aavanam-read/v1","api_minor":0,"deadline_ms":2000,"max_body_bytes":1000,` +
 		`"operations":["compare","context_bundle","coverage","evidence","export","get","impact","item_history","list_items",` +
 		`"observations","open_context","publications","query_data","read","render","search","search_text","snapshot_changes"],` +
-		`"profile":"aavanam/base/v1","profile_minor":12}`
+		`"profile":"aavanam/base/v1","profile_minor":13}`
 	if status != 200 || kind != "application/json" || body != want {
 		t.Errorf("the description: HTTP %d %s\n got  %s\n want %s", status, kind, body, want)
 	}

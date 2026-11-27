@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -346,7 +347,17 @@ func empty(operation string) []jsontext.Member {
 
 // Call returns the envelope of one call. The operation is the JSON value that names it. The request is
 // JSON text that no decoder changed (NET-TRN-2). The order of the checks is the order of STS-MAL-4.
-func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []byte) (out envelope.Envelope) {
+func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []byte) envelope.Envelope {
+	return s.run(ctx, operation, request, nil)
+}
+
+// ImportRaw is the operation `import` with a raw bundle in place of its request (BUN-RAW-4). The store
+// reads the manifest line, then one payload at a time.
+func (s *Store) ImportRaw(ctx context.Context, raw io.Reader) envelope.Envelope {
+	return s.run(ctx, jsontext.S("import"), nil, raw)
+}
+
+func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byte, raw io.Reader) (out envelope.Envelope) {
 	name, isName := operation.Text()
 	if !isName {
 		return envelope.New(jsontext.Value{}, "unsupported", envelope.R("unsupported_operation"))
@@ -360,7 +371,10 @@ func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []by
 	}
 	s.called.Store(true)
 	// The envelope of a failure has the context of the request, if the request names one (LIF-ITM-4).
-	value, formError := jsontext.Parse(request, jsontext.Lenient)
+	value, formError := jsontext.O(), (*jsontext.FormError)(nil)
+	if raw == nil {
+		value, formError = jsontext.Parse(request, jsontext.Lenient)
+	}
 	context := jsontext.Value{}
 	if formError == nil {
 		context = echo(name, value)
@@ -399,7 +413,7 @@ func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []by
 	if value.Kind != jsontext.Object {
 		Fail("field_type")
 	}
-	return handler(&Call{Ctx: ctx, Store: s, S: s.Storage.Session(ctx), Operation: name, Request: value})
+	return handler(&Call{Ctx: ctx, Store: s, S: s.Storage.Session(ctx), Operation: name, Request: value, Raw: raw})
 }
 
 // FaultFailure returns the failure of a storage fault: `deadline_exceeded` for a deadline, and
