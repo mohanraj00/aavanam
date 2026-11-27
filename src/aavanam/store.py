@@ -583,8 +583,10 @@ class Store:
                 h.update(f'{table}:{value}\n'.encode())
         return h.hexdigest()
 
-    def write(self, objects: dict[str, dict], blobs: dict[str, bytes], withheld=frozenset()) -> None:
-        """Write the objects and bytes in one transaction: all or none (STS-MAL-2)."""
+    def write(self, objects: dict[str, dict], blobs: dict[str, bytes], withheld=frozenset(), imported=None) -> None:
+        """Write the objects and bytes in one transaction: all or none (STS-MAL-2). `imported` has the roots of an
+        import on a device store. The transaction also records them, so no `gc_collect` of a different open reads the
+        content with no imported root (BUN-RMV-1)."""
         self.begin()
         try:
             batch = objects  # BUN-IMP-10: keep each descriptor for failure attribution
@@ -625,6 +627,8 @@ class Store:
             self.db.executemany('INSERT OR IGNORE INTO blobs VALUES (?, ?)', blobs.items())
             self.db.executemany('DELETE FROM deferred WHERE digest = ?', [(k,) for k in blobs])
             self.db.executemany('INSERT OR IGNORE INTO deferred VALUES (?, ?)', deferred)
+            if imported is not None:
+                self.db.execute('INSERT INTO imports (roots) VALUES (?)', (json.dumps(imported),))
             self.db.execute('COMMIT')
             self.gone = None  # a put of a removed descriptor adds the object again (REL-RMV-11)
         except BaseException:
@@ -1085,7 +1089,8 @@ class Store:
                 out.add(revision(value))
         return out
 
-    def commit_batch(self, operation: str, checked: list, data: dict[str, bytes], whole: list[dict] = (), withheld=frozenset()) -> dict:
+    def commit_batch(self, operation: str, checked: list, data: dict[str, bytes], whole: list[dict] = (), withheld=frozenset(),
+                     imported=None) -> dict:
         """Write the batch if each descriptor passed, or return the refusal (STS-ENV-5, STS-MAL-2)."""
         bad = [c for c in checked if 'status' in c] + list(whole)
         if bad:
@@ -1095,7 +1100,9 @@ class Store:
         objects = {revision(c): c for c in checked}
         blobs = {p['digest']: data[p['digest']] for c in checked for p in d.payloads(c) if p['digest'] in data}
         try:
-            if withheld:
+            if imported is not None:
+                self.write(objects, blobs, withheld, imported)
+            elif withheld:
                 self.write(objects, blobs, withheld)
             else:
                 self.write(objects, blobs)
@@ -1103,7 +1110,7 @@ class Store:
             return self.commit_batch(operation, [refused(e.found[revision(c)]) if revision(c) in e.found else c for c in checked], data, whole)
         except SectionViolation as e:  # STS-ENV-4: the store did not change
             return self.commit_batch(operation, [refused(['section_violation'] * len(e.found[revision(c)]), e.found[revision(c)]) if e.found.get(revision(c)) else c for c in checked], data, whole)
-        except Failure:
+        except (Failure, Stale):  # the call runs again after a removal of a different open (begin())
             raise
         except Exception:
             if self.debug:
@@ -1450,11 +1457,10 @@ class Store:
         checked = self.check_batch(bundle['descriptors'], data, incomplete=True, withheld=withheld)
         present = self.revisions(bundle['descriptors'])  # a root with a failed check is present (BUN-IMP-2)
         absent = [refused(['bundle_incomplete'], [r]) for r in bundle['roots'] if r not in present]
-        out = self.commit_batch('import', checked, data, absent, withheld)
+        imported = bundle['roots'] if self.role == 'device' else None  # BUN-RMV-1: the roots of each ok import
+        out = self.commit_batch('import', checked, data, absent, withheld, imported)
         if out['status'] != 'ok':  # BUN-IMP-4
             return self.envelope('import', out['status'], out['reasons'], [])
-        if self.role == 'device':  # BUN-RMV-1: the roots of each ok import
-            self.db.execute('INSERT INTO imports (roots) VALUES (?)', (json.dumps(bundle['roots']),))
         return self.envelope('import', 'ok', [], out['items'])
 
     # Lookup and discovery (document 09)

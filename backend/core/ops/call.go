@@ -19,12 +19,19 @@ type Call struct {
 
 	removed     map[string]struct{} // the value of Removed for this call
 	removedRead bool
+	// epoch is the removal epoch of the storage at the start of the call. The call keeps a parsed
+	// descriptor in the store only while the store has this epoch. Thus a call that read an object before a
+	// removal does not put it back after the store dropped it (REL-RMV-7).
+	epoch int64
 }
 
 // On returns a call of the same operation and request on a different store, for example on the local
 // output store of a device store (BUN-IMP-7).
 func (c *Call) On(store *Store) *Call {
-	return &Call{Ctx: c.Ctx, Store: store, S: store.Storage.Session(c.Ctx), Operation: c.Operation, Request: c.Request}
+	store.mu.RLock()
+	epoch := store.epoch
+	store.mu.RUnlock()
+	return &Call{Ctx: c.Ctx, Store: store, S: store.Storage.Session(c.Ctx), Operation: c.Operation, Request: c.Request, epoch: epoch}
 }
 
 // parse returns the value of a stored descriptor. The store wrote the text, so it is canonical.
@@ -58,10 +65,12 @@ func (c *Call) Descriptor(ref string) (jsontext.Value, bool) {
 		return jsontext.Value{}, false
 	}
 	s.mu.Lock()
-	if len(s.cache) >= cacheLimit {
-		s.cache = map[string]jsontext.Value{}
+	if s.epoch == c.epoch {
+		if len(s.cache) >= cacheLimit {
+			s.cache = map[string]jsontext.Value{}
+		}
+		s.cache[ref] = value
 	}
-	s.cache[ref] = value
 	s.mu.Unlock()
 	return value, true
 }
@@ -105,13 +114,16 @@ func (c *Call) Preload(refs []string) {
 		values[ref] = parse(text)
 	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.epoch != c.epoch {
+		return
+	}
 	if len(s.cache)+len(values) >= cacheLimit {
 		s.cache = map[string]jsontext.Value{}
 	}
 	for ref, value := range values {
 		s.cache[ref] = value
 	}
-	s.mu.Unlock()
 }
 
 // Deferred returns each descriptor of a list that a deferred record names (BUN-IMP-12).

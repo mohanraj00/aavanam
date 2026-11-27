@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 )
@@ -27,6 +28,7 @@ type producerKey struct{ producer, key string }
 type logKey struct{ producer, log string }
 
 type state struct {
+	advance    bool // the update removed content: its commit increments the removal epoch
 	objects    map[string]object
 	targets    map[string][]string
 	sources    map[string]map[string]struct{}
@@ -74,6 +76,23 @@ type Store struct {
 	st     *state
 	device *Store
 	output *Store // the local output store of a device store, or nil
+	// epoch is the number of updates of this store that removed content (ops.RemovalEpoch).
+	epoch atomic.Int64
+}
+
+// removals returns the removal epoch that a call of the store reads: the epoch of the store plus the epoch
+// of its device store, because a local output store reads the objects of its device store (BUN-IMP-8).
+func (s *Store) removals() int64 {
+	if s.device != nil {
+		return s.epoch.Load() + s.device.epoch.Load()
+	}
+	return s.epoch.Load()
+}
+
+// seen has the removal epoch at the start of a call.
+type seen struct {
+	known bool
+	epoch int64
 }
 
 // New returns an empty store.
@@ -97,10 +116,21 @@ func (s *Store) Reset() {
 }
 
 // Session returns the store for one call. A storage in memory has no deadline.
-func (s *Store) Session(context.Context) ops.Session { return session{s} }
+func (s *Store) Session(context.Context) ops.Session { return session{s, &seen{}} }
 
 // session reads with the read lock of the store. An update has the write lock for all of its work.
-type session struct{ s *Store }
+type session struct {
+	s    *Store
+	seen *seen // the removal epoch at the start of the call
+}
+
+// RemovalEpoch returns the removal epoch of the store (ops.RemovalEpoch). The session keeps it: an update
+// of the session that finds a different epoch stops before its first write (ops.ErrRemoved).
+func (v session) RemovalEpoch() int64 {
+	epoch := v.s.removals()
+	v.seen.known, v.seen.epoch = true, epoch
+	return epoch
+}
 
 func (v session) Update(fn func(tx ops.Tx)) {
 	if v.s.device != nil { // the order is always the device store, then the output store
@@ -109,8 +139,17 @@ func (v session) Update(fn func(tx ops.Tx)) {
 	}
 	v.s.mu.Lock()
 	defer v.s.mu.Unlock()
+	// The checks of the call read the store before this update had the lock. If an update removed content
+	// after the start of the call, the dispatch runs the call again (REL-RMV-4, LIF-GC-5).
+	if v.seen.known && v.s.removals() != v.seen.epoch {
+		ops.Raise(ops.ErrRemoved)
+	}
 	work := tx{view{v.s, v.s.st.clone()}}
 	fn(work)
+	if work.st.advance {
+		work.st.advance = false
+		v.s.epoch.Add(1)
+	}
 	v.s.st = work.st // the commit. A panic of fn keeps the old state.
 }
 
@@ -140,6 +179,12 @@ func (st *state) clone() *state {
 type tx struct{ view }
 
 func (t tx) LockCollections([]string) {} // an update has the write lock of the store
+
+// LockRemoval has no effect: an update has the write lock of the store (ops.RemovalGate).
+func (t tx) LockRemoval() {}
+
+// AdvanceEpoch increments the removal epoch when the update commits (ops.RemovalGate).
+func (t tx) AdvanceEpoch() { t.st.advance = true }
 
 func (t tx) LockDigests([]string) {}
 

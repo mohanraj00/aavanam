@@ -19,6 +19,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
 	"github.com/mohanraj00/aavanam/backend/core/memstore"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
+	"github.com/mohanraj00/aavanam/backend/core/storagetest"
 	"github.com/mohanraj00/aavanam/reference/device"
 )
 
@@ -266,4 +267,27 @@ func TestBundleUpdateKeepsOldContext(t *testing.T) {
 		t.Errorf("want not_in_context for the new entry in the old context, got %s", excluded.JSON())
 	}
 	readEntry(t, reader, openContext(t, reader, newRoot), newRef, newText)
+}
+
+// LIF-GC-5, BUN-RMV-2: a `gc_collect` commits after the checks of a different call of the same process and
+// before its update. The update does not write, and the call runs again on the content that the store has.
+func TestCollectBeforeTheUpdate(t *testing.T) {
+	_, writer, reader := newStores(t)
+	_, unit := putEntry(t, writer, "The west room has a map collection.\n")
+	snapshot := itemRef(t, call(t, writer, "create_snapshot", fields{"collection": catalog, "units": []string{unit}}, "ok"))
+	call(t, reader, "import", fields{"bundle": exportBundle(t, writer, snapshot)}, "ok")
+	for _, target := range []*ops.Store{reader, reader.Output} {
+		ran := false
+		raced := ops.New(target.Role, storagetest.Racing(target.Storage, func() {
+			if !ran {
+				ran = true
+				call(t, reader, "gc_collect", fields{"roots": []string{}}, "ok")
+			}
+		}), conformance.Registry())
+		result := raced.Call(t.Context(), jsontext.S("open_context"), jsonBytes(t, fields{"roots": []string{snapshot}}))
+		if got := storagetest.Summary(result); !ran || got != "not_found:unknown_ref | not_found:unknown_ref" {
+			t.Errorf("open_context on a snapshot that a gc_collect removed before the update: %s", got)
+		}
+		call(t, reader, "import", fields{"bundle": exportBundle(t, writer, snapshot)}, "ok")
+	}
 }

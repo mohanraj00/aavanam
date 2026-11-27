@@ -320,9 +320,10 @@ type OutputView interface {
 	Output() (Reader, bool)
 }
 
-// RemovalEpoch is an optional part of a Session of a storage that more than one process can open. The
-// epoch is a number that each update with AdvanceEpoch increments. A store reads it at the start of each
-// call. If it changed, a different process removed content, and the store drops its parsed descriptors.
+// RemovalEpoch is an optional part of a Session of a storage whose updates run at the same time, in one
+// process or in more than one. The epoch is a number that each update with AdvanceEpoch increments. A
+// store reads it at the start of each call. If it changed, an update removed content, and the store drops
+// its parsed descriptors.
 type RemovalEpoch interface {
 	RemovalEpoch() int64
 }

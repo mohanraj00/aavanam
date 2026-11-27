@@ -1,5 +1,6 @@
 """The removal rules that the runner cannot express: two opens of one store file, the store file, the store clock,
 a layered context, and the locks and layers that `gc_collect` keeps only as declared roots."""
+import json
 import sqlite3
 import tempfile
 import unittest
@@ -227,6 +228,44 @@ class CollectTest(unittest.TestCase):
             self.assertEqual(len(collected[0]['items']), 8, collected)
             self.assertEqual(codes(result), ('not_found', ['unknown_ref']))
             self.assertEqual(second.db.execute('SELECT count(*) FROM contexts').fetchone()[0], 0)
+            first.close()
+            second.close()
+
+    def test_a_put_runs_again_after_a_removal_of_a_second_open(self):  # REL-RMV-4, STS-MAL-2
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'store.db')
+            first, second = Store(path), Store(path)
+            refs = evidence(first)
+            write, removed = second.write, []
+
+            def remove_then_write(objects, blobs):  # the first open removes after the checks of the second open
+                if not removed:
+                    removed.append(first.call('remove', {'ref': refs['source'], 'reason': 'sample request'}))
+                return write(objects, blobs)
+            second.write = remove_then_write
+            result = second.call('put', {'descriptors': [json.dumps(desc('binding-set', parameters={'item': 'one'}))]})
+            self.assertEqual(removed[0]['status'], 'ok')
+            self.assertEqual(result['status'], 'ok', result)  # the second run of the call, not storage_error
+            self.assertEqual(first.db.execute('SELECT count(*) FROM objects WHERE ref = ?', (result['items'][0]['ref'],)).fetchone()[0], 1)
+            first.close()
+            second.close()
+
+    def test_an_import_records_its_roots_with_its_content(self):  # BUN-RMV-1, DEV-UPD-2
+        writer = Store()
+        refs = evidence(writer)
+        bundle = writer.call('export', {'context': opened(writer, refs['snapshot']), 'roots': [refs['snapshot']]})['bundle']
+        with tempfile.TemporaryDirectory() as folder:
+            paths = str(Path(folder) / 'device.db'), str(Path(folder) / 'output.db')
+            first, second = (Store(paths[0], role='device', output_path=paths[1]) for _ in range(2))
+            write, collected = first.write, []
+
+            def write_then_collect(*args):  # the second open collects when the write of the import ends
+                write(*args)
+                collected.append(second.call('gc_collect', {}))
+            first.write = write_then_collect
+            self.assertEqual(first.call('import', {'bundle': bundle})['status'], 'ok')
+            self.assertEqual((collected[0]['status'], collected[0]['items']), ('ok', []))
+            self.assertEqual(first.call('open_context', {'roots': [refs['snapshot']]})['status'], 'ok')
             first.close()
             second.close()
 

@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"modernc.org/sqlite"
 
@@ -111,6 +112,26 @@ type Store struct {
 	// output is the local output store of the device store, or nil. `gc_collect` reads its objects and its
 	// open read contexts (BUN-RMV-1).
 	output *Store
+	// device is the device store of the local output store, or nil.
+	device *Store
+	// epoch is the number of updates of this open of the device store that removed content
+	// (ops.RemovalEpoch). The layout has no column for it (DEV-LAY-3), so a different process does not read it.
+	epoch atomic.Int64
+}
+
+// removals returns the removal epoch of the device file. The local output store reads the objects of its
+// device store (DEV-OUT-2), so it uses the same epoch.
+func (s *Store) removals() *atomic.Int64 {
+	if s.device != nil {
+		return &s.device.epoch
+	}
+	return &s.epoch
+}
+
+// seen has the removal epoch at the start of a call.
+type seen struct {
+	known bool
+	epoch int64
 }
 
 // tableHead is the head of one table of the row cache.
@@ -140,7 +161,7 @@ func Open(dir string) (device, output *Store, err error) {
 			return nil, nil, err
 		}
 	}
-	device.output = output
+	device.output, output.device = output, device
 	return device, output, nil
 }
 
@@ -761,10 +782,21 @@ func (v view) textOne(query string, dst any, args ...any) bool {
 
 // Session returns the store for one call. The context gives the deadline of each query.
 func (s *Store) Session(ctx context.Context) ops.Session {
-	return session{view{s: s, ctx: ctx, q: s.db}}
+	return session{view{s: s, ctx: ctx, q: s.db}, &seen{}}
 }
 
-type session struct{ view }
+type session struct {
+	view
+	seen *seen // the removal epoch at the start of the call
+}
+
+// RemovalEpoch returns the removal epoch of this open of the store (ops.RemovalEpoch). The session keeps
+// it: an update of the session that finds a different epoch stops before its first write (ops.ErrRemoved).
+func (v session) RemovalEpoch() int64 {
+	epoch := v.s.removals().Load()
+	v.seen.known, v.seen.epoch = true, epoch
+	return epoch
+}
 
 // Update runs fn in one transaction. The transaction of the device file is BEGIN IMMEDIATE (DEV-UPD-1).
 // If fn panics, the transaction rolls back and the panic continues (BUN-UPD-6).
@@ -779,6 +811,12 @@ func (v session) Update(fn func(tx ops.Tx)) {
 			t.Rollback()
 		}
 	}()
+	// The transaction has the write lock of its file. A `gc_collect` has the write lock of the two files
+	// until it ends (DEV-RMV-1), and it increments the epoch before its commit. Thus an update that starts
+	// after a removal finds the new epoch here, and the dispatch runs its call again (LIF-GC-5).
+	if v.seen.known && v.s.removals().Load() != v.seen.epoch {
+		ops.Raise(ops.ErrRemoved)
+	}
 	state := &work{}
 	defer func() {
 		for _, step := range state.finish {
@@ -818,6 +856,13 @@ func (t tx) exec(query string, args ...any) {
 // LockCollections and LockDigests have no effect: the transaction has the write lock of the file.
 func (t tx) LockCollections([]string) {}
 func (t tx) LockDigests([]string)     {}
+
+// LockRemoval has no effect: the transaction has the write lock of the file (ops.RemovalGate).
+func (t tx) LockRemoval() {}
+
+// AdvanceEpoch increments the removal epoch before the commit (ops.RemovalGate). If the update does not
+// commit, a different call runs one more time than necessary.
+func (t tx) AdvanceEpoch() { t.s.removals().Add(1) }
 
 // PutObject adds a descriptor and its references (DEV-UPD-1 rules 1, KND-DEP-2). A descriptor that the
 // store has, or that the device store of the local output store has, does not change (IDN-CAN-3, BUN-IMP-8).
