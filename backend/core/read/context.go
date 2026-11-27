@@ -32,7 +32,7 @@ func openForm(request jsontext.Value, layers bool) {
 	fields := map[string]ops.Test{"roots": ops.IsRef, "heads": ops.IsStr, "capabilities": ops.IsStr}
 	unknown := 0
 	for _, m := range request.Obj {
-		if _, ok := fields[m.Key]; !ok && m.Key != "skew_policy" && !(layers && m.Key == "layer") {
+		if _, ok := fields[m.Key]; !ok && m.Key != "skew_policy" && m.Key != "life" && !(layers && m.Key == "layer") {
 			unknown++
 		}
 	}
@@ -57,6 +57,9 @@ func openForm(request jsontext.Value, layers bool) {
 	}
 	if policy, has := request.Get("skew_policy"); has && (policy.Kind != jsontext.String || (policy.Str != "reject" && policy.Str != "permit")) {
 		types++ // CTX-SKW-3
+	}
+	if life, has := request.Get("life"); has && !ops.IsCount(1)(life) {
+		types++ // CTX-LIF-1
 	}
 	layer, hasLayer := request.Get("layer")
 	if hasLayer && !isLayer(layer) {
@@ -110,7 +113,9 @@ func layerItem(c *ops.Call, layer jsontext.Value, first envelope.Item) envelope.
 
 // OpenContext is the operation `open_context` (document 08). It resolves each head in one read, checks
 // each root, and records the context with the closure of its roots as its content (CTX-OPN-1 to CTX-OPN-3).
-// With the field `layer`, it opens a layered context (LYR-OPN-1 to LYR-OPN-3).
+// With the field `layer`, it opens a layered context (LYR-OPN-1 to LYR-OPN-3). With the field `life`, the
+// context has a declared life (CTX-LIF-1). Each `ok` item names the removed objects in the closure of its
+// root (REL-RMV-9).
 func OpenContext(c *ops.Call) envelope.Envelope {
 	openForm(c.Request, c.Store.Profiles[kinds.LayerProfile])
 	table := c.Store.Capabilities()
@@ -189,10 +194,29 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 		ops.Raise(err)
 	}
 	id := "ctx-" + hex.EncodeToString(random)
+	for n := range items { // REL-RMV-9: the store reports each object that a removal took from the view
+		removed := c.RemovedIn(items[n].Fields[0].Val.Str)
+		items[n].Fields = append(items[n].Fields[:1:1], m("removed", jsontext.Strings(removed)))
+	}
+	record := ops.ContextRecord{Roots: resolved, Capabilities: capabilities}
+	if life, has := c.Request.Get("life"); has { // CTX-LIF-1: the life starts at the time of the store clock
+		seconds, _ := life.Int()
+		record.Expires = c.Store.Millis() + seconds*1000
+	}
 	c.S.Update(func(tx ops.Tx) { // the storage reads the closure of each root one time (KND-DEP-3)
-		tx.PutContext(id, ops.ContextRecord{Roots: resolved, Capabilities: capabilities})
+		tx.PutContext(id, record)
 	})
 	return c.Envelope("ok", nil, items).WithContext(id) // CTX-OPN-2
+}
+
+// CloseContext is the operation `close_context`: it ends an open read context (CTX-LIF-3). A context that
+// is not open gives `context_expired` (CTX-LIF-5). The operation changes no object, no bytes and no
+// catalog record.
+func CloseContext(c *ops.Call) envelope.Envelope {
+	c.Strict([]ops.Field{ops.Req("context", ops.IsStr)}, nil, nil)
+	rc := c.Context()
+	c.S.Update(func(tx ops.Tx) { tx.DeleteContexts([]string{rc.ID}) })
+	return c.Envelope("ok", nil, nil).WithContext(rc.ID)
 }
 
 type root struct {

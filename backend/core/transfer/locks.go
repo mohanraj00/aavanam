@@ -203,6 +203,13 @@ func lock(c *ops.Call, rc *ops.ReadContext, covered []string) envelope.Envelope 
 		ops.Fail(refusal.Codes...)
 	}
 	ref := canon.Revision(desc)
+	if gone := c.RemovedIn(covered...); len(gone) > 0 { // REL-RMV-10: no lock over a closure with a removed object
+		reasons := make([]envelope.Reason, len(gone))
+		for n, r := range gone {
+			reasons[n] = envelope.R("removed", r)
+		}
+		fail("not_found", reasons)
+	}
 	members := ops.Sorted(c.Closure(covered...)) // the read comes before the write (STS-ENV-4)
 	items := make([]envelope.Item, len(members))
 	for n, r := range members {

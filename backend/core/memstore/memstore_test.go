@@ -206,4 +206,5 @@ func TestUpdatesFromManyGoroutines(t *testing.T) {
 // The contract that each storage of the core passes.
 func TestStorageContract(t *testing.T) {
 	storagetest.Storage(t, func(*testing.T) storagetest.Backing { return New() })
+	storagetest.Removal(t, func(*testing.T) storagetest.Backing { return New() }, true)
 }

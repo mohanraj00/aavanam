@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/mohanraj00/aavanam/backend/core/canon"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
@@ -45,12 +47,23 @@ type Core struct {
 	mu       sync.RWMutex // the read binding of a driver reads the stores from a different goroutine
 	stores   map[string]*ops.Store
 	backings map[string]Backing
-	validate Validate // the validator connection of the call in progress
-	failure  error    // a failure of the validator connection in the call in progress
+	validate Validate     // the validator connection of the call in progress
+	failure  error        // a failure of the validator connection in the call in progress
+	ahead    atomic.Int64 // the time that the clock of each store is ahead of the system clock, in nanoseconds
 }
 
-// Reset makes each store empty, with no policy, gate or section. Each store declares no profile.
-func (c *Core) Reset() error { return c.open(nil) }
+// Reset makes each store empty, with no policy, gate or section. Each store declares no profile, and the
+// clock of each store is the system clock.
+func (c *Core) Reset() error {
+	c.ahead.Store(0)
+	return c.open(nil)
+}
+
+// Advance moves the clock of each store forward (CTX-LIF-2).
+func (c *Core) Advance(seconds int64) error {
+	c.ahead.Add(seconds * int64(time.Second))
+	return nil
+}
 
 // Declare makes each store empty, and each store declares the profiles (LYR-PRF-1, IDX-PRF-1). A store
 // declares its profiles before its first call, so the driver makes new stores.
@@ -72,6 +85,7 @@ func (c *Core) open(declared kinds.Profiles) error {
 	for name, backing := range backings {
 		store := ops.New(ops.Role(name), backing, registry)
 		store.Debug = c.Debug
+		store.Clock = func() time.Time { return time.Now().Add(time.Duration(c.ahead.Load())) }
 		store.Profiles = declared
 		stores[name] = store
 	}

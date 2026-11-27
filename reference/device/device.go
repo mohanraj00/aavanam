@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/check"
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
+	"github.com/mohanraj00/aavanam/backend/core/text"
 )
 
 // Layout is the identity of the layout profile (DEV-PRF-1).
@@ -32,6 +34,10 @@ const (
 	DeviceFile = "device.sqlite"
 	OutputFile = "output.sqlite"
 )
+
+// contextEnds is the table of the end of the declared life of a read context (DEV-LAY-5). A file of an
+// earlier version of the layout does not have it, so each open of a file makes it if it is not there.
+const contextEnds = `CREATE TABLE IF NOT EXISTS main.context_ends (id TEXT PRIMARY KEY, expires INTEGER NOT NULL)`
 
 // tables has the tables of both files (DEV-LAY-3, DEV-OUT-1). The indexes are not tables.
 var tables = []string{
@@ -46,6 +52,7 @@ var tables = []string{
 	`CREATE TABLE deferred (digest BLOB NOT NULL, ref BLOB NOT NULL, PRIMARY KEY (digest, ref)) WITHOUT ROWID`,
 	`CREATE INDEX deferred_ref ON deferred (ref)`,
 	`CREATE TABLE contexts (id TEXT PRIMARY KEY, roots BLOB NOT NULL, capabilities BLOB NOT NULL)`,
+	contextEnds,
 	`CREATE TABLE closures (root BLOB NOT NULL, member BLOB NOT NULL, PRIMARY KEY (root, member)) WITHOUT ROWID`,
 	`CREATE TABLE table_rows (digest BLOB NOT NULL, idx INTEGER NOT NULL, row BLOB NOT NULL, PRIMARY KEY (digest, idx))
 		WITHOUT ROWID`,
@@ -101,6 +108,9 @@ type Store struct {
 	// parsed (ops.RowCache). The layout has no column for them (DEV-LAY-3), so a new open parses the
 	// payload of a table one time, and reads its rows from `table_rows` after that.
 	heads sync.Map // digest, then tableHead
+	// output is the local output store of the device store, or nil. `gc_collect` reads its objects and its
+	// open read contexts (BUN-RMV-1).
+	output *Store
 }
 
 // tableHead is the head of one table of the row cache.
@@ -130,6 +140,7 @@ func Open(dir string) (device, output *Store, err error) {
 			return nil, nil, err
 		}
 	}
+	device.output = output
 	return device, output, nil
 }
 
@@ -164,6 +175,9 @@ func (s *Store) checkLayout() error {
 	if !strings.EqualFold(kindType, "BLOB") {
 		return fmt.Errorf("the %s file is not a store of %s: objects.kind has type %q, want BLOB (DEV-LAY-2 rule 2)",
 			s.role, Layout, kindType)
+	}
+	if _, err := s.db.Exec(contextEnds); err != nil { // DEV-LAY-5: a file of an earlier version gets the table
+		return fmt.Errorf("the %s file has no table context_ends, and the store cannot add it (DEV-LAY-5): %w", s.role, err)
 	}
 	return nil
 }
@@ -224,6 +238,14 @@ type view struct {
 	q   querier
 	// pending has the table heads of an update. The store keeps them after the commit.
 	pending map[string]tableHead
+	// work has the other state of an update, or nil for a read with no update.
+	work *work
+}
+
+// work is the state of one update that is not in the transaction.
+type work struct {
+	dropped []string // the digests whose bytes the update removed: the store drops their table heads
+	finish  []func() // the steps that run when the update ends, with a commit or with no commit
 }
 
 // in returns the query for one schema: `{s}` is the schema.
@@ -357,6 +379,11 @@ func (v view) HasLayer(collection string) bool {
 // A device store and its local output store have no catalog, no section, no gate and no producer
 // section (BUN-IMP-6, PRD-SEC-1).
 
+func (v view) Removals() []ops.RemovalRecord                { return nil }
+func (v view) HasRemoval(string) bool                       { return false }
+func (v view) RemovedRefs() []string                        { return nil }
+func (v view) AllHeads() map[string]string                  { return map[string]string{} }
+func (v view) Candidates() []ops.Candidate                  { return nil }
 func (v view) Heads([]string) map[string]string             { return map[string]string{} }
 func (v view) Section(string) (string, bool)                { return "", false }
 func (v view) Gated(string) bool                            { return false }
@@ -368,20 +395,112 @@ func (v view) ProducerRemoved(string, string) bool          { return false }
 func (v view) ProducerRemovals(string) []ops.Removal        { return nil }
 func (v view) ProducerEntries(string, string) []ops.Entry   { return nil }
 
+// Context reads the record of a read context, and the end of its declared life from `context_ends`
+// (DEV-LAY-5). A context with no row there has no declared life.
 func (v view) Context(id string) (ops.ContextRecord, bool) {
 	var roots, capabilities []byte
-	err := v.q.QueryRowContext(v.ctx, `SELECT roots, capabilities FROM main.contexts WHERE id = ?`, id).
-		Scan(&roots, &capabilities)
+	var expires int64
+	err := v.q.QueryRowContext(v.ctx, `SELECT x.roots, x.capabilities,
+		coalesce((SELECT e.expires FROM main.context_ends e WHERE e.id = x.id), 0) FROM main.contexts x WHERE x.id = ?`, id).
+		Scan(&roots, &capabilities, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ops.ContextRecord{}, false
 	}
 	if err != nil {
 		ops.Raise(err)
 	}
-	return ops.ContextRecord{Roots: listOf(roots), Capabilities: listOf(capabilities)}, true
+	return ops.ContextRecord{Roots: listOf(roots), Capabilities: listOf(capabilities), Expires: expires}, true
+}
+
+// strings returns the first column of a query, as strings.
+func (v view) strings(query string, args ...any) []string {
+	rows, err := v.q.QueryContext(v.ctx, query, args...)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, value)
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
+// own returns the first column of a query on the file of the store, as references.
+func (v view) own(query string, args ...any) []string {
+	rows, err := v.q.QueryContext(v.ctx, query, args...)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var b []byte
+		if err := rows.Scan(&b); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, refOf(b))
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
+func (v view) ContextsWith(ref string) []string {
+	return v.strings(`SELECT x.id FROM main.contexts x WHERE EXISTS (SELECT 1 FROM json_each(x.roots) r
+		JOIN main.closures c ON c.root = unhex(substr(r.value, 8)) WHERE c.member = ?) ORDER BY x.id`, key(ref))
+}
+
+func (v view) OpenRoots(now int64) []string {
+	return v.own(`SELECT DISTINCT unhex(substr(r.value, 8)) AS k FROM main.contexts x, json_each(x.roots) r
+		WHERE NOT EXISTS (SELECT 1 FROM main.context_ends e WHERE e.id = x.id AND e.expires <= ?) ORDER BY k`, now)
+}
+
+func (v view) EndedContexts(now int64) []string {
+	return v.strings(`SELECT id FROM main.context_ends WHERE expires <= ? ORDER BY id`, now)
+}
+
+// OwnObjects reads only the file of the store (BUN-RMV-2).
+func (v view) OwnObjects() []ops.Listed {
+	rows, err := v.q.QueryContext(v.ctx, `SELECT ref, kind FROM main.objects ORDER BY ref`)
+	if err != nil {
+		ops.Raise(err)
+	}
+	defer rows.Close()
+	var out []ops.Listed
+	for rows.Next() {
+		var ref, kind []byte
+		if err := rows.Scan(&ref, &kind); err != nil {
+			ops.Raise(err)
+		}
+		out = append(out, ops.Listed{Ref: refOf(ref), Kind: string(kind)})
+	}
+	if err := rows.Err(); err != nil {
+		ops.Raise(err)
+	}
+	return out
+}
+
+func (v view) OwnBlobs() []string {
+	return v.own(`SELECT digest FROM main.payloads ORDER BY digest`)
+}
+
+func (v view) Naming(digest string) []string {
+	return v.own(`SELECT ref FROM main.objects WHERE instr(canonical, ?) > 0 ORDER BY ref`, []byte(digest))
 }
 
 // members is the query of the content of a read context: the closures of its roots (CTX-OPN-2, KND-DEP-3).
+// A device store and its local output store have no removal record (REL-RMV-1), and `gc_collect` removes
+// the `refs` of each object that it removes (DEV-RMV-1). Thus each reference of the closure of a root of an
+// open context names an object, and the content has no reference with no object (REL-RMV-8).
 const members = `SELECT DISTINCT c.member FROM main.contexts x, json_each(x.roots) r
 	JOIN main.closures c ON c.root = unhex(substr(r.value, 8)) WHERE x.id = ?`
 
@@ -660,7 +779,13 @@ func (v session) Update(fn func(tx ops.Tx)) {
 			t.Rollback()
 		}
 	}()
-	work := view{s: v.s, ctx: v.ctx, q: t, pending: map[string]tableHead{}}
+	state := &work{}
+	defer func() {
+		for _, step := range state.finish {
+			step()
+		}
+	}()
+	work := view{s: v.s, ctx: v.ctx, q: t, pending: map[string]tableHead{}, work: state}
 	if v.s.role == "device" {
 		fn(deviceTx{tx{work}})
 	} else {
@@ -670,6 +795,9 @@ func (v session) Update(fn func(tx ops.Tx)) {
 		ops.Raise(err)
 	}
 	done = true
+	for _, digest := range state.dropped {
+		v.s.heads.Delete(digest)
+	}
 	for digest, head := range work.pending {
 		v.s.heads.Store(digest, head)
 	}
@@ -741,6 +869,7 @@ func (t tx) DeclareGate(string) {}
 
 var errNoCatalog = errors.New("a device store has no catalog, no section, no gate and no producer section")
 
+func (t tx) PutRemoval(ops.RemovalRecord)               { ops.Raise(errNoCatalog) }
 func (t tx) DeclareSection(string, string)              { ops.Raise(errNoCatalog) }
 func (t tx) PutCandidate(ops.Candidate)                 { ops.Raise(errNoCatalog) }
 func (t tx) Publish(ops.Publication)                    { ops.Raise(errNoCatalog) }
@@ -780,6 +909,130 @@ func (t tx) PutContext(id string, record ops.ContextRecord) {
 	}
 	t.exec(`INSERT INTO main.contexts (id, roots, capabilities) VALUES (?, ?, ?)`, id, list(record.Roots),
 		list(record.Capabilities))
+	if record.Expires != 0 { // DEV-LAY-5: only a context with a declared life has a row
+		t.exec(`INSERT INTO main.context_ends (id, expires) VALUES (?, ?)`, id, record.Expires)
+	}
+}
+
+// DeleteContexts removes the `contexts` row and the `context_ends` row of each context (DEV-LAY-5).
+func (t tx) DeleteContexts(ids []string) {
+	for _, id := range ids {
+		t.exec(`DELETE FROM main.contexts WHERE id = ?`, id)
+		t.exec(`DELETE FROM main.context_ends WHERE id = ?`, id)
+	}
+}
+
+// The removal methods change only the file of the store (DEV-RMV-1, BUN-RMV-2).
+
+func (t tx) DeleteObjects(refs []string) {
+	if len(refs) > 0 {
+		t.exec(`DELETE FROM main.objects WHERE ref IN (SELECT unhex(value) FROM json_each(?))`, hexList(refs))
+	}
+}
+
+func (t tx) DeleteEdges(sources []string) {
+	if len(sources) == 0 {
+		return
+	}
+	list := hexList(sources)
+	t.exec(`DELETE FROM main.edges WHERE src IN (SELECT unhex(value) FROM json_each(?))`, list)
+	t.exec(`DELETE FROM main.closures WHERE root IN (SELECT unhex(value) FROM json_each(?1))
+		OR member IN (SELECT unhex(value) FROM json_each(?1))`, list)
+}
+
+func (t tx) DeleteDeferred(refs []string) {
+	if len(refs) > 0 {
+		t.exec(`DELETE FROM main.deferred WHERE ref IN (SELECT unhex(value) FROM json_each(?))`, hexList(refs))
+	}
+}
+
+// DeleteBlobs removes the `payloads` row, the `table_rows` rows, the `text_docs` row and the `text_index`
+// row of each digest (DEV-RMV-1). `text_index` keeps no content (DEV-FTS-1), so FTS5 needs the document of
+// a row to remove it. The document is a function of the bytes (DEV-FTS-3), so the store makes it again
+// from the bytes before it removes them.
+func (t tx) DeleteBlobs(digests []string) {
+	for _, digest := range digests {
+		k := key(digest)
+		if t.s.role == "device" {
+			var id int64
+			err := t.q.QueryRowContext(t.ctx, `SELECT id FROM main.text_docs WHERE digest = ?`, k).Scan(&id)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				ops.Raise(err)
+			}
+			if err == nil {
+				var data []byte
+				if err := t.q.QueryRowContext(t.ctx, `SELECT data FROM main.payloads WHERE digest = ?`, k).Scan(&data); err != nil {
+					ops.Raise(fmt.Errorf("the text index has the digest %s, and the store cannot read its bytes: %w", digest, err))
+				}
+				t.exec(`INSERT INTO main.text_index (text_index, rowid, tokens) VALUES ('delete', ?, ?)`, id,
+					strings.Join(text.TokensOf(data), " "))
+				t.exec(`DELETE FROM main.text_docs WHERE id = ?`, id)
+			}
+		}
+		t.exec(`DELETE FROM main.payloads WHERE digest = ?`, k)
+		t.exec(`DELETE FROM main.table_rows WHERE digest = ?`, k)
+		delete(t.pending, digest)
+		t.work.dropped = append(t.work.dropped, digest)
+	}
+}
+
+// DeleteCandidates has no candidate to remove: a device store has no catalog (BUN-RMV-2).
+func (t tx) DeleteCandidates(ids []string) {
+	if len(ids) > 0 {
+		ops.Raise(errNoCatalog)
+	}
+}
+
+// ImportRoots returns each root of each `imports` row (ops.ImportLog, BUN-RMV-1).
+func (t deviceTx) ImportRoots() []string {
+	rows, err := t.q.QueryContext(t.ctx, `SELECT roots FROM main.imports ORDER BY seq`)
+	if err != nil {
+		ops.Raise(err)
+	}
+	var lists [][]byte
+	for rows.Next() {
+		var roots []byte
+		if err := rows.Scan(&roots); err != nil {
+			rows.Close()
+			ops.Raise(err)
+		}
+		lists = append(lists, roots)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		ops.Raise(err)
+	}
+	set := map[string]struct{}{}
+	for _, roots := range lists {
+		for _, root := range listOf(roots) {
+			set[root] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for root := range set {
+		out = append(out, root)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Output returns a reader of the local output store that does not change until the update ends
+// (ops.OutputView, DEV-RMV-1). It starts a BEGIN IMMEDIATE transaction on the output file, so no other
+// connection writes to that file. The transaction writes nothing, and it rolls back when the update ends.
+// Each update that has the write lock of the two files takes the lock of the device file first, and only
+// this method takes the two locks. Thus two updates do not wait for each other in a circle.
+func (t deviceTx) Output() (ops.Reader, bool) {
+	out := t.s.output
+	if out == nil {
+		return nil, false
+	}
+	held, err := out.db.BeginTx(t.ctx, nil)
+	if err != nil {
+		ops.Raise(err)
+	}
+	t.work.finish = append(t.work.finish, func() { held.Rollback() })
+	return view{s: out, ctx: t.ctx, q: held}, true
 }
 
 // PutImport adds the `imports` row of an `ok` import (DEV-UPD-2).

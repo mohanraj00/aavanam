@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
@@ -139,7 +140,7 @@ func TestProfileOperation(t *testing.T) {
 			t.Errorf("semantic_search %s with %v: %q, not %q", c.request, c.store.Profiles.Names(), got, c.want)
 		}
 	}
-	if got := call(declared, `"gc_collect"`, `{}`); got != "unsupported reserved_profile no items" {
+	if got := call(declared, `"lease_acquire"`, `{}`); got != "unsupported reserved_profile no items" {
 		t.Errorf("a reserved operation of a different profile: %q", got)
 	}
 }
@@ -298,7 +299,8 @@ func call(s *ops.Store, operation, request string) string {
 // STS-MAL-4: the operation, then the role of the store, then the input.
 func TestCheckOrder(t *testing.T) {
 	ok := func(c *ops.Call) envelope.Envelope { return c.Result(nil) }
-	handlers := map[string]ops.Handler{"put": ok, "get": ok, "producer_get": ok, "item_history": ok}
+	handlers := map[string]ops.Handler{"put": ok, "get": ok, "producer_get": ok, "item_history": ok, "remove": ok, "removals": ok,
+		"gc_collect": ok}
 	writer, device, output := store(ops.Writer, handlers), store(ops.Device, handlers), store(ops.Output, handlers)
 	cases := []struct {
 		store              *ops.Store
@@ -308,8 +310,17 @@ func TestCheckOrder(t *testing.T) {
 		{writer, `7`, `{}`, "unsupported unsupported_operation no items"},
 		{writer, `null`, `not JSON`, "unsupported unsupported_operation no items"},
 		{writer, `"no_such_operation"`, `not JSON`, "unsupported unsupported_operation no items"},
-		{writer, `"gc_collect"`, `not JSON`, "unsupported reserved_profile no items"},
-		{device, `"gc_collect"`, `{}`, "unsupported reserved_profile no items"},
+		{writer, `"lease_acquire"`, `not JSON`, "unsupported reserved_profile no items"},
+		{device, `"lease_release"`, `{}`, "unsupported reserved_profile no items"},
+		{device, `"remove"`, `not JSON`, "unsupported unsupported_role"}, // REL-RMV-1: before the input
+		{output, `"remove"`, `{}`, "unsupported unsupported_role"},
+		{device, `"removals"`, `[]`, "unsupported unsupported_role"},
+		{output, `"removals"`, `{}`, "unsupported unsupported_role"},
+		{output, `"gc_collect"`, `not JSON`, "unsupported unsupported_role"}, // LIF-GC-1: before the input
+		{device, `"gc_collect"`, `{}`, "ok "},
+		{writer, `"gc_collect"`, `not JSON`, "failed malformed_json"},
+		{writer, `"remove"`, `{}`, "ok "},
+		{writer, `"removals"`, `{}`, "ok "},
 		{device, `"put"`, `not JSON`, "unsupported read_only_store"}, // BUN-IMP-6: before the input
 		{device, `"put"`, `{}`, "unsupported read_only_store"},
 		{output, `"put"`, `{}`, "ok "},
@@ -446,7 +457,7 @@ func TestDeclarations(t *testing.T) {
 func TestRegistryRefusesAnIncorrectOperation(t *testing.T) {
 	ok := func(c *ops.Call) envelope.Envelope { return c.Result(nil) }
 	for name, register := range map[string]func(r *ops.Registry){
-		"an operation that is not in the table": func(r *ops.Registry) { r.Handle("gc_collect", ok) },
+		"an operation that is not in the table": func(r *ops.Registry) { r.Handle("lease_acquire", ok) },
 		"two handlers":                          func(r *ops.Registry) { r.Handle("get", ok); r.Handle("get", ok) },
 	} {
 		func() {
@@ -521,12 +532,78 @@ func TestReadBindingAgreesWithDocument22(t *testing.T) {
 			got = append(got, operation)
 		}
 	}
-	if len(want) != 18 || !reflect.DeepEqual(got, want) {
+	if len(want) != 19 || !reflect.DeepEqual(got, want) {
 		t.Errorf("the read binding has %v, and the clause has %v", got, want)
 	}
 	for _, operation := range want {
 		if ops.Writes(operation) || strings.HasPrefix(operation, "producer_") {
 			t.Errorf("%s writes content", operation)
+		}
+	}
+}
+
+// epochStorage is a storage with a removal epoch that a test sets (ops.RemovalEpoch).
+type epochStorage struct {
+	ops.Storage
+	epoch *atomic.Int64
+}
+
+type epochSession struct {
+	ops.Session
+	epoch *atomic.Int64
+}
+
+func (s epochStorage) Session(ctx context.Context) ops.Session {
+	return epochSession{s.Storage.Session(ctx), s.epoch}
+}
+
+func (s epochSession) RemovalEpoch() int64 { return s.epoch.Load() }
+
+// A store keeps parsed descriptors in memory (IDN-CAN-1). If a different open of the storage removes an
+// object, the removal epoch changes, and the store drops what it kept (REL-RMV-7, LIF-GC-5).
+func TestRemovalEpochDropsTheDescriptors(t *testing.T) {
+	const ref = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	mem := memstore.New()
+	var epoch atomic.Int64
+	var found bool
+	registry := ops.NewRegistry()
+	registry.Handle("get", func(c *ops.Call) envelope.Envelope {
+		_, found = c.Descriptor(ref)
+		return c.Result(nil)
+	})
+	s := ops.New(ops.Writer, epochStorage{mem, &epoch}, registry)
+	update := func(fn func(tx ops.Tx)) { mem.Session(context.Background()).Update(fn) }
+	update(func(tx ops.Tx) { tx.PutObject(ops.Object{Ref: ref, Kind: "source", Text: []byte(`{"kind":"source"}`)}) })
+	if call(s, `"get"`, `{}`); !found {
+		t.Fatal("the store does not read a stored descriptor")
+	}
+	update(func(tx ops.Tx) { tx.DeleteObjects([]string{ref}) }) // a removal that a different open made
+	if call(s, `"get"`, `{}`); !found {
+		t.Fatal("the store did not keep the descriptor, so the test shows nothing")
+	}
+	epoch.Add(1)
+	if call(s, `"get"`, `{}`); found {
+		t.Error("the store reads a removed descriptor after a change of the removal epoch")
+	}
+	update(func(tx ops.Tx) { tx.PutObject(ops.Object{Ref: ref, Kind: "source", Text: []byte(`{"kind":"source"}`)}) })
+	if call(s, `"get"`, `{}`); !found {
+		t.Error("the store does not read a descriptor that a later write added again (REL-RMV-11)")
+	}
+}
+
+// A removal that commits after the start of a call stops the update of the call (ops.ErrRemoved). The
+// dispatch runs the call again. After the last attempt, the fault is a `storage_error` (STS-MAL-1).
+func TestCallRunsAgainAfterARemoval(t *testing.T) {
+	for stops, want := range map[int]string{0: "ok  1", 3: "ok  4", 4: "failed storage_error context=c 4", 9: "failed storage_error context=c 4"} {
+		runs := 0
+		s := store(ops.Writer, map[string]ops.Handler{"get": func(c *ops.Call) envelope.Envelope {
+			if runs++; runs <= stops {
+				ops.Raise(fmt.Errorf("the update stopped: %w", ops.ErrRemoved))
+			}
+			return c.Result(nil)
+		}})
+		if got := call(s, `"get"`, `{"context":"c"}`) + fmt.Sprint(" ", runs); got != want {
+			t.Errorf("%d stops: %q, not %q", stops, got, want)
 		}
 	}
 }

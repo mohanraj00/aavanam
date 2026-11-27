@@ -26,6 +26,8 @@ type imports struct {
 	fail  bool // the record gives a storage fault
 }
 
+func (x *imports) ImportRoots() []string { return nil }
+
 func (x *imports) PutImport(roots []string) {
 	if x.fail {
 		ops.Raise(errors.New("the record failed"))

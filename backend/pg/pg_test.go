@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mohanraj00/aavanam/backend/core/canon"
+	"github.com/mohanraj00/aavanam/backend/core/envelope"
+	"github.com/mohanraj00/aavanam/backend/core/jsontext"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/storagetest"
 )
@@ -46,6 +49,7 @@ func update(s *Store, fn func(tx ops.Tx)) { s.Session(context.Background()).Upda
 func TestStorageContract(t *testing.T) {
 	storagetest.Storage(t, func(t *testing.T) storagetest.Backing { return open(t) })
 	storagetest.Core(t, func(t *testing.T) storagetest.Backing { return open(t) })
+	storagetest.Removal(t, func(t *testing.T) storagetest.Backing { return open(t) }, true)
 }
 
 func TestMigrateIsIdempotent(t *testing.T) {
@@ -85,6 +89,7 @@ func TestContentTablesRefuseUpdateAndDelete(t *testing.T) {
 		`UPDATE objects SET canonical = 'x'`, `DELETE FROM objects`, `DELETE FROM edges`, `UPDATE payloads SET data = 'x'`,
 		`DELETE FROM payloads`, `UPDATE candidates SET policy = 'x'`, `DELETE FROM publications`, `DELETE FROM gates`,
 		`UPDATE sections SET section = 'evidence'`, `DELETE FROM producer_entries`, `UPDATE producer_removals SET reason = 'x'`,
+		`DELETE FROM candidates`, `UPDATE removals SET reason = 'x'`, `DELETE FROM removals`,
 	} {
 		if _, err := s.pool.Exec(context.Background(), statement); err == nil || !strings.Contains(err.Error(), "takes inserts only") {
 			t.Errorf("%s: %v", statement, err)
@@ -232,5 +237,91 @@ func TestClosureWritesHaveOneOrder(t *testing.T) {
 	members := s.Session(context.Background()).Members("second")
 	if len(members) != 2 || members[0] != refA || members[1] != refB {
 		t.Errorf("the members of the context with two roots: %v", members)
+	}
+}
+
+// A removal increments the removal epoch of the database. A different open of the database then drops the
+// descriptors that it kept in memory, so it gives `removed` for the object (REL-RMV-7, ops.RemovalEpoch).
+func TestRemovalEpochOfTwoOpens(t *testing.T) {
+	first := open(t)
+	ctx := context.Background()
+	second, err := Open(ctx, os.Getenv("AAVANAM_PG_DSN"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(second.Close)
+	a := ops.New(ops.Writer, first, storagetest.Registry())
+	b := ops.New(ops.Writer, second, storagetest.Registry())
+	call := func(s *ops.Store, operation, request string) string {
+		return storagetest.Summary(s.Call(ctx, jsontext.S(operation), []byte(request)))
+	}
+	refOf := func(descriptor string) string {
+		value, err := jsontext.Parse([]byte(descriptor), jsontext.Strict)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return jsontext.Digest(canon.Canonical(value))
+	}
+	source := storagetest.Source("alpha")
+	ref := refOf(source)
+	observation := `{"descriptor_profile":"aavanam/base/v1","kind":"observation","subjects":["` + ref +
+		`"],"observation_type":"t","scope":{},"values":{}}`
+	put := a.Call(ctx, jsontext.S("put"), []byte(storagetest.Put([]string{source, observation}, "alpha")))
+	if storagetest.Summary(put) != "ok | ok | ok" {
+		t.Fatalf("put: %s", storagetest.Summary(put))
+	}
+	// A snapshot is a root, and its closure has the source through the observation.
+	snapshot := a.Call(ctx, jsontext.S("create_snapshot"), []byte(`{"collection":"notes","observations":["`+refOf(observation)+`"]}`))
+	if storagetest.Summary(snapshot) != "ok | ok" {
+		t.Fatalf("create_snapshot: %s", storagetest.Summary(snapshot))
+	}
+	roots := `{"roots":["` + refOf(`{"descriptor_profile":"aavanam/base/v1","kind":"snapshot","collection":"notes","observations":["`+
+		refOf(observation)+`"]}`) + `"]}`
+	get := func(context envelope.Envelope) string {
+		id, _ := context.Context.Text()
+		return call(b, "get", `{"context":"`+id+`","refs":["`+ref+`"]}`)
+	}
+	opened := b.Call(ctx, jsontext.S("open_context"), []byte(roots))
+	if got := get(opened); storagetest.Summary(opened) != "ok | ok" || got != "ok | ok" {
+		t.Fatalf("a read on the second open: %s, %s", storagetest.Summary(opened), got)
+	}
+	before := second.Session(ctx).(ops.RemovalEpoch).RemovalEpoch()
+	if got := call(a, "remove", `{"ref":"`+ref+`","reason":"a test"}`); got != "ok | ok" {
+		t.Fatalf("remove: %s", got)
+	}
+	if after := second.Session(ctx).(ops.RemovalEpoch).RemovalEpoch(); after != before+1 {
+		t.Errorf("the removal epoch is %d after a removal, and it was %d", after, before)
+	}
+	if got := get(opened); got != "failed:context_expired" { // CTX-LIF-4
+		t.Errorf("a read in a context that had the removed object: %s", got)
+	}
+	opened = b.Call(ctx, jsontext.S("open_context"), []byte(roots))
+	if got := get(opened); storagetest.Summary(opened) != "ok | ok" || got != "not_found:removed | not_found:removed" {
+		t.Errorf("a read on the second open after the removal: %s, %s", storagetest.Summary(opened), got)
+	}
+	// The permission to delete content ends with the update of the removal.
+	if _, err := first.pool.Exec(ctx, `DELETE FROM objects`); err == nil || !strings.Contains(err.Error(), "takes inserts only") {
+		t.Errorf("a DELETE after the update of a removal: %v", err)
+	}
+	// An update of a call that started before a removal does not write: its checks read content that the
+	// removal changed (ops.ErrRemoved).
+	stale := first.Session(ctx)
+	stale.(ops.RemovalEpoch).RemovalEpoch()
+	update(second, func(tx ops.Tx) {
+		tx.(ops.RemovalGate).LockRemoval()
+		tx.DeleteBlobs([]string{refC})
+		tx.(ops.RemovalGate).AdvanceEpoch()
+	})
+	fault := storagetest.Fault(func() {
+		stale.Update(func(tx ops.Tx) { tx.PutObject(ops.Object{Ref: refA, Kind: "source", Text: []byte("A")}) })
+	})
+	if !errors.Is(fault, ops.ErrRemoved) {
+		t.Errorf("an update that started before a removal: %v", fault)
+	}
+	if _, _, has := first.Session(ctx).Object(refA); has {
+		t.Error("an update that a removal stopped wrote an object")
+	}
+	if got := call(a, "put", storagetest.Put([]string{source}, "alpha")); got != "ok | ok" {
+		t.Errorf("a put after the removals: %s", got)
 	}
 }

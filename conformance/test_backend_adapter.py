@@ -51,11 +51,11 @@ FAKE = textwrap.dedent('''
     if 'mute' in sys.argv:
         sys.exit(3)
     print(json.dumps(hello), flush=True)
-    state = {'resets': 0, 'gates': [], 'sections': [], 'policies': [], 'profiles': [], 'args': sys.argv[1:]}
+    state = {'resets': 0, 'gates': [], 'sections': [], 'policies': [], 'profiles': [], 'clock': 0, 'args': sys.argv[1:]}
     for line in sys.stdin:
         m = json.loads(line)
         if m['cmd'] == 'reset':
-            state.update(resets=state['resets'] + 1, gates=[], sections=[], policies=[], profiles=[])
+            state.update(resets=state['resets'] + 1, gates=[], sections=[], policies=[], profiles=[], clock=0)
             reply = {'ok': True}
         elif m['cmd'] == 'declare':
             state['profiles'] = m['profiles']
@@ -80,6 +80,9 @@ FAKE = textwrap.dedent('''
             reply = {'ok': True}
         elif m['cmd'] == 'section':
             state['sections'].append([m['collection'], m['section']])
+            reply = {'ok': True}
+        elif m['cmd'] == 'clock':
+            state['clock'] += m['advance']
             reply = {'ok': True}
         print(json.dumps(reply), flush=True)
 ''')
@@ -127,6 +130,23 @@ class BackendAdapterTest(unittest.TestCase):
         adapter.reset()
         self.assertEqual(adapter.call('get', {})['state']['policies'], [])
         self.assertEqual(adapter.validators, {})
+
+    def test_advance_moves_the_clock_of_each_store(self):
+        adapter = self.adapter()
+        adapter.advance(60)
+        adapter.advance(5)
+        self.assertEqual(adapter.call('get', {})['state']['clock'], 65)  # CTX-LIF-2
+        self.assertEqual(adapter.call('get', {}, store='output')['state']['clock'], 65)
+        adapter.reset()  # after a reset, each store clock is the system clock
+        self.assertEqual(adapter.call('get', {})['state']['clock'], 0)
+        self.assertEqual(adapter.call('get', {}, store='device')['state']['clock'], 0)
+        mixed = self.adapter(AAVANAM_WRITER='reference')
+        before = mixed.local['writer'].clock()
+        mixed.advance(3600)
+        self.assertGreaterEqual((mixed.local['writer'].clock() - before).total_seconds(), 3600)
+        self.assertEqual(mixed.call('get', {}, store='device')['state']['clock'], 3600)
+        mixed.reset()
+        self.assertLess((mixed.local['writer'].clock() - before).total_seconds(), 3600)
 
     def test_validator_answers(self):
         adapter = self.adapter()
@@ -187,7 +207,7 @@ class BackendAdapterTest(unittest.TestCase):
         cs = runner.check_spec
         rows = cs.table(cs.STATUSES.read_text(), 'The operation table:', 3, cs.STATUSES.name, [])
         table = {row[0]: {s.strip() for s in row[2].split(',')} for row in rows}
-        reads = {'open_context', 'get', 'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render',
+        reads = {'open_context', 'close_context', 'get', 'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render',
                  'compare', 'impact', 'list_items', 'read', 'search_text', 'snapshot_changes', 'item_history', 'publications',
                  'export'}  # NET-SCP-1
         reserved = {op for op, statuses in table.items() if statuses == {'unsupported'}}

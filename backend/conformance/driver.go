@@ -55,6 +55,9 @@ type Store interface {
 	Gate(collection json.RawMessage) error
 	// Section declares the storage section of a collection (PUB-SEC-1).
 	Section(collection, section json.RawMessage) error
+	// Advance moves the clock of each store forward by a number of seconds (CTX-LIF-2). After Reset, the
+	// clock of each store is the system clock.
+	Advance(seconds int64) error
 }
 
 // Hello is the first line that a driver writes.
@@ -73,6 +76,7 @@ type message struct {
 	Collection json.RawMessage `json:"collection"`
 	Section    json.RawMessage `json:"section"`
 	Profiles   []string        `json:"profiles"`
+	Advance    *int64          `json:"advance"`
 }
 
 type answer struct {
@@ -207,6 +211,11 @@ func handle(s Store, line []byte, validate Validate) ([][]byte, error) {
 			return nil, errors.New("section needs collection and section")
 		}
 		return ok, s.Section(m.Collection, m.Section)
+	case "clock":
+		if m.Advance == nil || *m.Advance < 0 {
+			return nil, errors.New("clock needs advance, a number of seconds that is 0 or more")
+		}
+		return ok, s.Advance(*m.Advance)
 	}
 	return nil, fmt.Errorf("unknown cmd %q", m.Cmd)
 }
@@ -236,3 +245,4 @@ func (Null) Fingerprint(string) (string, error) { return "", nil }
 func (Null) Accept(json.RawMessage) error       { return nil }
 func (Null) Gate(json.RawMessage) error         { return nil }
 func (Null) Section(_, _ json.RawMessage) error { return nil }
+func (Null) Advance(int64) error                { return nil }

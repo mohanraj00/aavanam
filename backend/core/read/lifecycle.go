@@ -150,7 +150,7 @@ func SnapshotChanges(c *ops.Call) envelope.Envelope {
 	return result(c, nil, items, bounded)
 }
 
-// ItemHistory is the operation `item_history` (LIF-HST-1 to LIF-HST-4).
+// ItemHistory is the operation `item_history` (LIF-HST-1 to LIF-HST-6).
 func ItemHistory(c *ops.Call) envelope.Envelope {
 	c.Strict([]ops.Field{ops.Req("collection", ops.IsStr), ops.Req("logical_id", isNonEmpty)}, nil, nil)
 	lid := str(c.Request, "logical_id")
@@ -166,6 +166,21 @@ func ItemHistory(c *ops.Call) envelope.Envelope {
 	}
 	var items []envelope.Item
 	for _, p := range c.S.Publications(str(c.Request, "collection")) { // LIF-HST-2
+		var absent []envelope.Reason
+		snapshots := []string{p.Head} // LIF-HST-6: `gc_collect` removed a snapshot of the record
+		if p.PreviousHead != "" && p.PreviousHead != p.Head {
+			snapshots = append(snapshots, p.PreviousHead)
+		}
+		for _, snapshot := range snapshots {
+			if _, has := c.Descriptor(snapshot); !has {
+				absent = append(absent, envelope.R("unknown_ref", snapshot))
+			}
+		}
+		if len(absent) > 0 { // no list of revisions for a snapshot that the store does not have
+			items = append(items, envelope.Item{Status: "not_found", Reasons: absent, Fields: []jsontext.Member{
+				m("candidate", jsontext.S(p.Candidate)), m("previous_head", nullable(p.PreviousHead)), m("head", jsontext.S(p.Head))}})
+			continue
+		}
 		was, is := revisions(p.PreviousHead), revisions(p.Head)
 		change := "replaced" // LIF-HST-4
 		switch {
