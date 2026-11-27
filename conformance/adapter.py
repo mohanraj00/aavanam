@@ -25,7 +25,9 @@ class Adapter(Protocol):
     (PUB-SEC-1). `declare` makes each of the three stores declare the given
     profiles, for example the layer profile (LYR-PRF-1). The runner calls it
     after `reset`, only for a vector whose profile is not the base profile.
-    After `reset`, a store declares no profile.
+    After `reset`, a store declares no profile. `advance` moves the clock of
+    each store forward by a number of seconds (CTX-LIF-2). After `reset`, each
+    store clock is the system clock again.
     """
 
     def reset(self) -> None: ...
@@ -41,6 +43,8 @@ class Adapter(Protocol):
     def section(self, collection: str, section: str) -> None: ...
 
     def declare(self, profiles: list[str]) -> None: ...
+
+    def advance(self, seconds: int) -> None: ...
 
 
 def envelope(operation: str, status: str, codes: list[str], items: list[dict] | None = None) -> dict:

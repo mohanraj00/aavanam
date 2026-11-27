@@ -17,7 +17,7 @@ import sqlite3
 import threading
 import uuid
 from collections import deque
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from . import descriptors as d
@@ -32,7 +32,7 @@ DECLARED = {'redistributable', 'no_redistribution', 'unknown'}  # BUN-RED-1
 RENDER_PROFILE = 'aavanam/render/v1'
 # The operations whose row in the operation table has `partial` (STS-ENV-3)
 PARTIAL = {'query_data', 'search', 'context_bundle', 'evidence', 'coverage', 'observations', 'render', 'compare', 'impact',
-           'snapshot_changes', 'list_items', 'search_text', 'semantic_search'}
+           'snapshot_changes', 'list_items', 'search_text', 'semantic_search', 'item_history'}
 LOCK_KINDS = {'execution_inputs': 'execution-lock', 'build_inputs': 'build-lock'}
 # The capability table (CTX-PRJ-1): each capability and the operations that need it
 CAPABILITIES = {'aavanam/data/v1': ('query_data',), 'aavanam/lexical/v1': ('search',),
@@ -50,6 +50,8 @@ MEMBER_FIELDS = ('units', 'schemas', 'relation_sets', 'overlay_sets', 'observati
 WRITES = ('put', 'create_snapshot', 'create_candidate', 'publish')
 # The operations that read the store and its catalog, not a read context (LIF-ITM-4)
 STORE_READS = ('snapshot_changes', 'item_history')
+# The kinds that `remove` takes from the Evidence section (REL-RMV-3, PUB-SEC-3)
+EVIDENCE_KINDS = ('source', 'reading', 'excerpt', 'evidence')
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS objects (ref TEXT PRIMARY KEY, kind TEXT NOT NULL, descriptor TEXT NOT NULL);
@@ -71,6 +73,9 @@ CREATE TABLE IF NOT EXISTS producer_entries (producer TEXT NOT NULL, log TEXT NO
     entry BLOB NOT NULL, PRIMARY KEY (producer, log, sequence));
 CREATE TABLE IF NOT EXISTS producer_removals (producer TEXT NOT NULL, sequence INTEGER NOT NULL, key TEXT NOT NULL,
     time TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY (producer, sequence));
+CREATE TABLE IF NOT EXISTS removals (sequence INTEGER PRIMARY KEY, ref TEXT NOT NULL, kind TEXT NOT NULL, time TEXT NOT NULL,
+    reason TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS imports (seq INTEGER PRIMARY KEY, roots TEXT NOT NULL);
 """
 
 
@@ -363,7 +368,10 @@ class Store:
         if 'capabilities' not in columns:  # a context of an older store file has each capability (CTX-PRJ-2)
             self.db.execute('ALTER TABLE contexts ADD COLUMN capabilities TEXT NOT NULL DEFAULT ' +
                             "'" + json.dumps(sorted(CAPABILITIES)) + "'")
+        if 'expires' not in columns:  # a context of an older store file has no declared life (CTX-LIF-1)
+            self.db.execute('ALTER TABLE contexts ADD COLUMN expires TEXT')
         self.migrate_publications()
+        self.gone: set[str] | None = None  # the removed objects, read at the first use (REL-RMV-7)
         self.mutex = threading.RLock()  # one connection, one call at a time
         self.called = False  # a gate is declared before the first call (PUB-GAT-1)
         self.cache: dict[str, dict] = {}  # descriptors do not change (IDN-CAN-1)
@@ -495,15 +503,29 @@ class Store:
         out = {s for (s,) in self.db.execute('SELECT source FROM edges WHERE target = ?', (ref,))}
         return out | self.device.sources(ref) if self.device else out
 
-    def closure(self, roots) -> set[str]:
-        """The roots and each object that their references reach (KND-DEP-3). The edges table is `refs` (KND-DEP-2)."""
+    def closure(self, roots, references: bool = False) -> set[str]:
+        """The roots and each object that their references reach (KND-DEP-3). The edges table is `refs` (KND-DEP-2).
+        The walk follows the kept `refs` of a removed object, and the result does not have the removed objects
+        (REL-RMV-8). With `references`, the result has them also, as references."""
         seen, todo = set(roots), deque(roots)
         while todo:
             for target in self.targets(todo.popleft()):
                 if target not in seen:
                     seen.add(target)
                     todo.append(target)
-        return seen
+        return seen if references else seen - self.removed()
+
+    def removed(self) -> set[str]:
+        """The references that name a removed object: a removal record has the reference, and the store does not
+        have the object (REL-RMV-7). Only a writer store has removal records (REL-RMV-1)."""
+        if self.gone is None:
+            self.gone = {r for (r,) in self.db.execute(
+                'SELECT ref FROM removals WHERE ref NOT IN (SELECT ref FROM objects)')}
+        return self.gone
+
+    def gone_in(self, roots) -> list[str]:
+        """The removed objects in the closure of the roots, in ascending order (REL-RMV-9, REL-RMV-10)."""
+        return sorted(self.closure(roots, True) & self.removed()) if self.removed() else []
 
     def fingerprint(self) -> str:
         h = hashlib.sha256()
@@ -511,7 +533,8 @@ class Store:
                            ('heads', "collection || ' ' || snapshot"), ('publications', "candidate || ' ' || receipt || ' ' || coalesce(activation, '')"),
                            ('producer_objects', "producer || ' ' || key || ' ' || hex(data)"),
                            ('producer_entries', "producer || ' ' || log || ' ' || sequence || ' ' || hex(entry)"),
-                           ('producer_removals', "producer || ' ' || sequence || ' ' || key || ' ' || time || ' ' || reason")):
+                           ('producer_removals', "producer || ' ' || sequence || ' ' || key || ' ' || time || ' ' || reason"),
+                           ('removals', "sequence || ' ' || ref || ' ' || kind || ' ' || time || ' ' || reason")):
             for (value,) in self.db.execute(f'SELECT {key} FROM {table} ORDER BY {key}'):
                 h.update(f'{table}:{value}\n'.encode())
         return h.hexdigest()
@@ -559,6 +582,7 @@ class Store:
             self.db.executemany('DELETE FROM deferred WHERE digest = ?', [(k,) for k in blobs])
             self.db.executemany('INSERT OR IGNORE INTO deferred VALUES (?, ?)', deferred)
             self.db.execute('COMMIT')
+            self.gone = None  # a put of a removed descriptor adds the object again (REL-RMV-11)
         except BaseException:
             self.rollback()
             raise
@@ -622,11 +646,13 @@ class Store:
                     raise fail('read_only_store')  # BUN-IMP-6: after STS-MAL-4, before the request
                 if operation.startswith('producer_') and self.role != 'writer':
                     raise fail('producer_section_absent')  # PRD-SEC-1: after STS-MAL-4, before the request
+                if (operation in ('remove', 'removals') and self.role != 'writer') or (operation == 'gc_collect' and self.role == 'output'):
+                    raise fail('unsupported_role')  # REL-RMV-1, LIF-GC-1: after STS-MAL-4, before the request
                 if not isinstance(request, dict):
                     raise fail('field_type')
-                return detached(method(request))  # a caller cannot change the cached descriptors (CTX-OPN-2)
+                return self.marked(detached(method(request)), request)  # a caller cannot change the cached descriptors (CTX-OPN-2)
             except Failure as f:
-                return self.envelope(operation, f.status, f.reasons, context=context, **self.empty(operation))
+                return self.marked(self.envelope(operation, f.status, f.reasons, context=context, **self.empty(operation)), request)
             except Exception:  # noqa: BLE001  STS-MAL-1
                 if self.debug:
                     raise
@@ -637,6 +663,20 @@ class Store:
     def empty(operation: str) -> dict:
         """The added fields of a result that did not complete (STS-ENV-3 rule 1, RND-DOC-3)."""
         return {'items': [], 'document': None, 'document_id': None} if operation == 'render' else {'items': []}
+
+    def marked(self, out: dict, request) -> dict:
+        """Give the reason `removed` in place of `unknown_ref` and `not_in_context` for a reference that names a
+        removed object (REL-RMV-7). In a layered context, the reason stays `unknown_ref` (LYR-ISO-2)."""
+        if self.role != 'writer' or not self.removed():
+            return out
+        context = request.get('context') if isinstance(request, dict) else None
+        if isinstance(context, str) and self.db.execute('SELECT 1 FROM context_views WHERE context = ?', (context,)).fetchone():
+            return out
+        for entry in (out, *out.get('items', [])):
+            for r in entry['reasons']:
+                if r['code'] in ('unknown_ref', 'not_in_context') and r['refs'] and set(r['refs']) <= self.removed():
+                    r['code'] = 'removed'
+        return out
 
     @staticmethod
     def envelope(operation, status, reasons, items=None, context=None, **fields) -> dict:
@@ -671,8 +711,8 @@ class Store:
         context = request.get('context')
         if not isinstance(context, str):
             raise fail('field_type')
-        row = self.db.execute('SELECT capabilities FROM contexts WHERE id = ?', (context,)).fetchone()
-        if row is None:
+        row = self.db.execute('SELECT capabilities, expires FROM contexts WHERE id = ?', (context,)).fetchone()
+        if row is None or (row[1] is not None and self.now() >= row[1]):  # CTX-LIF-2, CTX-LIF-5
             raise fail('context_expired')
         members = Members(r for (r,) in self.db.execute('SELECT ref FROM context_members WHERE context = ?', (context,)))
         view = self.db.execute('SELECT view FROM context_views WHERE context = ?', (context,)).fetchone()
@@ -719,13 +759,15 @@ class Store:
     def open_form(self, request: dict) -> None:
         """The request form of open_context: CTX-OPN-5, in order, with one reason for each affected value.
         Only a store that declares the layer profile has the field `layer` (LYR-PRF-1, LYR-OPN-1)."""
-        fields = ('roots', 'heads', 'skew_policy', 'capabilities') + (('layer',) if LAYER_PROFILE in self.profiles else ())
+        fields = ('roots', 'heads', 'skew_policy', 'capabilities', 'life') + (('layer',) if LAYER_PROFILE in self.profiles else ())
         unknown = [f for f in request if f not in fields]
         if unknown:
             raise fail(*['unknown_field'] * len(unknown))
         types = [f for f in ('roots', 'heads', 'capabilities') if f in request and not isinstance(request[f], list)]
         if 'skew_policy' in request and request['skew_policy'] not in SKEW_POLICIES:
             types.append('skew_policy')
+        if 'life' in request and not is_count(request['life'], 1):
+            types.append('life')  # CTX-LIF-1
         tests = {'roots': is_digest, 'heads': is_str, 'capabilities': is_str}
         types += [v for f, test in tests.items() if isinstance(request.get(f), list) for v in request[f] if not test(v)]
         layer = request.get('layer')
@@ -769,12 +811,16 @@ class Store:
         status, reasons = summary(items, 'open_context')
         if status != 'ok':
             return self.envelope('open_context', status, reasons, items)
+        for i in items:
+            i['removed'] = self.gone_in([i['ref']])  # REL-RMV-9
         context = 'ctx:' + uuid.uuid4().hex
         view = [resolved[0], layer['ref']] if layer else None
-        closure = self.layered(*view) if layer else self.closure(resolved)  # LYR-OPN-3, CTX-OPN-2
+        closure = self.layered(*view) - self.removed() if layer else self.closure(resolved)  # LYR-OPN-3, CTX-OPN-2, REL-RMV-8
+        expires = self.now(request['life']) if 'life' in request else None  # CTX-LIF-1
         self.db.execute('BEGIN IMMEDIATE')
         try:
-            self.db.execute('INSERT INTO contexts VALUES (?, ?, ?)', (context, json.dumps(resolved), json.dumps(sorted(capabilities))))
+            self.db.execute('INSERT INTO contexts (id, roots, capabilities, expires) VALUES (?, ?, ?, ?)',
+                            (context, json.dumps(resolved), json.dumps(sorted(capabilities)), expires))
             if view:
                 self.db.execute('INSERT INTO context_views VALUES (?, ?)', (context, json.dumps(view)))
             self.db.executemany('INSERT INTO context_members VALUES (?, ?)', ((context, r) for r in closure))
@@ -783,6 +829,33 @@ class Store:
             self.rollback()
             raise
         return self.envelope('open_context', 'ok', [], items, context)  # CTX-OPN-2
+
+    def now(self, later: int = 0) -> str:
+        """The time of the store clock plus a number of seconds, in a form whose string order is the time order (CTX-LIF-2)."""
+        return (self.clock().astimezone(timezone.utc) + timedelta(seconds=later)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+    def end_contexts(self, where: str, values=()) -> None:
+        """Remove the rows of the read contexts that the condition selects. The caller has the transaction."""
+        ended = [(c,) for (c,) in self.db.execute(f'SELECT id FROM contexts WHERE {where}', values)]
+        for table, column in (('context_members', 'context'), ('context_views', 'context'), ('contexts', 'id')):
+            self.db.executemany(f'DELETE FROM {table} WHERE {column} = ?', ended)
+
+    def transaction(self, change):
+        """Run one change of the store in one transaction: all or none (STS-MAL-2)."""
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            out = change()
+            self.db.execute('COMMIT')
+            return out
+        except BaseException:
+            self.rollback()
+            raise
+
+    def op_close_context(self, request: dict) -> dict:
+        strict(request, {'context': (True, is_str)})  # CTX-LIF-3
+        context, _, _ = self.context_of(request)  # CTX-LIF-5: a context that is not open gives context_expired
+        self.transaction(lambda: self.end_contexts('id = ?', (context,)))
+        return self.envelope('close_context', 'ok', [], [], context)
 
     def snapshots(self, items: list[dict]) -> list[tuple[int, str]]:
         """The position and the reference of each ok item with a snapshot root."""
@@ -1135,6 +1208,9 @@ class Store:
             fields['view'] = view
         desc = d.check({'descriptor_profile': BASE_PROFILE, 'kind': LOCK_KINDS[operation], **fields}, self.profiles)
         ref = revision(desc)
+        gone = self.gone_in(covered)
+        if gone:  # REL-RMV-10: no lock over a closure with a removed object
+            raise Failure('not_found', [reason('removed', [r]) for r in gone])
         items = [item(ref=r) for r in sorted(self.closure(covered))]  # read before the write (STS-ENV-4)
         target = self.output or self
         with target.mutex:  # the local output store can have calls of its own
@@ -1248,6 +1324,9 @@ class Store:
             inside = sorted(r for r in self.closure(roots) if self.kind(r) == 'knowledge-unit' and r not in roots)
             if inside:  # BUN-FLT-2 rule 3: the closure of a match has a unit that does not match
                 return self.envelope('export', 'incompatible', [reason('unmatched_dependency', [r]) for r in inside], [], context)
+        gone = self.gone_in(roots)
+        if gone:  # REL-RMV-10: no bundle of a closure with a removed object
+            raise Failure('not_found', [reason('removed', [r]) for r in gone])
         objects = sorted(self.closure(roots))
         statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
         values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
@@ -1298,6 +1377,8 @@ class Store:
         out = self.commit_batch('import', checked, data, absent, withheld)
         if out['status'] != 'ok':  # BUN-IMP-4
             return self.envelope('import', out['status'], out['reasons'], [])
+        if self.role == 'device':  # BUN-RMV-1: the roots of each ok import
+            self.db.execute('INSERT INTO imports (roots) VALUES (?)', (json.dumps(bundle['roots']),))
         return self.envelope('import', 'ok', [], out['items'])
 
     # Lookup and discovery (document 09)
@@ -1866,6 +1947,11 @@ class Store:
         rows = self.db.execute('SELECT candidate, previous_head, head FROM publications WHERE collection = ? ORDER BY rowid',
                                (request['collection'],)).fetchall()
         for candidate, previous, head in rows:  # LIF-HST-2
+            absent = [s for s in dict.fromkeys((head, previous)) if s is not None and self.descriptor(s) is None]
+            if absent:  # LIF-HST-6: gc_collect removed a snapshot of the record
+                items.append(item('not_found', [reason('unknown_ref', [s]) for s in absent],
+                                  candidate=candidate, previous_head=previous, head=head))
+                continue
             old, new = [r['ref'] for r in revisions(previous)], revisions(head)
             refs = [r['ref'] for r in new]
             change = ('absent' if not old and not refs else 'added' if not old else 'removed' if not refs
@@ -1923,6 +2009,108 @@ class Store:
 
     # The producer section (document 19). The store keeps the bytes and never parses them (PRD-SEC-4).
     # Calibration data uses these objects and logs with no other check (PRD-CAL-1, PRD-CAL-2).
+
+    # Removal (document 06 topic RMV, document 17 topic GC, document 11 topic RMV)
+
+    def op_remove(self, request: dict) -> dict:
+        strict(request, {'ref': (True, is_digest), 'reason': (True, is_name(1024))})  # REL-RMV-2
+        ref, kind = request['ref'], self.kind(request['ref'])
+        if kind is None:  # REL-RMV-3 steps 1 and 2: marked() gives `removed` for a removed object
+            raise Failure('not_found', [reason('unknown_ref', [ref])])
+        if kind not in EVIDENCE_KINDS:
+            raise Failure('unsupported', [reason('unsupported_target_kind', [ref])])
+        own = {p['digest'] for p in d.payloads(self.descriptor(ref))}
+
+        def change():  # REL-RMV-4: one transaction. The edges of the object stay (REL-RMV-8).
+            self.db.execute('DELETE FROM objects WHERE ref = ?', (ref,))
+            self.drop_blobs(own)
+            self.db.execute('DELETE FROM deferred WHERE ref = ?', (ref,))
+            sequence = self.db.execute('SELECT count(*) FROM removals').fetchone()[0] + 1
+            record = {'sequence': sequence, 'ref': ref, 'kind': kind, 'time': self.clock().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                      'reason': request['reason']}  # REL-RMV-5: no other field, no content
+            self.db.execute('INSERT INTO removals VALUES (?, ?, ?, ?, ?)', tuple(record.values()))
+            self.end_contexts('id IN (SELECT context FROM context_members WHERE ref = ?)', (ref,))  # CTX-LIF-4
+            return record
+        try:
+            record = self.transaction(change)
+        finally:
+            self.cache.pop(ref, None)
+            self.gone = None
+        return self.envelope('remove', 'ok', [], [item(**record)])
+
+    def op_removals(self, request: dict) -> dict:
+        strict(request, {})  # REL-RMV-6
+        rows = self.db.execute('SELECT sequence, ref, kind, time, reason FROM removals ORDER BY sequence')
+        return self.envelope('removals', 'ok', [], [item(sequence=s, ref=r, kind=k, time=t, reason=why) for s, r, k, t, why in rows])
+
+    def drop_blobs(self, digests=None) -> list[str]:
+        """Remove the bytes of each digest of the list that no object of the store names (REL-RMV-4, LIF-GC-5). With no
+        list, the digests are all the bytes of the store. A device store keeps the bytes that an object of its local
+        output store names (BUN-RMV-2). The caller has the transaction."""
+        named = set()
+        for store in (self, self.output) if self.output else (self,):
+            for (text,) in store.db.execute('SELECT descriptor FROM objects'):
+                if digests is None or any(k in text for k in digests):  # the text of a descriptor has each digest that it names
+                    named |= {p['digest'] for p in d.payloads(json.loads(text))}
+        have = {k for (k,) in self.db.execute('SELECT digest FROM blobs')}
+        dropped = sorted((have if digests is None else have & set(digests)) - named)
+        self.db.executemany('DELETE FROM blobs WHERE digest = ?', [(k,) for k in dropped])
+        return dropped
+
+    def open_members(self) -> set[str]:
+        """Each member of each open read context of this store (CTX-LIF-6)."""
+        return {r for (r,) in self.db.execute(
+            'SELECT ref FROM context_members WHERE context IN (SELECT id FROM contexts WHERE expires IS NULL OR expires > ?)',
+            (self.now(),))}
+
+    def retained_roots(self, request: dict) -> set[str]:
+        """The retained roots of gc_collect: LIF-GC-2 for a writer store, BUN-RMV-1 for a device store."""
+        roots = set(request.get('roots', [])) | self.open_members()
+        if self.role == 'device':
+            if 'roots' not in request:  # each imported root that the store has
+                roots |= {r for (text,) in self.db.execute('SELECT roots FROM imports') for r in json.loads(text)
+                          if self.descriptor(r)}
+            return roots
+        roots |= {s for (s,) in self.db.execute('SELECT snapshot FROM heads')}
+        roots |= {s for (s,) in self.db.execute(
+            'SELECT snapshot FROM candidates WHERE id NOT IN (SELECT candidate FROM publications)')}
+        newest = self.db.execute('SELECT receipt, activation FROM publications WHERE rowid IN '
+                                 '(SELECT max(rowid) FROM publications GROUP BY collection)')
+        return roots | {r for row in newest for r in row if r is not None}
+
+    def op_gc_collect(self, request: dict) -> dict:
+        strict(request, {'roots': (False, lambda v: is_refs(v, empty=True))}, sets=('roots',))  # LIF-GC-1
+        own = lambda r: self.db.execute('SELECT 1 FROM objects WHERE ref = ?', (r,)).fetchone()
+        absent = [r for r in request.get('roots', []) if not own(r)]  # LIF-GC-4, BUN-RMV-2
+        if absent:
+            raise Failure('not_found', [reason('unknown_ref', [r]) for r in absent])
+        with self.output.mutex if self.output else contextlib.nullcontext():
+            retained = self.closure(self.retained_roots(request), True)
+            if self.output:  # BUN-RMV-1: each object that the local output store keeps, and its open contexts
+                kept = {r for (r,) in self.output.db.execute('SELECT ref FROM objects')}
+                retained |= self.output.closure(kept | self.output.open_members(), True)
+            gone = [(r, k) for r, k in self.db.execute('SELECT ref, kind FROM objects ORDER BY ref') if r not in retained]
+
+            def change():  # LIF-GC-5: one transaction
+                refs = [(r,) for r, _ in gone]
+                self.db.executemany('DELETE FROM objects WHERE ref = ?', refs)
+                self.db.executemany('DELETE FROM deferred WHERE ref = ?', refs)
+                for (source,) in self.db.execute('SELECT DISTINCT source FROM edges').fetchall():
+                    if source not in retained:  # also the kept refs of a removed object that no retained root reaches
+                        self.db.execute('DELETE FROM edges WHERE source = ?', (source,))
+                payloads = self.drop_blobs()
+                snapshots = {r for r, k in gone if k == 'snapshot'}
+                candidates = sorted(c for c, s in self.db.execute('SELECT id, snapshot FROM candidates') if s in snapshots)
+                self.db.executemany('DELETE FROM candidates WHERE id = ?', [(c,) for c in candidates])
+                self.end_contexts('expires IS NOT NULL AND expires <= ?', (self.now(),))  # an ended context keeps no row
+                return payloads, candidates
+            try:
+                payloads, candidates = self.transaction(change)
+            finally:
+                for r, _ in gone:
+                    self.cache.pop(r, None)
+                self.gone = None
+        return self.envelope('gc_collect', 'ok', [], [item(ref=r, kind=k) for r, k in gone], payloads=payloads, candidates=candidates)
 
     def producer_write(self, change) -> dict:
         """Run `change()` in one write transaction, so a second open of the store sees all of it or none (STS-MAL-2)."""

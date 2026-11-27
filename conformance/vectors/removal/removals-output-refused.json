@@ -1,0 +1,29 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A local output store gives unsupported_role for removals",
+  "clauses": [
+    "REL-RMV-1",
+    "STS-MAL-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "steps": [
+    {
+      "operation": "removals",
+      "request": {},
+      "expect": {
+        "status": "unsupported",
+        "reasons": [
+          "unsupported_role"
+        ],
+        "items": [],
+        "store_unchanged": true
+      },
+      "store": "output"
+    }
+  ],
+  "pair": "removal/remove-ok"
+}

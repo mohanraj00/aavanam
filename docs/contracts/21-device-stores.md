@@ -17,6 +17,7 @@ This document adds no operation, no status and no reason. Documents 11 and 20 gi
 | `FTS` | The FTS5 index of the text search |
 | `OUT` | The output file |
 | `UPD` | The transaction of an import |
+| `RMV` | The transaction of a removal |
 
 ## Clauses
 
@@ -47,13 +48,15 @@ This document adds no operation, no status and no reason. Documents 11 and 20 gi
 | `payloads` | `digest` (key), `size`, `data` | The bytes of one digest, one time (IDN-DIG-2) |
 | `deferred` | `digest`, `ref` | One record of BUN-IMP-10: the descriptor `ref` has a deferred check that needs the bytes of `digest`. The key is the two columns |
 | `imports` | `seq` (key), `roots` | One `ok` import (DEV-UPD-2) |
-| `contexts` | `id` (key), `roots`, `capabilities` | One read context (CTX-OPN-2). `roots` and `capabilities` are JSON lists |
+| `contexts` | `id` (key), `roots`, `capabilities`, `expires` | One open read context (CTX-OPN-2). `roots` and `capabilities` are JSON lists. `expires` is the end of the declared life (DEV-LAY-5) |
 | `closures` | `root`, `member` | Derived. The object `member` is in the closure of `root` (KND-DEP-3). The key is the two columns |
 | `table_rows` | `digest`, `idx`, `row` | Derived. Row `idx` of the table payload `digest` (`aavanam/table/v1`), in the table order, from 0. `row` is the RFC 8785 bytes of the row |
 | `text_docs` | `id` (key), `digest` | Derived. One indexed digest (DEV-FTS-2). `id` is an integer, and `digest` has no duplicate |
 | `text_index` | `tokens` | Derived. The FTS5 table of DEV-FTS-1 |
 
 **DEV-LAY-4.** The tables `edges`, `closures`, `table_rows`, `text_docs` and `text_index` are a function of `objects` and `payloads`. `edges` comes only from the typed reference fields of the descriptors (KND-DEP-2). A rebuild of these tables from `objects` and `payloads` MUST give the same rows, except the `id` values of `text_docs`. A store can add the rows of `closures` and `table_rows` at the first use of a root or of a table. No operation gives a value from a derived table without the descriptor or the payload bytes that the value comes from.
+
+**DEV-LAY-5.** The column `expires` of `contexts` is an `INTEGER`: the end of the declared life of the context, in seconds from 1970-01-01T00:00:00Z (CTX-LIF-2). It is null for a context with no `life`. A file of an earlier version of this layout has no column `expires`. Before a store uses such a file, it MUST add the column, and each context of the file gets null. When a read context ends, the store removes its `contexts` row, or it does not use the row again (CTX-LIF-5).
 
 ### Text index
 
@@ -99,6 +102,10 @@ Thus the store adds the row of a digest in the transaction that makes the two co
 
 If the import is not `ok`, the transaction MUST roll back, and the two files do not change (BUN-UPD-6).
 
-**DEV-UPD-2.** The `imports` row of an `ok` import has `seq`, the number of `imports` rows before the call plus 1, and `roots`, the JSON list of the roots of the bundle in the order of the bundle. An import of a bundle whose objects and bytes are all in the store also adds a row. An `imports` row is a record of a call. It is not content of the store in the sense of BUN-UPD-2, and no operation of the base profile reads it. An application can read the table to find the roots of the newest bundle, because an import does not copy the catalog of the writer store (BUN-CLS-3).
+**DEV-UPD-2.** The `imports` row of an `ok` import has `seq`, the number of `imports` rows before the call plus 1, and `roots`, the JSON list of the roots of the bundle in the order of the bundle. An import of a bundle whose objects and bytes are all in the store also adds a row. An `imports` row is a record of a call. It is not content of the store in the sense of BUN-UPD-2, and only `gc_collect` reads it (BUN-RMV-1). An application can read the table to find the roots of the newest bundle, because an import does not copy the catalog of the writer store (BUN-CLS-3).
 
-**DEV-UPD-3.** An import MUST NOT delete or change a row of `meta`, `objects`, `edges`, `payloads`, `imports`, `contexts`, `closures`, `table_rows` or `text_docs` (BUN-UPD-3). It removes a `deferred` row only as BUN-IMP-10 states. `put`, `create_snapshot`, `create_candidate` and `publish` on the device store give `read_only_store` and change no row (BUN-IMP-6). `open_context` on the device store adds one `contexts` row and can add `closures` rows. It changes no other table.
+**DEV-UPD-3.** An import MUST NOT delete or change a row of `meta`, `objects`, `edges`, `payloads`, `imports`, `contexts`, `closures`, `table_rows` or `text_docs` (BUN-UPD-3). Only the transaction of DEV-RMV-1 deletes a row of content. It removes a `deferred` row only as BUN-IMP-10 states. `put`, `create_snapshot`, `create_candidate` and `publish` on the device store give `read_only_store` and change no row (BUN-IMP-6). `open_context` on the device store adds one `contexts` row and can add `closures` rows. It changes no other table. `close_context` changes only the table `contexts`.
+
+### Removal transaction
+
+**DEV-RMV-1.** Each `gc_collect` on the device store is one `BEGIN IMMEDIATE` transaction on the device file. The store reads the objects and the open read contexts of the output file for the retained roots (BUN-RMV-1), and it MUST NOT write to the output file. For each object that the call removes (LIF-GC-5), the transaction deletes its `objects` row, each `edges` row with the object as `src`, each `deferred` row with the object as `ref`, and each `closures` row with the object as `root` or as `member`. For each payload digest that the call removes, the transaction deletes its `payloads` row, its `table_rows` rows, its `text_docs` row and the row of `text_index` with that row ID. The transaction MUST NOT delete an `imports` row or a `meta` row. After the transaction, the derived tables agree with DEV-LAY-4 and DEV-FTS-2. If the call is not `ok`, the transaction MUST roll back.

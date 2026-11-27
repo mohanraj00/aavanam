@@ -30,3 +30,6 @@ class NullAdapter:
 
     def declare(self, profiles) -> None:
         pass
+
+    def advance(self, seconds) -> None:
+        pass

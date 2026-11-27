@@ -1,0 +1,398 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "gc_collect with a root that is not in the store gives unknown_ref and removes nothing",
+  "clauses": [
+    "LIF-GC-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data. The receipt of the newest publication names the schema a1, so a1 stays."
+  },
+  "profile": "aavanam/base/v1",
+  "acceptance": {
+    "policy": "example/review-board/v1",
+    "accept": [
+      [
+        {
+          "$ref": "k1"
+        },
+        {
+          "$ref": "rc"
+        }
+      ],
+      [
+        {
+          "$ref": "k2"
+        },
+        {
+          "$ref": "rc"
+        }
+      ],
+      [
+        {
+          "$ref": "k3"
+        },
+        {
+          "$ref": "rc"
+        }
+      ]
+    ]
+  },
+  "payloads": {
+    "a1": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"a1\"]}"
+    },
+    "a2": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"a2\"]}"
+    },
+    "a3": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"a3\"]}"
+    },
+    "orph": {
+      "media_type": "text/plain",
+      "text": "A draft that no snapshot names.\n"
+    },
+    "rc": {
+      "media_type": "application/json",
+      "text": "{\"decision\": \"accepted\"}"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "a1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a1"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "a2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a2"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "a3",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "a3"
+              },
+              "logical_id": "schema-a"
+            }
+          },
+          {
+            "as": "orph",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "artifact",
+              "artifact_type": "sample/document/v1",
+              "payload": {
+                "$payload": "orph"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rc",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "receipt",
+              "producer": "example/review-board",
+              "subjects": [
+                {
+                  "$ref": "a1"
+                }
+              ],
+              "payload": {
+                "$payload": "rc"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s1"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s2"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "handbook",
+        "schemas": [
+          {
+            "$ref": "a3"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "s3"
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "s1"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": null
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k1"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k1"
+        },
+        "receipt": {
+          "$ref": "rc"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "s1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "s2"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": {
+          "$ref": "s1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k2"
+    },
+    {
+      "operation": "publish",
+      "request": {
+        "candidate": {
+          "$ref": "k2"
+        },
+        "receipt": {
+          "$ref": "rc"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k2"
+              },
+              "disposition": "published",
+              "head": {
+                "$ref": "s2"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_candidate",
+      "request": {
+        "snapshot": {
+          "$ref": "s3"
+        },
+        "checks": [],
+        "policy": "example/review-board/v1",
+        "expected_head": {
+          "$ref": "s2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "collection": "handbook"
+            }
+          }
+        ]
+      },
+      "as_ref": "k3"
+    },
+    {
+      "operation": "gc_collect",
+      "request": {
+        "roots": [
+          {
+            "$absent": "x"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "unknown_ref"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "lifecycle/gc-roots-ok"
+}

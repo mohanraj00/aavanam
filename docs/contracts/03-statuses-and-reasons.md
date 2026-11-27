@@ -63,6 +63,7 @@ The reason table:
 | `producer_removed` | `not_found` | The producer removed the object with the key, and it has no object with the key now (PRD-OBJ-3) |
 | `not_in_context` | `not_found` | The object is in the store but not in the read context |
 | `payload_missing` | `not_found` | The bytes of a payload are not in the store |
+| `removed` | `not_found` | A `remove` removed the object with the reference, and the store does not have the object now (REL-RMV-7) |
 | `unbound_role` | `unresolved` | A declared role has no binding in the BindingSet |
 | `no_head` | `unresolved` | A logical ID has no head in the read context, or a collection has no head in the catalog (CTX-VIW-2) |
 | `unknown_column` | `unresolved` | A column in the request is not a column of the table (QRY-DAT-2) |
@@ -100,6 +101,7 @@ The reason table:
 | `capability_unavailable` | `unsupported` | The read context does not have a capability that the operation or the lock needs (CTX-PRJ-4, LCK-CAP-2) |
 | `read_only_store` | `unsupported` | The store is a device store, and the operation writes to it (BUN-IMP-6) |
 | `producer_section_absent` | `unsupported` | The store is not a writer store, so it has no producer section (PRD-SEC-1) |
+| `unsupported_role` | `unsupported` | The store has a role that the operation does not support (REL-RMV-1, LIF-GC-1) |
 | `reserved_profile` | `unsupported` | The feature is reserved in document 16 and not specified |
 | `malformed_json` | `failed` | The input is not valid JSON |
 | `duplicate_key` | `failed` | A JSON object has a key more than one time |
@@ -117,7 +119,7 @@ The reason table:
 | `replacement_kind` | `failed` | A supersession replacement has a different kind than its target (REL-RET-2) |
 | `digest_mismatch` | `failed` | Bytes do not agree with their digest |
 | `size_mismatch` | `failed` | Bytes do not agree with their size |
-| `context_expired` | `failed` | The read context expired before the operation started |
+| `context_expired` | `failed` | The read context ended before the operation started, or the store has no read context with the identity (CTX-LIF-5) |
 | `deadline_exceeded` | `failed` | The operation did not complete before its deadline |
 | `storage_error` | `failed` | The storage layer returned an error |
 | `incomplete_result` | `failed` | A declared bound stopped the operation, and the operation cannot return `partial` (STS-ENV-3) |
@@ -148,11 +150,14 @@ The operation table:
 |---|---|---|
 | `put` | 02 | `ok`, `not_found`, `unsupported`, `failed` |
 | `open_context` | 08 | `ok`, `not_found`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
+| `close_context` | 08 | `ok`, `failed` |
 | `get` | 09 | `ok`, `not_found`, `unresolved`, `unsupported`, `failed` |
 | `query_data` | 09 | `ok`, `partial`, `not_found`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
 | `search` | 09 | `ok`, `partial`, `unsupported`, `failed` |
 | `context_bundle` | 09 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
 | `evidence` | 06 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
+| `remove` | 06 | `ok`, `not_found`, `unsupported`, `failed` |
+| `removals` | 06 | `ok`, `unsupported`, `failed` |
 | `coverage` | 07 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
 | `observations` | 07 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
 | `execution_inputs` | 10 | `ok`, `not_found`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
@@ -167,7 +172,8 @@ The operation table:
 | `export` | 11 | `ok`, `not_found`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
 | `import` | 11 | `ok`, `incompatible`, `unsupported`, `failed` |
 | `snapshot_changes` | 17 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
-| `item_history` | 17 | `ok`, `failed` |
+| `item_history` | 17 | `ok`, `partial`, `not_found`, `failed` |
+| `gc_collect` | 17 | `ok`, `not_found`, `unsupported`, `failed` |
 | `list_items` | 18 | `ok`, `partial`, `unresolved`, `ambiguous`, `incompatible`, `unsupported`, `failed` |
 | `read` | 20 | `ok`, `not_found`, `unsupported`, `failed` |
 | `search_text` | 20 | `ok`, `partial`, `not_found`, `unsupported`, `failed` |
@@ -180,7 +186,6 @@ The operation table:
 | `workspace_open` | 16 | `unsupported` |
 | `workspace_append` | 16 | `unsupported` |
 | `workspace_read` | 16 | `unsupported` |
-| `gc_collect` | 16 | `unsupported` |
 | `lease_acquire` | 16 | `unsupported` |
 | `lease_release` | 16 | `unsupported` |
 | `open_cross_catalog_context` | 16 | `unsupported` |
@@ -213,4 +218,4 @@ In step 1, a number is outside I-JSON if it is not finite as an IEEE 754 double,
 
 The store stops at the first check that fails. The result gives the reasons of that check only, with one reason for each affected value. Thus each descriptor has one status, and vectors can expect one result for each input.
 
-**STS-MAL-4.** The store MUST check the operation before its input. If the operation has no row in the operation table, the result is `unsupported` with reason `unsupported_operation`. If its row gives only `unsupported`, the result is `unsupported` with reason `reserved_profile`. A store that declares a profile uses the operation row of the document of that profile in place of this row (RSV-LST-4). In these two cases, the store does not check the input, and STS-MAL-1 does not apply. Next, a device store checks its role (BUN-IMP-6). If it gives `read_only_store`, the store does not check the input either. Then a store that is not a writer store checks its role for an operation of document 19 (PRD-SEC-1). If it gives `producer_section_absent`, the store does not check the input.
+**STS-MAL-4.** The store MUST check the operation before its input. If the operation has no row in the operation table, the result is `unsupported` with reason `unsupported_operation`. If its row gives only `unsupported`, the result is `unsupported` with reason `reserved_profile`. A store that declares a profile uses the operation row of the document of that profile in place of this row (RSV-LST-4). In these two cases, the store does not check the input, and STS-MAL-1 does not apply. Next, a device store checks its role (BUN-IMP-6). If it gives `read_only_store`, the store does not check the input either. Then a store that is not a writer store checks its role for an operation of document 19 (PRD-SEC-1). If it gives `producer_section_absent`, the store does not check the input. In the same step, a store checks its role for `remove` and `removals` (REL-RMV-1) and for `gc_collect` (LIF-GC-1). If it gives `unsupported_role`, the store does not check the input.

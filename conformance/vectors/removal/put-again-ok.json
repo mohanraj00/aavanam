@@ -1,0 +1,485 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A later put of the removed descriptor adds the object again, and the removal record stays",
+  "clauses": [
+    "REL-RMV-11",
+    "REL-RMV-7",
+    "REL-RMV-6"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "Derived from the cited clauses and the planted data."
+  },
+  "profile": "aavanam/base/v1",
+  "sections": {
+    "sample-evidence": "evidence",
+    "sample-evidence-b": "evidence"
+  },
+  "payloads": {
+    "sch": {
+      "media_type": "application/json",
+      "text": "{\"fields\": [\"part\", \"interval_h\"]}"
+    },
+    "tab": {
+      "media_type": "application/json",
+      "text": "{\"columns\": [\"part\", \"interval_h\"], \"key\": [\"part\"], \"rows\": [[\"seal\", 500], [\"blade\", 200]]}"
+    },
+    "src": {
+      "media_type": "text/plain",
+      "text": "Pump: check the seal. Fan: clean the blade.\n"
+    },
+    "rd": {
+      "media_type": "text/plain",
+      "text": "Pump: check the seal. Fan: clean the blade.\n"
+    },
+    "ex1": {
+      "media_type": "text/plain",
+      "text": "check the seal."
+    },
+    "ex2": {
+      "media_type": "text/plain",
+      "text": "clean the blade."
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "sch",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "schema",
+              "schema_profile": "sample/schema/v1",
+              "payload": {
+                "$payload": "sch"
+              }
+            }
+          },
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "src"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "tab",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "data-resource",
+              "data_profile": "aavanam/table/v1",
+              "schema": {
+                "$ref": "sch"
+              },
+              "payload": {
+                "$payload": "tab"
+              }
+            }
+          },
+          {
+            "as": "rd",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample/reader/v1",
+              "coverage_profile": "sample/coverage/v1",
+              "payload": {
+                "$payload": "rd"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ex1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "rd"
+              },
+              "ranges": [
+                {
+                  "start": 6,
+                  "end": 21
+                }
+              ],
+              "payload": {
+                "$payload": "ex1"
+              }
+            }
+          },
+          {
+            "as": "ex2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "rd"
+              },
+              "ranges": [
+                {
+                  "start": 27,
+                  "end": 43
+                }
+              ],
+              "payload": {
+                "$payload": "ex2"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ev1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "evidence",
+              "subject": {
+                "$ref": "tab"
+              },
+              "supports": {
+                "$ref": "ex1"
+              },
+              "origin": "sample/editor/v1"
+            }
+          },
+          {
+            "as": "ev2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "evidence",
+              "subject": {
+                "$ref": "tab"
+              },
+              "supports": {
+                "$ref": "ex2"
+              },
+              "origin": "sample/editor/v1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rs",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": [
+                {
+                  "$ref": "ev1"
+                },
+                {
+                  "$ref": "ev2"
+                }
+              ]
+            }
+          },
+          {
+            "as": "rs2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "relation-set",
+              "members": [
+                {
+                  "$ref": "ev2"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          },
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-evidence",
+        "relation_sets": [
+          {
+            "$ref": "rs"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "evd"
+    },
+    {
+      "operation": "create_snapshot",
+      "request": {
+        "collection": "sample-evidence-b",
+        "relation_sets": [
+          {
+            "$ref": "rs2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "as_ref": "evd2"
+    },
+    {
+      "operation": "remove",
+      "request": {
+        "ref": {
+          "$ref": "ex1"
+        },
+        "reason": "sample removal request 1"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1,
+              "ref": {
+                "$ref": "ex1"
+              },
+              "kind": "excerpt",
+              "reason": "sample removal request 1"
+            },
+            "no_other_fields": [
+              "time"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ex1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "rd"
+              },
+              "ranges": [
+                {
+                  "start": 6,
+                  "end": 21
+                }
+              ],
+              "payload": {
+                "$payload": "ex1"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "evd"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "evd"
+              },
+              "removed": []
+            }
+          }
+        ]
+      },
+      "as_context": "c"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c"
+        },
+        "refs": [
+          {
+            "$ref": "ex1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "removals",
+      "request": {},
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "sequence": 1,
+              "ref": {
+                "$ref": "ex1"
+              },
+              "kind": "excerpt",
+              "reason": "sample removal request 1"
+            },
+            "no_other_fields": [
+              "time"
+            ]
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

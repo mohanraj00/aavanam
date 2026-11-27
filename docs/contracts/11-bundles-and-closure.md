@@ -4,7 +4,7 @@ State: draft. Prefix: `BUN`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
-This document defines capability closure, bundle manifests, export, the filtered export, license and redistribution status, import, the bundle update of a device store and excerpt objects. A device store takes its content only from `import`. Local outputs stay separate.
+This document defines capability closure, bundle manifests, export, the filtered export, license and redistribution status, import, the bundle update of a device store, the removal of content from a device store and excerpt objects. A device store takes its content only from `import`. Local outputs stay separate.
 
 ## Topics
 
@@ -17,6 +17,7 @@ This document defines capability closure, bundle manifests, export, the filtered
 | `FLT` | The filtered export |
 | `IMP` | Import, the store roles and integrity |
 | `UPD` | The bundle update of a device store |
+| `RMV` | The removal of content from a device store |
 | `EXC` | Excerpt objects and parent validation |
 
 ## Clauses
@@ -117,11 +118,11 @@ On a device store with an `ok` import of B, a read context with the roots of B h
 
 **BUN-IMP-5.** A store has one of three roles: a writer store, a device store or a local output store. The application selects the role when it creates the store. The role does not change, and a request does not name it. A device store has one local output store, and a local output store belongs to one device store. The application creates the two stores together.
 
-**BUN-IMP-6.** A device store takes its content only from `import`. `put`, `create_snapshot`, `create_candidate` and `publish` on a device store give status `unsupported` with reason `read_only_store`. The store checks the role after the operation (STS-MAL-4) and before the request. The result has no items, and the store does not change (STS-ENV-4). An operation that only reads, for example `open_context`, `get` or `export`, is permitted on a device store. `import` is permitted on a device store, also if the device store has objects (BUN-UPD-1). It does not give `read_only_store`.
+**BUN-IMP-6.** A device store takes its content only from `import`. `put`, `create_snapshot`, `create_candidate` and `publish` on a device store give status `unsupported` with reason `read_only_store`. The store checks the role after the operation (STS-MAL-4) and before the request. The result has no items, and the store does not change (STS-ENV-4). An operation that only reads, for example `open_context`, `get` or `export`, is permitted on a device store. `import` is permitted on a device store, also if the device store has objects (BUN-UPD-1). It does not give `read_only_store`. `gc_collect` is also permitted on a device store (BUN-RMV-1).
 
 **BUN-IMP-7.** `execution_inputs` and `build_inputs` on a device store read in a context of the device store. The store writes the lock to the local output store of the device store, and does not change the device store. Thus in LCK-EXE-4 and LCK-BLD-3, the store that has or does not have the lock is the local output store.
 
-**BUN-IMP-8.** The objects of a local output store are the objects that it keeps and the objects of its device store. Its payload bytes are the bytes that it keeps and the bytes of its device store. Each rule that names an object or bytes in the store uses these sets for a local output store, for example KND-REF-2, KND-DEP-3, BUN-IMP-2 and CTX-OPN-1. A write to a local output store adds objects and bytes only to the local output store. If the device store has an object or bytes, a write of them does not change the local output store (IDN-CAN-3). A device store does not remove an object or bytes (BUN-UPD-3), so each target of an object in the local output store stays in one of the two stores.
+**BUN-IMP-8.** The objects of a local output store are the objects that it keeps and the objects of its device store. Its payload bytes are the bytes that it keeps and the bytes of its device store. Each rule that names an object or bytes in the store uses these sets for a local output store, for example KND-REF-2, KND-DEP-3, BUN-IMP-2 and CTX-OPN-1. A write to a local output store adds objects and bytes only to the local output store. If the device store has an object or bytes, a write of them does not change the local output store (IDN-CAN-3). An import does not remove an object or bytes of a device store (BUN-UPD-3), and each object of the local output store is a retained root of `gc_collect` on the device store (BUN-RMV-1). Thus each target of an object in the local output store stays in one of the two stores.
 
 **BUN-IMP-9.** If the bundle lists a digest in `withheld` and the store does not have its bytes, the store MUST keep each descriptor that names it without the bytes, if the other checks pass. This rule applies to a writer store, a device store and a local output store (BUN-IMP-5), subject to BUN-IMP-6. The store MUST defer the payload bytes step of STS-MAL-3 for this payload. It MUST defer BUN-EXC-3 for an excerpt if the excerpt bytes or its parent bytes are withheld and absent. A read that needs absent bytes MUST give status `not_found` and reason `payload_missing` (QRY-DAT-2, CRD-READ-2). If the store has the bytes, the store MUST check them even if the bundle lists the digest in `withheld`. An export withholds absent bytes as BUN-RED-7 states.
 
@@ -139,7 +140,7 @@ Note: An `ok` import can keep a descriptor of absent bytes. The local output sto
 
 **BUN-UPD-2.** If each check passes, the result is the result of BUN-IMP-3: status `ok`, with one item for each descriptor of the bundle, also for a descriptor that the store has. The store MUST add only the objects and the bytes that it does not have (IDN-CAN-3). Thus an `import` of a bundle whose objects and bytes are all in the store does not change the content of the store.
 
-**BUN-UPD-3.** A bundle update MUST NOT remove or change an object, payload bytes or a read context of the device store or of its local output store. Thus a read context that the store opened before the update has the same roots and the same members after it (CTX-OPN-2). An object that only the update added is not a member of that context, so a request for it gives `not_in_context` (CTX-OPN-4). An operation in that context gives the same status, reasons and items as before the update, with one exception: a read that needed absent bytes can find the bytes that the update added (BUN-UPD-5). The base profile has no operation that removes the content of an earlier import. `gc_collect` stays reserved (RSV-LST-1).
+**BUN-UPD-3.** A bundle update MUST NOT remove or change an object, payload bytes or a read context of the device store or of its local output store. Thus a read context that the store opened before the update has the same roots and the same members after it (CTX-OPN-2). An object that only the update added is not a member of that context, so a request for it gives `not_in_context` (CTX-OPN-4). An operation in that context gives the same status, reasons and items as before the update, with one exception: a read that needed absent bytes can find the bytes that the update added (BUN-UPD-5). Only `gc_collect` removes the content of an earlier import, and only the content that no retained root reaches (BUN-RMV-1).
 
 **BUN-UPD-4.** BUN-CLS-3 and BUN-CLS-4 apply to each `ok` import of a device store, not only to the first. Thus after a bundle update with the roots R, a read context on the device store with the roots R has the members of the closure of R, and it finds the content that the update added. The roots of one read context can come from more than one import (CTX-OPN-1).
 
@@ -156,3 +157,17 @@ Note: An `ok` import can keep a descriptor of absent bytes. The local output sto
 **BUN-EXC-3.** The payload bytes of an `excerpt` MUST be equal to the bytes of the parent payload in each range, joined in the order of `ranges`. If a range ends after the parent payload, or the bytes are not equal, the store MUST reject the write with status `failed` and reason `excerpt_mismatch`. The store compares bytes only. It does not parse the parent payload.
 
 **BUN-EXC-4.** The store checks BUN-EXC-3 after the payload bytes step of STS-MAL-3. If the store does not have the bytes of the parent payload, the result is status `not_found` and reason `payload_missing`, and the store does not keep the excerpt, except for a deferred import check (BUN-IMP-9).
+
+### Removal from a device store
+
+**BUN-RMV-1.** A device store MUST keep the roots of each `ok` import. An imported root is a root of such an import that the device store has. `gc_collect` on a device store (LIF-GC-1) has these retained roots, and no other retained root:
+
+1. Each value of `roots`. If the request has no `roots`, each imported root.
+2. Each object that the local output store keeps, for example a lock (BUN-IMP-7). Thus each dependency that a lock records is in the retained set.
+3. Each member of each open read context of the device store and of its local output store (CTX-LIF-6).
+
+Thus the content of an earlier import stays until the application names the roots that it keeps, and until the read contexts on that content end.
+
+**BUN-RMV-2.** `gc_collect` on a device store applies LIF-GC-4 to LIF-GC-7 to the objects and the bytes that the device store keeps. A value of `roots` MUST be an object that the device store keeps. If it is not, it gives the outcome of LIF-GC-4. The call MUST NOT remove or change an object, bytes or a read context of the local output store. A device store has no candidate, so the list `candidates` of the result is empty. After the call, each target of an object in the local output store is in one of the two stores (BUN-IMP-8), and a lock in the local output store reads each dependency that it records.
+
+**BUN-RMV-3.** The record of an import stays after `gc_collect` removes one of its roots. That root is not an imported root after the call (BUN-RMV-1). A later bundle update can add the removed content again (BUN-UPD-2). `remove` is not an operation of a device store (REL-RMV-1). A removal on the writer store does not reach a device store. The application imports a bundle with the new roots, and then calls `gc_collect` with these roots.

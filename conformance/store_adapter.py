@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
@@ -40,6 +41,10 @@ class StoreAdapter:
     def gate(self, collection) -> None:
         for store in self.stores.values():
             store.gate(collection)  # PUB-GAT-1
+
+    def advance(self, seconds: int) -> None:
+        for store in self.stores.values():  # CTX-LIF-2: each store clock moves forward
+            store.clock = lambda base=store.clock: base() + timedelta(seconds=seconds)
 
     def section(self, collection, section) -> None:
         self.stores['writer'].section(collection, section)  # PUB-SEC-1: only a writer store

@@ -667,7 +667,6 @@ rendering/render-unknown
 rendering/render-unsupported
 rendering/render-withdrawn-ok
 reserved/declare-signed-collection
-reserved/gc-collect
 reserved/lease-acquire
 reserved/lease-release
 reserved/mark-compromise
