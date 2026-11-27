@@ -34,7 +34,7 @@ This document adds no operation, no status and no reason. Each result is the res
 
 ### Operations
 
-**NET-SCP-1.** The binding has these operations, which do not write or remove content: `open_context`, `close_context`, `get`, `query_data`, `search`, `context_bundle`, `evidence`, `coverage`, `observations`, `render`, `compare`, `impact`, `list_items`, `read`, `search_text`, `snapshot_changes`, `item_history`, `publications` and `export`. `open_context` adds a read context to the store, and `close_context` ends one (CTX-LIF-3). A read context is not content (CTX-OPN-2). Each operation gives the same status, reasons and items as a direct call of the store with the same request.
+**NET-SCP-1.** The binding has these operations, which do not write or remove content: `open_context`, `close_context`, `get`, `query_data`, `search`, `context_bundle`, `evidence`, `coverage`, `observations`, `render`, `compare`, `impact`, `list_items`, `read`, `search_text`, `snapshot_changes`, `item_history`, `publications` and `export`. `open_context` adds a read context to the store, and `close_context` ends one (CTX-LIF-3). A read context is not content (CTX-OPN-2). The binding has `close_context` from `api_minor` 1 (NET-VER-2). Each operation gives the same status, reasons and items as a direct call of the store with the same request.
 
 **NET-SCP-2.** If `<operation>` has no row in the operation table, the response has the HTTP status 200 and the envelope of STS-MAL-4, with status `unsupported` and reason `unsupported_operation`. If its row gives only `unsupported`, the envelope has reason `reserved_profile`. The server does not check the body in these two cases.
 

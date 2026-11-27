@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS blobs (digest TEXT PRIMARY KEY, data BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS deferred (digest TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (digest, ref));
 CREATE TABLE IF NOT EXISTS contexts (id TEXT PRIMARY KEY, roots TEXT NOT NULL, capabilities TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_views (context TEXT PRIMARY KEY, view TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS context_ends (context TEXT PRIMARY KEY, expires TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_members (context TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (context, ref));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, collection TEXT NOT NULL,
     policy TEXT NOT NULL, expected_head TEXT);
@@ -368,10 +369,9 @@ class Store:
         if 'capabilities' not in columns:  # a context of an older store file has each capability (CTX-PRJ-2)
             self.db.execute('ALTER TABLE contexts ADD COLUMN capabilities TEXT NOT NULL DEFAULT ' +
                             "'" + json.dumps(sorted(CAPABILITIES)) + "'")
-        if 'expires' not in columns:  # a context of an older store file has no declared life (CTX-LIF-1)
-            self.db.execute('ALTER TABLE contexts ADD COLUMN expires TEXT')
         self.migrate_publications()
         self.gone: set[str] | None = None  # the removed objects, read at the first use (REL-RMV-7)
+        self.version = None  # the data version of the file at the last call (REL-RMV-7)
         self.mutex = threading.RLock()  # one connection, one call at a time
         self.called = False  # a gate is declared before the first call (PUB-GAT-1)
         self.cache: dict[str, dict] = {}  # descriptors do not change (IDN-CAN-1)
@@ -515,6 +515,14 @@ class Store:
                     todo.append(target)
         return seen if references else seen - self.removed()
 
+    def fresh(self) -> None:
+        """Empty the caches if a different open of the store file wrote to it. A different open can remove an object
+        (REL-RMV-7, LIF-GC-5), and this open MUST NOT give a descriptor that the store does not have."""
+        version = self.db.execute('PRAGMA data_version').fetchone()[0]
+        if version != self.version:
+            self.version, self.gone = version, None
+            self.cache.clear()
+
     def removed(self) -> set[str]:
         """The references that name a removed object: a removal record has the reference, and the store does not
         have the object (REL-RMV-7). Only a writer store has removal records (REL-RMV-1)."""
@@ -642,6 +650,7 @@ class Store:
             try:
                 if self.broken:
                     raise sqlite3.DatabaseError('the connection is not usable')
+                self.fresh()
                 if self.role == 'device' and operation in WRITES:  # an import is permitted, also a second one (BUN-UPD-1)
                     raise fail('read_only_store')  # BUN-IMP-6: after STS-MAL-4, before the request
                 if operation.startswith('producer_') and self.role != 'writer':
@@ -711,8 +720,10 @@ class Store:
         context = request.get('context')
         if not isinstance(context, str):
             raise fail('field_type')
-        row = self.db.execute('SELECT capabilities, expires FROM contexts WHERE id = ?', (context,)).fetchone()
-        if row is None or (row[1] is not None and self.now() >= row[1]):  # CTX-LIF-2, CTX-LIF-5
+        row = self.db.execute('SELECT capabilities FROM contexts WHERE id = ?', (context,)).fetchone()
+        # The table `contexts` keeps its three columns, so the end of a declared life is in a table of its own (CTX-LIF-1).
+        end = self.db.execute('SELECT expires FROM context_ends WHERE context = ?', (context,)).fetchone()
+        if row is None or (end is not None and self.now() >= end[0]):  # CTX-LIF-2, CTX-LIF-5
             raise fail('context_expired')
         members = Members(r for (r,) in self.db.execute('SELECT ref FROM context_members WHERE context = ?', (context,)))
         view = self.db.execute('SELECT view FROM context_views WHERE context = ?', (context,)).fetchone()
@@ -819,8 +830,9 @@ class Store:
         expires = self.now(request['life']) if 'life' in request else None  # CTX-LIF-1
         self.db.execute('BEGIN IMMEDIATE')
         try:
-            self.db.execute('INSERT INTO contexts (id, roots, capabilities, expires) VALUES (?, ?, ?, ?)',
-                            (context, json.dumps(resolved), json.dumps(sorted(capabilities)), expires))
+            self.db.execute('INSERT INTO contexts VALUES (?, ?, ?)', (context, json.dumps(resolved), json.dumps(sorted(capabilities))))
+            if expires:
+                self.db.execute('INSERT INTO context_ends VALUES (?, ?)', (context, expires))
             if view:
                 self.db.execute('INSERT INTO context_views VALUES (?, ?)', (context, json.dumps(view)))
             self.db.executemany('INSERT INTO context_members VALUES (?, ?)', ((context, r) for r in closure))
@@ -837,7 +849,7 @@ class Store:
     def end_contexts(self, where: str, values=()) -> None:
         """Remove the rows of the read contexts that the condition selects. The caller has the transaction."""
         ended = [(c,) for (c,) in self.db.execute(f'SELECT id FROM contexts WHERE {where}', values)]
-        for table, column in (('context_members', 'context'), ('context_views', 'context'), ('contexts', 'id')):
+        for table, column in (('context_members', 'context'), ('context_views', 'context'), ('context_ends', 'context'), ('contexts', 'id')):
             self.db.executemany(f'DELETE FROM {table} WHERE {column} = ?', ended)
 
     def transaction(self, change):
@@ -2060,8 +2072,8 @@ class Store:
     def open_members(self) -> set[str]:
         """Each member of each open read context of this store (CTX-LIF-6)."""
         return {r for (r,) in self.db.execute(
-            'SELECT ref FROM context_members WHERE context IN (SELECT id FROM contexts WHERE expires IS NULL OR expires > ?)',
-            (self.now(),))}
+            'SELECT ref FROM context_members WHERE context IN (SELECT id FROM contexts) '
+            'AND context NOT IN (SELECT context FROM context_ends WHERE expires <= ?)', (self.now(),))}
 
     def retained_roots(self, request: dict) -> set[str]:
         """The retained roots of gc_collect: LIF-GC-2 for a writer store, BUN-RMV-1 for a device store."""
@@ -2102,7 +2114,7 @@ class Store:
                 snapshots = {r for r, k in gone if k == 'snapshot'}
                 candidates = sorted(c for c, s in self.db.execute('SELECT id, snapshot FROM candidates') if s in snapshots)
                 self.db.executemany('DELETE FROM candidates WHERE id = ?', [(c,) for c in candidates])
-                self.end_contexts('expires IS NOT NULL AND expires <= ?', (self.now(),))  # an ended context keeps no row
+                self.end_contexts('id IN (SELECT context FROM context_ends WHERE expires <= ?)', (self.now(),))  # an ended context keeps no row
                 return payloads, candidates
             try:
                 payloads, candidates = self.transaction(change)
