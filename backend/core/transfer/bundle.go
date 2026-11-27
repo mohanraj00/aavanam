@@ -210,6 +210,14 @@ func Export(c *ops.Call) envelope.Envelope {
 		for _, p := range check.Payloads(descs[n]) {
 			named[p.Digest] = true
 		}
+		// BUN-DLT-2 rule 3: the check of an excerpt reads the bytes of its parent (BUN-EXC-3), also for a
+		// parent of the base closure.
+		if check.Kind(descs[n]) == "excerpt" {
+			parent, _ := c.Descriptor(field(descs[n], "parent").Str)
+			for _, p := range check.Payloads(parent) {
+				named[p.Digest] = true
+			}
+		}
 	}
 	// BUN-IMP-12: only descriptors in this closure can withhold a shared digest.
 	payloads := map[string][]byte{}

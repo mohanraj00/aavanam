@@ -572,8 +572,11 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
         for p in payload_objects(value, schemas):
             if isinstance(p, dict) and isinstance(p.get('digest'), str):
                 wanted[p['digest']] = p.get('size')
-    if delta:  # BUN-DLT-2 rules 2 and 3: no bytes of a base digest, and only the withheld digests that a descriptor names
-        if set(payloads) != set(wanted) - set(withheld) - base_digests or not set(withheld) <= set(wanted):
+    parents = set()  # BUN-DLT-2 rule 3: a delta bundle can also list the withheld digest of the parent of an excerpt (BUN-EXC-3)
+    if delta:  # BUN-DLT-2 rules 2 and 3: no bytes of a base digest, and only the withheld digests that a check reads
+        parents = {p['digest'] for v in values if v.get('kind') == 'excerpt' and v.get('parent') in stored
+                   for p in payload_objects(json.loads(stored[v['parent']]), schemas) if isinstance(p, dict)}
+        if set(payloads) != set(wanted) - set(withheld) - base_digests or not set(withheld) <= set(wanted) | parents:
             problems.append('the payloads and withheld digests of a delta bundle are not those of its descriptors without the base digests (BUN-DLT-2)')
     elif set(wanted) != set(payloads) | set(withheld) or set(payloads) & set(withheld):
         problems.append('bundle payloads and withheld digests are not the byte closure of its descriptors (BUN-EXP-2, BUN-RED-5)')
@@ -582,7 +585,7 @@ def bundle_problems(operation: str, request: dict, expect: dict, actual: dict, s
         mine = {p['digest'] for f in flagged if f['withheld'] is True
                 for p in payload_objects(json.loads(stored[f['ref']]), schemas)
                 if isinstance(p, dict) and isinstance(p.get('digest'), str)}
-        if mine != set(withheld):
+        if not mine <= set(withheld) <= mine | parents:
             problems.append('bundle withheld digests are not the payload digests of the withheld items (BUN-RED-5)')
     for digest, text in payloads.items():
         try:

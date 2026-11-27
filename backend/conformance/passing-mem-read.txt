@@ -55,6 +55,8 @@ devices/delta-base-absent
 devices/delta-base-context-expired
 devices/delta-base-context-form
 devices/delta-empty-ok
+devices/delta-excerpt-parent-absent
+devices/delta-excerpt-parent-withheld-ok
 devices/delta-root-absent
 devices/delta-root-in-base-ok
 devices/delta-shared-payload-absent

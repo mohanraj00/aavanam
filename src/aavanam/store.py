@@ -15,7 +15,6 @@ import json
 import os
 import re
 import sqlite3
-import sys
 import threading
 import uuid
 from collections import deque
@@ -29,6 +28,7 @@ from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
 RAW_FORMAT = 'aavanam-bundle-raw/v1'  # BUN-RAW-1
+RAW_PIECE = 1 << 20  # the most bytes of one read of a payload section (BUN-RAW-4)
 COVERAGE = 'aavanam/coverage/v1'
 REDISTRIBUTION = 'aavanam/redistribution/v1'
 DECLARED = {'redistributable', 'no_redistribution', 'unknown'}  # BUN-RED-1
@@ -375,9 +375,14 @@ def raw_parts(source) -> tuple[dict, dict[str, bytes]]:
         raise fail('field_type')  # step 2
     data = {}
     for e in entries:  # step 3
-        piece = reader.read(min(e['size'], sys.maxsize))  # a size of the input can be more than a read permits
-        if not isinstance(piece, bytes) or len(piece) != e['size']:
-            raise fail('field_type')
+        parts, left = [], e['size']
+        while left:  # a read can give fewer bytes, and a size of the input can be more than the section has
+            part = reader.read(min(left, RAW_PIECE))
+            if not isinstance(part, bytes) or not part:
+                raise fail('field_type')
+            parts.append(part)
+            left -= len(part)
+        piece = b''.join(parts)
         if digest(piece) != e['digest']:
             raise fail('digest_mismatch')
         data[e['digest']] = piece
@@ -1330,6 +1335,8 @@ class Store:
         kept = [r for r in objects if r not in omitted]
         base_digests = {p['digest'] for r in omitted for p in d.payloads(self.descriptor(r))}
         named = {p['digest'] for r in kept for p in d.payloads(self.descriptor(r))}
+        # BUN-DLT-2 rule 3: the check of an excerpt reads the bytes of its parent (BUN-EXC-3), also for a parent of the base closure
+        named |= {p['digest'] for r in kept if self.kind(r) == 'excerpt' for p in d.payloads(self.descriptor(self.descriptor(r)['parent']))}
         # BUN-IMP-12: only descriptors in this closure can withhold a shared digest.
         payloads = {}
         for ref in objects:

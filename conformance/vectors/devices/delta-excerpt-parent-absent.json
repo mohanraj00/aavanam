@@ -1,0 +1,487 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An import of a delta bundle fails if the parent of an excerpt has a base digest whose bytes the store does not have",
+  "clauses": [
+    "BUN-DLT-4",
+    "BUN-RED-4",
+    "BUN-EXC-3",
+    "BUN-IMP-2",
+    "BUN-IMP-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The first export permits only the value redistributable, so it withholds the bytes of the reading rd, and the device store keeps rd without bytes. The delta export has no permit, so it withholds no digest, and it leaves the bytes of rd out as a base digest. The new excerpt ex has the parent rd. Rule 3 of BUN-DLT-4 gives failed with bundle_incomplete, because the check of BUN-EXC-3 needs the bytes of the parent, and they are in neither the bundle nor the store."
+  },
+  "profile": "aavanam/base/v1",
+  "payloads": {
+    "scan": {
+      "media_type": "text/plain",
+      "text": "Pump manual, edition 1.\n"
+    },
+    "whole": {
+      "media_type": "text/plain",
+      "text": "Check the pump seal every week.\n"
+    },
+    "part": {
+      "media_type": "text/plain",
+      "text": "Check"
+    }
+  },
+  "steps": [
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "src",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "source",
+              "payload": {
+                "$payload": "scan"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "rd",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "reading",
+              "source": {
+                "$ref": "src"
+              },
+              "producer": "sample/reader/v1",
+              "coverage_profile": "aavanam/coverage/v1",
+              "payload": {
+                "$payload": "whole"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "n1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "rd"
+                }
+              ],
+              "observation_type": "sample/note/v1",
+              "scope": {},
+              "values": {}
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s1",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-manual",
+              "observations": [
+                {
+                  "$ref": "n1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c1",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "as_bundle": "x1",
+      "request": {
+        "context": {
+          "$context": "c1"
+        },
+        "roots": [
+          {
+            "$ref": "s1"
+          }
+        ],
+        "permit": [
+          "redistributable"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n1"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd"
+              },
+              "withheld": true
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src"
+              },
+              "withheld": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "ex",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "excerpt",
+              "parent": {
+                "$ref": "rd"
+              },
+              "ranges": [
+                {
+                  "start": 0,
+                  "end": 5
+                }
+              ],
+              "payload": {
+                "$payload": "part"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "lic",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "observation",
+              "subjects": [
+                {
+                  "$ref": "ex"
+                }
+              ],
+              "observation_type": "aavanam/redistribution/v1",
+              "scope": {},
+              "values": {
+                "license": "sample-license-1",
+                "redistribution": "redistributable"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "put",
+      "request": {
+        "descriptors": [
+          {
+            "as": "s2",
+            "value": {
+              "descriptor_profile": "aavanam/base/v1",
+              "kind": "snapshot",
+              "collection": "sample-manual",
+              "observations": [
+                {
+                  "$ref": "n1"
+                },
+                {
+                  "$ref": "lic"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "open_context",
+      "as_context": "c2",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      }
+    },
+    {
+      "operation": "export",
+      "as_bundle": "x2",
+      "request": {
+        "context": {
+          "$context": "c2"
+        },
+        "roots": [
+          {
+            "$ref": "s2"
+          }
+        ],
+        "base_context": {
+          "$context": "c1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "lic"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex"
+              },
+              "withheld": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "import",
+      "store": "device",
+      "request": {
+        "bundle": {
+          "$bundle": "x1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "unordered": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "n1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "rd"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "src"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "import",
+      "store": "device",
+      "request": {
+        "bundle": {
+          "$bundle": "x2"
+        }
+      },
+      "expect": {
+        "status": "failed",
+        "reasons": [
+          "bundle_incomplete"
+        ],
+        "items": [],
+        "store_unchanged": true
+      }
+    }
+  ],
+  "pair": "devices/delta-excerpt-parent-withheld-ok"
+}

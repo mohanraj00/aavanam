@@ -7,7 +7,7 @@ import unittest
 
 from support import BASE, Store, canonical, payload, put, revision
 
-from aavanam.store import raw_form, raw_parts
+from aavanam.store import RAW_PIECE, raw_form, raw_parts
 
 
 def codes(result: dict) -> tuple[str, list[str]]:
@@ -17,15 +17,15 @@ def codes(result: dict) -> tuple[str, list[str]]:
 class OnePiece(io.RawIOBase):
     """A stream that records the size of each read, so a test can see that the import reads piece by piece."""
 
-    def __init__(self, data: bytes):
-        self.inner, self.sizes = io.BytesIO(data), []
+    def __init__(self, data: bytes, most: int = 0):
+        self.inner, self.sizes, self.most = io.BytesIO(data), [], most  # `most`: the most bytes of one read, 0 for no limit
 
     def readline(self, size=-1):
         return self.inner.readline()
 
     def read(self, size=-1):
         self.sizes.append(size)
-        return self.inner.read(size)
+        return self.inner.read(min(size, self.most) if self.most else size)
 
 
 def artifact(text: str, kind: str = 'sample/document/v1') -> tuple[dict, dict]:
@@ -91,7 +91,20 @@ class RawBundleTest(unittest.TestCase):
         device = self.device()
         self.assertEqual(device.call('import', stream)['status'], 'ok')
         sizes = [e['size'] for e in json.loads(self.raw.partition(b'\n')[0])['payloads']]
-        self.assertEqual(stream.sizes, sizes + [1])  # the bytes of each entry, then the check for a byte after the last entry
+        # the bytes of each entry that has bytes, then the check for a byte after the last entry
+        self.assertEqual(stream.sizes, [size for size in sizes if size] + [1])
+
+    def test_a_stream_that_gives_short_reads_imports(self):  # BUN-RAW-5: a read can give fewer bytes than the request
+        device = self.device()
+        self.assertEqual(device.call('import', OnePiece(self.raw, most=3))['status'], 'ok')
+        self.assertEqual(device.call('import', OnePiece(self.raw[:-1], most=3))['reasons'][0]['code'], 'field_type')
+
+    def test_a_size_of_the_manifest_does_not_set_the_size_of_a_read(self):  # BUN-RAW-4 step 3
+        head, _, section = self.raw.partition(b'\n')
+        stream = OnePiece(head.replace(b'"size":7', b'"size":70368744177664', 1) + b'\n' + section)
+        result = self.device().call('import', stream)
+        self.assertEqual(codes(result), ('failed', ['field_type']))
+        self.assertLessEqual(max(stream.sizes), RAW_PIECE)
 
     def test_each_fault_gives_its_reason_and_no_change(self):  # BUN-RAW-4
         line, _, section = self.raw.partition(b'\n')
