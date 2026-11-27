@@ -244,6 +244,16 @@ func Publish(c *ops.Call) envelope.Envelope {
 	var out envelope.Envelope
 	c.S.Update(func(tx ops.Tx) { // step 5, one atomic step
 		tx.LockCollections([]string{candidate.Collection})
+		// A `gc_collect` can remove the candidate or an object of the request while the validator runs
+		// (LIF-GC-5). The call runs again, and step 1 gives the result.
+		if _, has := tx.Candidate(identity); !has {
+			ops.Raise(ops.ErrRemoved)
+		}
+		for _, ref := range refs {
+			if _, _, has := tx.Object(ref); !has {
+				ops.Raise(ops.ErrRemoved)
+			}
+		}
 		if again, was := published(tx, candidate); was { // 5.1
 			out = c.Result([]envelope.Item{again})
 			return

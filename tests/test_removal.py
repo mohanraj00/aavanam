@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from support import BASE, Store, payload, put_ref
+from support import BASE, Store, candidate, payload, put_ref, receipt, snapshot
 from aavanam.kinds import LAYER_PROFILE
 
 SECRET = 'Synthetic source text 5b90e2 that the maintainer removes.'
@@ -189,6 +189,76 @@ class CollectTest(unittest.TestCase):
             self.assertEqual(codes(again), ('not_found', ['unknown_ref']))
             first.close()
             second.close()
+
+    def test_collect_keeps_a_context_that_a_second_open_opens_before_the_transaction(self):  # CTX-LIF-6, LIF-GC-5
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'store.db')
+            first, second = Store(path), Store(path)
+            refs = evidence(first)
+            roots, contexts = first.retained_roots, []
+
+            def roots_then_open(request):  # the second open commits a context after the first open read the roots
+                out = roots(request)
+                if not contexts:
+                    contexts.append(opened(second, refs['snapshot']))
+                return out
+            first.retained_roots = roots_then_open
+            result = first.call('gc_collect', {})
+            self.assertEqual((result['status'], result['items'], result['payloads']), ('ok', [], []))
+            got = second.call('get', {'context': contexts[0], 'refs': [refs['excerpt']]})
+            self.assertEqual((got['status'], got['items'][0]['status']), ('ok', 'ok'))
+            first.close()
+            second.close()
+
+    def test_a_context_does_not_open_on_content_that_a_second_open_collects(self):  # LIF-GC-5, STS-MAL-2
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'store.db')
+            first, second = Store(path), Store(path)
+            refs = evidence(first)
+            gone_in, collected = second.gone_in, []
+
+            def gone_then_collect(roots):  # the first open collects after the second open checked the roots
+                out = gone_in(roots)
+                if not collected:
+                    collected.append(first.call('gc_collect', {}))
+                return out
+            second.gone_in = gone_then_collect
+            result = second.call('open_context', {'roots': [refs['snapshot']]})
+            self.assertEqual(len(collected[0]['items']), 8, collected)
+            self.assertEqual(codes(result), ('not_found', ['unknown_ref']))
+            self.assertEqual(second.db.execute('SELECT count(*) FROM contexts').fetchone()[0], 0)
+            first.close()
+            second.close()
+
+    def test_an_output_store_does_not_read_a_collected_object_from_the_cache_of_its_device_store(self):  # BUN-RMV-2, BUN-IMP-8
+        writer = Store()
+        refs = evidence(writer)
+        bundle = writer.call('export', {'context': opened(writer, refs['snapshot']), 'roots': [refs['snapshot']]})['bundle']
+        with tempfile.TemporaryDirectory() as folder:
+            paths = str(Path(folder) / 'device.db'), str(Path(folder) / 'output.db')
+            first, second = (Store(paths[0], role='device', output_path=paths[1]) for _ in range(2))
+            self.assertEqual(first.call('import', {'bundle': bundle})['status'], 'ok')
+            context = opened(second.output, refs['snapshot'])  # the second open keeps the descriptors in its cache
+            self.assertEqual(second.output.call('close_context', {'context': context})['status'], 'ok')
+            self.assertEqual(len(first.call('gc_collect', {'roots': []})['items']), 8)
+            for store in (second.output, second, first.output):
+                self.assertEqual(codes(store.call('open_context', {'roots': [refs['snapshot']]})), ('not_found', ['unknown_ref']))
+            first.close()
+            second.close()
+
+    def test_a_publish_does_not_record_a_receipt_that_a_collect_removed_during_the_validation(self):  # LIF-GC-5, PUB-HED-3
+        store, calls = Store(), []
+
+        def collect_then_accept(*_):  # the store keeps no update open while the validator runs (PUB-RCP-3)
+            calls.append(store.call('gc_collect', {}))
+            return True
+        store.accept('sample-policy', collect_then_accept)
+        rcpt, identity = receipt(store), candidate(store, snapshot(store, 'a'))
+        result = store.call('publish', {'candidate': identity, 'receipt': rcpt})
+        self.assertIn(rcpt, [i['ref'] for i in calls[0]['items']])  # no retained root reaches the receipt (LIF-GC-2)
+        self.assertEqual(len(calls), 1)  # the second run of the call stops at step 1
+        self.assertEqual((result['status'], [r['code'] for r in result['items'][0]['reasons']]), ('not_found', ['unknown_ref']))
+        self.assertEqual(store.call('publications', {'collection': 'sample-collection'})['items'], [])
 
     def test_collect_keeps_the_records_of_the_store(self):  # LIF-GC-5
         store = Store()

@@ -169,6 +169,31 @@ func gateDuringValidation(t *testing.T, f *fixture) {
 	}
 }
 
+// LIF-GC-5, PUB-HED-3: a `gc_collect` removes the receipt while a publish runs its validator. No retained
+// root reaches the receipt of a publication that the store did not record (LIF-GC-2). The atomic step finds
+// that the receipt is not in the store, the call runs again, and step 1 gives the result.
+func collectDuringValidation(t *testing.T, f *fixture) {
+	snapshot, receipt := snapshotOf(t, f, "g", "1"), receiptOf(t, f)
+	calls := 0
+	f.store.Accept("pol", func(context.Context, string, string, string) ops.Decision {
+		calls++
+		if e := f.call("gc_collect", `{}`); e.Status != "ok" || len(e.Items) != 1 || field(e.Items[0], "ref") != receipt {
+			t.Errorf("gc_collect in the validation: %s", Summary(e))
+		}
+		return ops.Accepted
+	})
+	candidate := candidateOf(t, f, snapshot, "")
+	if got := Summary(publish(f, candidate, receipt)); got != "not_found:unknown_ref | not_found:unknown_ref" {
+		t.Errorf("a publish with a receipt that a gc_collect removed: %s", got)
+	}
+	if calls != 1 {
+		t.Errorf("the validator ran %d times", calls)
+	}
+	if got := Summary(f.call("publications", `{"collection":"g"}`)); got != "ok" {
+		t.Errorf("a refused publish recorded a publication: %s", got)
+	}
+}
+
 // A gate declaration of a different open waits for an update that has the lock of the collection, as the
 // atomic step of a `publish` has (PUB-GAT-3, PUB-HED-3 step 5). Thus no declaration ends between the gate
 // check of that step and its commit.

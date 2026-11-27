@@ -29,6 +29,7 @@ func Core(t *testing.T, open Open) {
 	t.Run("LayerOfServingBase", func(t *testing.T) { layerOfServingBase(t, newFixture(t, open(t))) })
 	t.Run("Publication", func(t *testing.T) { publication(t, newFixture(t, open(t))) })
 	t.Run("GateDuringValidation", func(t *testing.T) { gateDuringValidation(t, newFixture(t, open(t))) })
+	t.Run("CollectDuringValidation", func(t *testing.T) { collectDuringValidation(t, newFixture(t, open(t))) })
 	t.Run("ConcurrentPublish", func(t *testing.T) { concurrentPublish(t, newFixture(t, open(t))) })
 	t.Run("GateWaitsForThePublication", func(t *testing.T) { gateWaits(t, newFixture(t, open(t))) })
 	t.Run("Producer", func(t *testing.T) { producer(t, newFixture(t, open(t))) })

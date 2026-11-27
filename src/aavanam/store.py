@@ -77,7 +77,17 @@ CREATE TABLE IF NOT EXISTS producer_removals (producer TEXT NOT NULL, sequence I
 CREATE TABLE IF NOT EXISTS removals (sequence INTEGER PRIMARY KEY, ref TEXT NOT NULL, kind TEXT NOT NULL, time TEXT NOT NULL,
     reason TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS imports (seq INTEGER PRIMARY KEY, roots TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS removal_epoch (id INTEGER PRIMARY KEY CHECK (id = 1), epoch INTEGER NOT NULL);
+INSERT OR IGNORE INTO removal_epoch VALUES (1, 0);
 """
+
+
+class Stale(Exception):
+    """A different open of the store file removed content, or wrote during a removal, after the start of the call.
+    The call runs again from its start."""
+
+
+ATTEMPTS = 8  # the number of runs of one call before the result is storage_error
 
 
 class Failure(Exception):
@@ -372,6 +382,8 @@ class Store:
         self.migrate_publications()
         self.gone: set[str] | None = None  # the removed objects, read at the first use (REL-RMV-7)
         self.version = None  # the data version of the file at the last call (REL-RMV-7)
+        self.wrote = True  # False from the start of a call to its first write transaction: begin() checks only then
+        self.epoch = None  # the removal epoch of the file at the start of the call
         self.mutex = threading.RLock()  # one connection, one call at a time
         self.called = False  # a gate is declared before the first call (PUB-GAT-1)
         self.cache: dict[str, dict] = {}  # descriptors do not change (IDN-CAN-1)
@@ -518,10 +530,34 @@ class Store:
     def fresh(self) -> None:
         """Empty the caches if a different open of the store file wrote to it. A different open can remove an object
         (REL-RMV-7, LIF-GC-5), and this open MUST NOT give a descriptor that the store does not have."""
-        version = self.db.execute('PRAGMA data_version').fetchone()[0]
+        version = self.data_version()
         if version != self.version:
             self.version, self.gone = version, None
             self.cache.clear()
+        self.epoch = self.removal_epoch()
+
+    def data_version(self) -> int:
+        """A number that changes when a different open of the store file commits a write."""
+        return self.db.execute('PRAGMA data_version').fetchone()[0]
+
+    def removal_epoch(self) -> int:
+        """A number that each `remove` and each `gc_collect` that removes content increments."""
+        return self.db.execute('SELECT epoch FROM removal_epoch').fetchone()[0]
+
+    def begin(self, strict: bool = False) -> None:
+        """Start a write transaction of a call. The checks of a call read the store before this point, and a different
+        open cannot write to the file after it. If a different open removed content from the file of the store or of
+        its device store after the start of the call, the call runs again, so no write names content that the checks
+        read and the store does not have (STS-MAL-2, REL-RMV-4, LIF-GC-5). A `strict` caller removes content: it runs
+        again after each write of a different open, because a new context, head or object can retain content."""
+        self.db.execute('BEGIN IMMEDIATE')
+        if self.wrote:  # not in a call, or not the first write transaction of the call
+            return
+        stores = [s for s in (self, self.device) if s]
+        if any(s.data_version() != s.version for s in stores) if strict else any(s.removal_epoch() != s.epoch for s in stores):
+            self.rollback()
+            raise Stale
+        self.wrote = True
 
     def removed(self) -> set[str]:
         """The references that name a removed object: a removal record has the reference, and the store does not
@@ -549,7 +585,7 @@ class Store:
 
     def write(self, objects: dict[str, dict], blobs: dict[str, bytes], withheld=frozenset()) -> None:
         """Write the objects and bytes in one transaction: all or none (STS-MAL-2)."""
-        self.db.execute('BEGIN IMMEDIATE')
+        self.begin()
         try:
             batch = objects  # BUN-IMP-10: keep each descriptor for failure attribution
             deferred = set()
@@ -647,26 +683,39 @@ class Store:
         # A local output store reads its device store, so it waits for a device call, for example an import (CTX-OPN-2).
         # The order is always the device store, then the output store.
         with self.device.mutex if self.device else contextlib.nullcontext(), self.mutex:
-            try:
-                if self.broken:
-                    raise sqlite3.DatabaseError('the connection is not usable')
-                self.fresh()
-                if self.role == 'device' and operation in WRITES:  # an import is permitted, also a second one (BUN-UPD-1)
-                    raise fail('read_only_store')  # BUN-IMP-6: after STS-MAL-4, before the request
-                if operation.startswith('producer_') and self.role != 'writer':
-                    raise fail('producer_section_absent')  # PRD-SEC-1: after STS-MAL-4, before the request
-                if (operation in ('remove', 'removals') and self.role != 'writer') or (operation == 'gc_collect' and self.role == 'output'):
-                    raise fail('unsupported_role')  # REL-RMV-1, LIF-GC-1: after STS-MAL-4, before the request
-                if not isinstance(request, dict):
-                    raise fail('field_type')
-                return self.marked(detached(method(request)), request)  # a caller cannot change the cached descriptors (CTX-OPN-2)
-            except Failure as f:
-                return self.marked(self.envelope(operation, f.status, f.reasons, context=context, **self.empty(operation)), request)
-            except Exception:  # noqa: BLE001  STS-MAL-1
-                if self.debug:
-                    raise
-                self.rollback()
-                return self.envelope(operation, 'failed', [reason('storage_error')], context=context, **self.empty(operation))
+            for _ in range(ATTEMPTS):
+                try:
+                    return self.attempt(operation, method, request)
+                except Stale:
+                    continue
+                except Failure as f:
+                    return self.marked(self.envelope(operation, f.status, f.reasons, context=context, **self.empty(operation)), request)
+                except Exception:  # noqa: BLE001  STS-MAL-1
+                    if self.debug:
+                        raise
+                    self.rollback()
+                    break
+                finally:
+                    self.wrote = True
+            return self.envelope(operation, 'failed', [reason('storage_error')], context=context, **self.empty(operation))
+
+    def attempt(self, operation: str, method, request) -> dict:
+        """Run the call one time. The caller has the mutexes."""
+        if self.broken:
+            raise sqlite3.DatabaseError('the connection is not usable')
+        self.wrote = False
+        self.fresh()
+        if self.device:  # the store reads the descriptors of its device store (BUN-IMP-8), also from its cache
+            self.device.fresh()
+        if self.role == 'device' and operation in WRITES:  # an import is permitted, also a second one (BUN-UPD-1)
+            raise fail('read_only_store')  # BUN-IMP-6: after STS-MAL-4, before the request
+        if operation.startswith('producer_') and self.role != 'writer':
+            raise fail('producer_section_absent')  # PRD-SEC-1: after STS-MAL-4, before the request
+        if (operation in ('remove', 'removals') and self.role != 'writer') or (operation == 'gc_collect' and self.role == 'output'):
+            raise fail('unsupported_role')  # REL-RMV-1, LIF-GC-1: after STS-MAL-4, before the request
+        if not isinstance(request, dict):
+            raise fail('field_type')
+        return self.marked(detached(method(request)), request)  # a caller cannot change the cached descriptors (CTX-OPN-2)
 
     @staticmethod
     def empty(operation: str) -> dict:
@@ -828,7 +877,7 @@ class Store:
         view = [resolved[0], layer['ref']] if layer else None
         closure = self.layered(*view) - self.removed() if layer else self.closure(resolved)  # LYR-OPN-3, CTX-OPN-2, REL-RMV-8
         expires = self.now(request['life']) if 'life' in request else None  # CTX-LIF-1
-        self.db.execute('BEGIN IMMEDIATE')
+        self.begin()
         try:
             self.db.execute('INSERT INTO contexts VALUES (?, ?, ?)', (context, json.dumps(resolved), json.dumps(sorted(capabilities))))
             if expires:
@@ -852,16 +901,25 @@ class Store:
         for table, column in (('context_members', 'context'), ('context_views', 'context'), ('context_ends', 'context'), ('contexts', 'id')):
             self.db.executemany(f'DELETE FROM {table} WHERE {column} = ?', ended)
 
-    def transaction(self, change):
-        """Run one change of the store in one transaction: all or none (STS-MAL-2)."""
-        self.db.execute('BEGIN IMMEDIATE')
+    def transaction(self, change, output=None, strict: bool = False):
+        """Run one change of the store in one transaction: all or none (STS-MAL-2). With the local output store of a
+        device store, no open writes to the output file before the change ends. If a different open wrote to the
+        output file after the caller read it, the call runs again (BUN-RMV-1)."""
+        self.begin(strict)
         try:
+            if output:  # the caller has the mutex of the output store and called its fresh()
+                output.db.execute('BEGIN IMMEDIATE')
+                if output.data_version() != output.version:
+                    raise Stale
             out = change()
             self.db.execute('COMMIT')
             return out
         except BaseException:
             self.rollback()
             raise
+        finally:
+            if output:
+                output.rollback()  # the change does not write to the output file
 
     def op_close_context(self, request: dict) -> dict:
         strict(request, {'context': (True, is_str)})  # CTX-LIF-3
@@ -1226,7 +1284,13 @@ class Store:
         items = [item(ref=r) for r in sorted(self.closure(covered))]  # read before the write (STS-ENV-4)
         target = self.output or self
         with target.mutex:  # the local output store can have calls of its own
-            target.write({ref: desc}, {})
+            if target is not self:  # begin() of the output store also reads the file of this device store (BUN-RMV-1)
+                target.fresh()
+                target.wrote = False
+            try:
+                target.write({ref: desc}, {})
+            finally:
+                target.wrote = True
         return self.envelope(operation, 'ok', [], items, context, lock=ref)
 
     def indexes_form(self) -> dict:
@@ -1747,7 +1811,7 @@ class Store:
             return self.result('create_candidate', [item('incompatible', [reason('check_outside_snapshot', [r]) for r in outside])])
         collection = self.descriptor(snapshot)['collection']
         ok = item(candidate=identity, collection=collection)
-        self.db.execute('BEGIN IMMEDIATE')
+        self.begin()
         try:
             if self.db.execute('SELECT 1 FROM candidates WHERE id = ?', (identity,)).fetchone():
                 self.db.execute('COMMIT')
@@ -1863,6 +1927,10 @@ class Store:
             return self.result('publish', [item('incompatible', [reason('receipt_rejected', [receipt])], candidate=identity)])
         self.db.execute('BEGIN IMMEDIATE')  # step 5, one atomic step
         try:
+            kept = self.db.execute('SELECT count(*) FROM objects WHERE ref IN (%s)' % ', '.join('?' * len(refs)), refs).fetchone()[0]
+            if kept != len(set(refs)) or not self.db.execute('SELECT 1 FROM candidates WHERE id = ?', (identity,)).fetchone():
+                self.cache.clear()  # a `gc_collect` removed an object of the request while the validator ran (LIF-GC-5)
+                raise Stale  # the call runs again, and step 1 gives the result
             again = self.published(identity, collection)
             if again:  # 5.1
                 self.db.execute('COMMIT')
@@ -2042,9 +2110,10 @@ class Store:
                       'reason': request['reason']}  # REL-RMV-5: no other field, no content
             self.db.execute('INSERT INTO removals VALUES (?, ?, ?, ?, ?)', tuple(record.values()))
             self.end_contexts('id IN (SELECT context FROM context_members WHERE ref = ?)', (ref,))  # CTX-LIF-4
+            self.db.execute('UPDATE removal_epoch SET epoch = epoch + 1')
             return record
         try:
-            record = self.transaction(change)
+            record = self.transaction(change, strict=True)
         finally:
             self.cache.pop(ref, None)
             self.gone = None
@@ -2097,6 +2166,8 @@ class Store:
         if absent:
             raise Failure('not_found', [reason('unknown_ref', [r]) for r in absent])
         with self.output.mutex if self.output else contextlib.nullcontext():
+            if self.output:
+                self.output.fresh()
             retained = self.closure(self.retained_roots(request), True)
             if self.output:  # BUN-RMV-1: each object that the local output store keeps, and its open contexts
                 kept = {r for (r,) in self.output.db.execute('SELECT ref FROM objects')}
@@ -2115,9 +2186,11 @@ class Store:
                 candidates = sorted(c for c, s in self.db.execute('SELECT id, snapshot FROM candidates') if s in snapshots)
                 self.db.executemany('DELETE FROM candidates WHERE id = ?', [(c,) for c in candidates])
                 self.end_contexts('id IN (SELECT context FROM context_ends WHERE expires <= ?)', (self.now(),))  # an ended context keeps no row
+                if gone or payloads or candidates:
+                    self.db.execute('UPDATE removal_epoch SET epoch = epoch + 1')
                 return payloads, candidates
             try:
-                payloads, candidates = self.transaction(change)
+                payloads, candidates = self.transaction(change, self.output, strict=True)
             finally:
                 for r, _ in gone:
                     self.cache.pop(r, None)
@@ -2126,7 +2199,7 @@ class Store:
 
     def producer_write(self, change) -> dict:
         """Run `change()` in one write transaction, so a second open of the store sees all of it or none (STS-MAL-2)."""
-        self.db.execute('BEGIN IMMEDIATE')
+        self.begin()
         try:
             result = change()
             self.db.execute('COMMIT')
