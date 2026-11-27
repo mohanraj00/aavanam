@@ -68,6 +68,10 @@ FAKE = textwrap.dedent('''
         elif m['cmd'] == 'call' and m['op'] == 'publish':
             print(json.dumps({'validate': {'policy': m['request']['policy'], 'candidate': 'k', 'receipt': 'r', 'activation': None}}), flush=True)
             reply = {'result': envelope('publish', decision=json.loads(sys.stdin.readline()))}
+        elif m['cmd'] == 'call' and 'raw' in m:
+            reply = {'result': envelope(m['op'], via='line', store=m['store'], raw=m['raw'], request='request' in m)}
+        elif m['cmd'] == 'raw_bundle':
+            reply = {'raw': 'bGluZQoA/w=='} if m['bundle'] else {'error': 'not a bundle'}
         elif m['cmd'] == 'call':
             reply = {'result': envelope(m['op'], via='line', store=m['store'], echo=m['request'], state=state)}
         elif m['cmd'] == 'fingerprint':
@@ -212,6 +216,18 @@ class BackendAdapterTest(unittest.TestCase):
                  'export'}  # NET-SCP-1
         reserved = {op for op, statuses in table.items() if statuses == {'unsupported'}}
         self.assertEqual(backend_adapter.WRITES, set(table) - reads - reserved)
+
+    def test_a_raw_bundle_goes_to_the_driver_as_base64_text(self):  # BUN-RAW-3, BUN-RAW-4
+        adapter = self.adapter('http')
+        adapter.reset()
+        raw = b'line\n\x00\xff'
+        for store in ('writer', 'device'):
+            result = adapter.call('import', {'bundle': raw}, store=store)
+            self.assertEqual((result['store'], result['via'], result['raw'], result['request']), (store, 'line', 'bGluZQoA/w==', False))
+            self.assertEqual(adapter.raw_bundle({'format': 'x'}, store=store), raw)
+        self.assertEqual(adapter.call('import', {'bundle': {}}, store='device')['echo'], {'bundle': {}})  # a bundle stays a request
+        with self.assertRaisesRegex(backend_adapter.DriverError, 'not a bundle'):
+            adapter.raw_bundle({})
 
     def test_driver_failures_raise(self):
         adapter = self.adapter()

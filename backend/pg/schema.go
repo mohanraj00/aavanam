@@ -172,7 +172,7 @@ CREATE TABLE table_rows (
 -- index finds the layers of a base collection, for the section declaration of LYR-DEF-5.
 CREATE INDEX objects_layers ON objects ((sha256(collection))) WHERE kind = 'layer';
 `, `
--- The removal of content (documents 06, 08 and 17, base profile minor version 13).
+-- The removal of content (documents 06, 08 and 17, base profile minor version 14).
 --
 -- removals: the removal records of the Evidence section (REL-RMV-5). A record has no content of the
 -- removed object. No statement changes or removes a record (REL-RMV-6).

@@ -9,7 +9,7 @@ import "sort"
 const BaseProfile = "aavanam/base/v1"
 
 // ProfileMinor is the minor version of the base profile that this module implements (SPEC.md).
-const ProfileMinor = 13
+const ProfileMinor = 14
 
 // Field is one row of the field table.
 type Field struct {

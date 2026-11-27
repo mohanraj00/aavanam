@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -390,6 +391,16 @@ const attempts = 4
 // Call returns the envelope of one call. The operation is the JSON value that names it. The request is
 // JSON text that no decoder changed (NET-TRN-2). The order of the checks is the order of STS-MAL-4.
 func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []byte) envelope.Envelope {
+	return s.run(ctx, operation, request, nil)
+}
+
+// ImportRaw is the operation `import` with a raw bundle in place of its request (BUN-RAW-4). The store
+// reads the manifest line, then one payload at a time.
+func (s *Store) ImportRaw(ctx context.Context, raw io.Reader) envelope.Envelope {
+	return s.run(ctx, jsontext.S("import"), nil, raw)
+}
+
+func (s *Store) run(ctx context.Context, operation jsontext.Value, request []byte, raw io.Reader) (out envelope.Envelope) {
 	name, isName := operation.Text()
 	if !isName {
 		return envelope.New(jsontext.Value{}, "unsupported", envelope.R("unsupported_operation"))
@@ -404,18 +415,22 @@ func (s *Store) Call(ctx context.Context, operation jsontext.Value, request []by
 	for attempt := 1; ; attempt++ {
 		// A removal that committed after the start of the call stops the update of the call (ErrRemoved).
 		// The update did not write, so the dispatch runs the call again on the content that the store has now.
-		if out, again := s.run(ctx, name, operation, request, attempt < attempts); !again {
+		// The store reads a raw bundle only one time, so a call with a raw bundle does not run again.
+		if out, again := s.once(ctx, name, operation, request, raw, raw == nil && attempt < attempts); !again {
 			return out
 		}
 	}
 }
 
-// run runs one call one time. `again` tells that a removal stopped the call and that the caller can run
+// once runs one call one time. `again` tells that a removal stopped the call and that the caller can run
 // it again. `retry` permits that outcome.
-func (s *Store) run(ctx context.Context, name string, operation jsontext.Value, request []byte, retry bool) (out envelope.Envelope, again bool) {
+func (s *Store) once(ctx context.Context, name string, operation jsontext.Value, request []byte, raw io.Reader, retry bool) (out envelope.Envelope, again bool) {
 	handler := s.registry.handlers[name]
 	// The envelope of a failure has the context of the request, if the request names one (LIF-ITM-4).
-	value, formError := jsontext.Parse(request, jsontext.Lenient)
+	value, formError := jsontext.O(), (*jsontext.FormError)(nil)
+	if raw == nil {
+		value, formError = jsontext.Parse(request, jsontext.Lenient)
+	}
 	context := jsontext.Value{}
 	if formError == nil {
 		context = echo(name, value)
@@ -466,7 +481,7 @@ func (s *Store) run(ctx context.Context, name string, operation jsontext.Value, 
 	}
 	session := s.Storage.Session(ctx)
 	epoch, synced := s.sync(session)
-	call = &Call{Ctx: ctx, Store: s, S: session, Operation: name, Request: value, epoch: epoch, synced: synced}
+	call = &Call{Ctx: ctx, Store: s, S: session, Operation: name, Request: value, Raw: raw, epoch: epoch, synced: synced}
 	return s.marked(call, handler(call)), false
 }
 

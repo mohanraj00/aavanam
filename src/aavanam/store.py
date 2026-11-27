@@ -10,6 +10,7 @@ import base64
 import binascii
 import contextlib
 import hashlib
+import io
 import json
 import os
 import re
@@ -26,6 +27,8 @@ from .kinds import BASE_PROFILE, HASHED_TERMS, INDEX_PROFILE, LAYER_PROFILE, PRO
 from .statuses import ORDER, REASON_STATUS, RESERVED
 
 BUNDLE_FORMAT = 'aavanam-bundle/v1'
+RAW_FORMAT = 'aavanam-bundle-raw/v1'  # BUN-RAW-1
+RAW_PIECE = 1 << 20  # the most bytes of one read of a payload section (BUN-RAW-4)
 COVERAGE = 'aavanam/coverage/v1'
 REDISTRIBUTION = 'aavanam/redistribution/v1'
 DECLARED = {'redistributable', 'no_redistribution', 'unknown'}  # BUN-RED-1
@@ -339,6 +342,69 @@ def is_read_selector(value) -> bool:
 
 def b64(data: bytes) -> str:
     return base64.b64encode(data).decode('ascii')
+
+
+def is_manifest(bundle, name: str) -> bool:
+    """The fields that a bundle and the manifest of a raw bundle share (BUN-MAN-1, BUN-RAW-1). `payloads` is not checked."""
+    return (isinstance(bundle, dict) and set(bundle) - {'withheld', 'filter', 'base'} == {'format', 'roots', 'descriptors', 'payloads'}
+            and bundle['format'] == name and ('filter' not in bundle or is_filter(bundle['filter']))  # BUN-FLT-4
+            and ('base' not in bundle or is_refs(bundle['base']))  # BUN-DLT-3
+            and is_refs(bundle['roots']) and isinstance(bundle['descriptors'], list)
+            and all(isinstance(t, str) for t in bundle['descriptors'])
+            and ('withheld' not in bundle or (is_refs(bundle['withheld']) and len(set(bundle['withheld'])) == len(bundle['withheld']))))
+
+
+def is_raw(source) -> bool:
+    """A raw bundle is a byte sequence, or a binary stream that gives one (BUN-RAW-1)."""
+    return isinstance(source, (bytes, bytearray)) or callable(getattr(source, 'readline', None))
+
+
+def raw_form(bundle: dict) -> bytes:
+    """A raw form of a bundle (BUN-RAW-3). The entries are in ascending digest order. It needs no store."""
+    data = {k: unb64(v) for k, v in sorted(bundle['payloads'].items())}
+    manifest = {**bundle, 'format': RAW_FORMAT, 'payloads': [{'digest': k, 'size': len(v)} for k, v in data.items()]}
+    return canonical(manifest).encode('utf-8') + b'\n' + b''.join(data.values())
+
+
+def raw_parts(source) -> tuple[dict, dict[str, bytes]]:
+    """Check a raw bundle in the order of BUN-RAW-4. Return its manifest and the bytes of each entry.
+
+    The function reads the manifest line, then one entry at a time. It checks the digest of an entry before it
+    reads the next entry.
+    """
+    reader = io.BytesIO(bytes(source)) if isinstance(source, (bytes, bytearray)) else source
+    line = reader.readline()
+    if not isinstance(line, bytes) or not line.endswith(b'\n'):
+        raise fail('malformed_json')  # step 1: no line feed byte
+    try:
+        manifest = parse(line[:-1].decode('utf-8'))
+    except UnicodeDecodeError:
+        raise fail('malformed_json') from None
+    except FormError as e:
+        raise fail(e.codes[0]) from None  # one reason (BUN-RAW-4)
+    entries = manifest.get('payloads') if isinstance(manifest, dict) else None
+    if not (is_manifest(manifest, RAW_FORMAT) and isinstance(entries, list)
+            and all(isinstance(e, dict) and set(e) == {'digest', 'size'} and is_digest(e['digest']) and is_count(e['size'])
+                    for e in entries)
+            and len({e['digest'] for e in entries}) == len(entries)
+            and not set(manifest.get('withheld', [])) & {e['digest'] for e in entries}):
+        raise fail('field_type')  # step 2
+    data = {}
+    for e in entries:  # step 3
+        parts, left = [], e['size']
+        while left:  # a read can give fewer bytes, and a size of the input can be more than the section has
+            part = reader.read(min(left, RAW_PIECE))
+            if not isinstance(part, bytes) or not part:
+                raise fail('field_type')
+            parts.append(part)
+            left -= len(part)
+        piece = b''.join(parts)
+        if digest(piece) != e['digest']:
+            raise fail('digest_mismatch')
+        data[e['digest']] = piece
+    if reader.read(1):
+        raise fail('field_type')  # step 4
+    return manifest, data
 
 
 def unb64(text) -> bytes:
@@ -720,7 +786,7 @@ class Store:
             raise fail('producer_section_absent')  # PRD-SEC-1: after STS-MAL-4, before the request
         if (operation in ('remove', 'removals') and self.role != 'writer') or (operation == 'gc_collect' and self.role == 'output'):
             raise fail('unsupported_role')  # REL-RMV-1, LIF-GC-1: after STS-MAL-4, before the request
-        if not isinstance(request, dict):
+        if not isinstance(request, dict) and not (operation == 'import' and is_raw(request)):  # BUN-RAW-4
             raise fail('field_type')
         return self.marked(detached(method(request)), request)  # a caller cannot change the cached descriptors (CTX-OPN-2)
 
@@ -785,6 +851,14 @@ class Store:
         view = self.db.execute('SELECT view FROM context_views WHERE context = ?', (context,)).fetchone()
         members.view = json.loads(view[0]) if view else None  # a context with no row has no layer (LYR-OPN-3)
         return context, members, json.loads(row[0])
+
+    def base_roots(self, context: str) -> list[str]:
+        """The base roots of a delta export: the roots of the base context and, for a layered context, its layer (BUN-DLT-1)."""
+        row = self.db.execute('SELECT roots FROM contexts WHERE id = ?', (context,)).fetchone()
+        if row is None:
+            raise fail('context_expired')
+        view = self.db.execute('SELECT view FROM context_views WHERE context = ?', (context,)).fetchone()
+        return sorted(set(json.loads(row[0])) | set(json.loads(view[0]) if view else ()))
 
     def locate(self, ref: str, members: set[str]) -> str | None:
         """The reason code of a reference that is not in the read context (QRY-GET-2, CTX-OPN-4). A layered
@@ -1388,11 +1462,13 @@ class Store:
         form(request, {'context': (True, is_str), 'roots': (True, is_refs),
                        'permit': (False, lambda v: isinstance(v, list) and all(x in DECLARED for x in v if isinstance(x, str))
                                   and all(isinstance(x, str) for x in v)),  # BUN-RED-4
-                       'filter': (False, is_filter)})  # BUN-FLT-1
+                       'filter': (False, is_filter),  # BUN-FLT-1
+                       'base_context': (False, is_str)})  # BUN-DLT-1
         permit = request.get('permit')
         if permit is not None and len(set(permit)) != len(permit):
             raise fail('field_count')  # KND-SCH-5
         context, members = self.members(request, 'export')
+        base = self.base_roots(request['base_context']) if 'base_context' in request else None  # BUN-DLT-1: before the roots
         roots = request['roots']
         located = [(r, code) for r in roots if (code := self.locate(r, members))]
         if located:  # BUN-EXP-1
@@ -1419,12 +1495,19 @@ class Store:
         # BUN-RED-4 and BUN-RED-5: the bytes of a withheld object
         withheld = {p['digest'] for r in objects if permit is not None and values[r][0] != 'no_payload' and values[r][0] not in permit
                     for p in d.payloads(self.descriptor(r))}
+        # BUN-DLT-2: a delta bundle has the objects that are not in the base closure, and no bytes of a base digest
+        omitted = self.closure(base) if base is not None else set()
+        kept = [r for r in objects if r not in omitted]
+        base_digests = {p['digest'] for r in omitted for p in d.payloads(self.descriptor(r))}
+        named = {p['digest'] for r in kept for p in d.payloads(self.descriptor(r))}
+        # BUN-DLT-2 rule 3: the check of an excerpt reads the bytes of its parent (BUN-EXC-3), also for a parent of the base closure
+        named |= {p['digest'] for r in kept if self.kind(r) == 'excerpt' for p in d.payloads(self.descriptor(self.descriptor(r)['parent']))}
         # BUN-IMP-12: only descriptors in this closure can withhold a shared digest.
         payloads = {}
         for ref in objects:
             for p in d.payloads(self.descriptor(ref)):
                 key = p['digest']
-                if key in withheld:
+                if key in withheld or key not in named:
                     continue
                 data = self.blob(key, ref=ref)
                 if data is None:
@@ -1432,34 +1515,39 @@ class Store:
                     payloads.pop(key, None)
                 else:
                     payloads[key] = data
-        bundle = {'format': BUNDLE_FORMAT, 'roots': roots, 'descriptors': [canonical(self.descriptor(r)) for r in objects],
-                  'payloads': {k: b64(data) for k, data in payloads.items() if data is not None}}  # BUN-EXP-2
-        if withheld:
-            bundle['withheld'] = sorted(withheld)
+        bundle = {'format': BUNDLE_FORMAT, 'roots': roots, 'descriptors': [canonical(self.descriptor(r)) for r in kept],
+                  'payloads': {k: b64(data) for k, data in payloads.items()
+                               if data is not None and k not in base_digests}}  # BUN-EXP-2, BUN-DLT-2 rule 2
+        if withheld & named:
+            bundle['withheld'] = sorted(withheld & named)  # BUN-RED-5, BUN-DLT-2 rule 3
+        if base is not None:
+            bundle['base'] = base  # BUN-DLT-2 rule 4
         items = [item(ref=r, redistribution=values[r][0], license=values[r][1],
-                      withheld=any(p['digest'] in withheld for p in d.payloads(self.descriptor(r)))) for r in objects]  # BUN-RED-6
+                      withheld=any(p['digest'] in withheld for p in d.payloads(self.descriptor(r)))) for r in kept]  # BUN-RED-6
         if flt is not None:
             bundle['filter'] = flt  # BUN-FLT-4
             for i in items:
                 i['matched'] = i['ref'] in roots  # BUN-FLT-3
         return self.envelope('export', 'ok', [], items, context, bundle=bundle)
 
-    def op_import(self, request: dict) -> dict:
-        bundle = request.get('bundle')
-        if not (set(request) == {'bundle'} and isinstance(bundle, dict)
-                and set(bundle) - {'withheld', 'filter'} == {'format', 'roots', 'descriptors', 'payloads'}
-                and bundle['format'] == BUNDLE_FORMAT and ('filter' not in bundle or is_filter(bundle['filter']))  # BUN-FLT-4
-                and is_refs(bundle['roots']) and isinstance(bundle['descriptors'], list)
-                and all(isinstance(t, str) for t in bundle['descriptors']) and isinstance(bundle['payloads'], dict)
-                and all(is_digest(k) for k in bundle['payloads'])
-                and ('withheld' not in bundle or (is_refs(bundle['withheld']) and len(set(bundle['withheld'])) == len(bundle['withheld'])
-                                                  and not set(bundle['withheld']) & set(bundle['payloads'])))):
-            raise fail('field_type')  # BUN-IMP-1, BUN-MAN-1
-        data = {k: unb64(v) for k, v in bundle['payloads'].items()}
+    def op_import(self, request) -> dict:
+        if is_raw(request):
+            bundle, data = raw_parts(request)  # BUN-RAW-4; then the import of its bundle (BUN-RAW-5)
+        else:
+            bundle = request.get('bundle')
+            if not (set(request) == {'bundle'} and is_manifest(bundle, BUNDLE_FORMAT) and isinstance(bundle['payloads'], dict)
+                    and all(is_digest(k) for k in bundle['payloads'])
+                    and not set(bundle.get('withheld', [])) & set(bundle['payloads'])):
+                raise fail('field_type')  # BUN-IMP-1, BUN-MAN-1
+            data = {k: unb64(v) for k, v in bundle['payloads'].items()}
         withheld = set(bundle.get('withheld', []))  # BUN-IMP-9; keep the full set for BUN-IMP-11
         checked = self.check_batch(bundle['descriptors'], data, incomplete=True, withheld=withheld)
         present = self.revisions(bundle['descriptors'])  # a root with a failed check is present (BUN-IMP-2)
-        absent = [refused(['bundle_incomplete'], [r]) for r in bundle['roots'] if r not in present]
+        if 'base' in bundle:  # BUN-DLT-4: the store has each base root, and each root that the bundle does not have
+            absent = [refused(['bundle_incomplete'], [r]) for r in bundle['roots'] if r not in present and self.descriptor(r) is None]
+            absent += [refused(['bundle_incomplete'], [r]) for r in bundle['base'] if self.descriptor(r) is None]
+        else:
+            absent = [refused(['bundle_incomplete'], [r]) for r in bundle['roots'] if r not in present]
         imported = bundle['roots'] if self.role == 'device' else None  # BUN-RMV-1: the roots of each ok import
         out = self.commit_batch('import', checked, data, absent, withheld, imported)
         if out['status'] != 'ok':  # BUN-IMP-4

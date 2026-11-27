@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"io"
 	"sort"
 
 	"github.com/mohanraj00/aavanam/backend/core/check"
@@ -16,6 +17,7 @@ type Call struct {
 	S         Session
 	Operation string
 	Request   jsontext.Value // a JSON object from the Lenient reader: the operation checks each field
+	Raw       io.Reader      // the raw bundle of an `import` in place of its request, or nil (BUN-RAW-4)
 
 	removed     map[string]struct{} // the value of Removed for this call
 	removedRead bool

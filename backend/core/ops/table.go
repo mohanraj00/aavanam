@@ -61,7 +61,7 @@ var readBinding = map[string]bool{
 
 // Reserved has the profile of each reserved operation (RSV-LST-1). A store of the base profile does not
 // support these operations (STS-MAL-4, RSV-RSP-1). `gc_collect` is an operation of the base profile from
-// minor version 13, so it is not in this table (RSV-LST-5).
+// minor version 14, so it is not in this table (RSV-LST-5).
 var Reserved = map[string]string{
 	"workspace_open":             "aavanam/workspace/v1",
 	"workspace_append":           "aavanam/workspace/v1",
