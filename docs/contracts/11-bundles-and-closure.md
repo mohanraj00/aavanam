@@ -1,6 +1,6 @@
 # Bundles and closure
 
-State: draft. Prefix: `BUN`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `BUN`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

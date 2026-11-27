@@ -1,6 +1,6 @@
 # Lookup and discovery
 
-State: draft. Prefix: `QRY`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `QRY`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

@@ -1,6 +1,6 @@
 # Kinds and typed references
 
-State: draft. Prefix: `KND`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `KND`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

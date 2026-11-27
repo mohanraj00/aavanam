@@ -1,6 +1,6 @@
 # Retrieval indexes
 
-State: draft. Prefix: `IDX`. Profile: `aavanam/semantic-index/v1`.
+State: normative. Prefix: `IDX`. Profile: `aavanam/semantic-index/v1`.
 
 ## Scope
 

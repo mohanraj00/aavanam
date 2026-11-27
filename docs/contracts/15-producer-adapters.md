@@ -1,6 +1,6 @@
 # Producer adapters
 
-State: draft. Prefix: `ADP`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `ADP`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

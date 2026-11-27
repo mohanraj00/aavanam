@@ -1,6 +1,6 @@
 # Lifecycle
 
-State: draft. Prefix: `LIF`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `LIF`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

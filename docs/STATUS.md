@@ -1,6 +1,6 @@
 # Status
 
-Version 0.5.0 is the current version. The specification has 24 contract documents in the `draft` state. The reference implementation in `src/`, the backend in `backend/` and the device store in `reference/` each pass all conformance vectors. The null implementation fails, as it must.
+Version 0.5.0 is the current version, and its contract documents are in the `draft` state. The main branch is for the 0.6 series. The specification has 24 contract documents in the `normative` state. No topic is in the `draft` state (#146). The reference implementation in `src/`, the backend in `backend/` and the device store in `reference/` each pass all conformance vectors. The null implementation fails, as it must.
 
 ## Implementations
 

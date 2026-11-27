@@ -1,6 +1,6 @@
 # Rendering
 
-State: draft. Prefix: `RND`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `RND`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

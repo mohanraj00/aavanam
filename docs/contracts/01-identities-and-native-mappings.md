@@ -1,6 +1,6 @@
 # Identities and native mappings
 
-State: draft. Prefix: `IDN`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `IDN`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

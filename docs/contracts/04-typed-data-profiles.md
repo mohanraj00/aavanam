@@ -1,6 +1,6 @@
 # Typed data profiles
 
-State: draft. Prefix: `DAT`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `DAT`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

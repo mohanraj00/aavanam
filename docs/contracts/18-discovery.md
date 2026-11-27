@@ -1,6 +1,6 @@
 # Discovery
 
-State: draft. Prefix: `DSC`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `DSC`. Profile: `aavanam/base/v1`.
 
 ## Scope
 

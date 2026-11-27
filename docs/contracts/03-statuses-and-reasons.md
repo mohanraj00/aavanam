@@ -1,6 +1,6 @@
 # Statuses and reasons
 
-State: draft. Prefix: `STS`. Profile: `aavanam/base/v1`.
+State: normative. Prefix: `STS`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
