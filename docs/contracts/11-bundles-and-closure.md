@@ -4,7 +4,7 @@ State: draft. Prefix: `BUN`. Profile: `aavanam/base/v1`.
 
 ## Scope
 
-This document defines capability closure, bundle manifests, export, the filtered export, license and redistribution status, import, the bundle update of a device store and excerpt objects. A device store takes its content only from `import`. Local outputs stay separate.
+This document defines capability closure, bundle manifests, export, the filtered export, license and redistribution status, import, the bundle update of a device store, the delta export, the raw bundle form and excerpt objects. A device store takes its content only from `import`. Local outputs stay separate.
 
 ## Topics
 
@@ -17,6 +17,8 @@ This document defines capability closure, bundle manifests, export, the filtered
 | `FLT` | The filtered export |
 | `IMP` | Import, the store roles and integrity |
 | `UPD` | The bundle update of a device store |
+| `DLT` | The delta export and the import of a delta bundle |
+| `RAW` | The raw bundle form |
 | `EXC` | Excerpt objects and parent validation |
 
 ## Clauses
@@ -35,13 +37,13 @@ This document defines capability closure, bundle manifests, export, the filtered
 
 ### Bundle manifests
 
-**BUN-MAN-1.** A bundle is a JSON object with the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the field `withheld` (BUN-RED-5) and the field `filter` (BUN-FLT-4). It has no other field. `format` is `aavanam-bundle/v1`. `roots` is a list of one or more references. `descriptors` is a list of descriptor JSON texts. `payloads` is an object. Each key is a payload digest, and each value is the base64 encoding (RFC 4648, section 4) of the bytes. `withheld` is a list of one or more payload digests, with no duplicate. A digest in `withheld` is not a key of `payloads`.
+**BUN-MAN-1.** A bundle is a JSON object with the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the field `withheld` (BUN-RED-5), the field `filter` (BUN-FLT-4) and the field `base` (BUN-DLT-3). It has no other field. `format` is `aavanam-bundle/v1`. `roots` is a list of one or more references. `descriptors` is a list of descriptor JSON texts. `payloads` is an object. Each key is a payload digest, and each value is the base64 encoding (RFC 4648, section 4) of the bytes. `withheld` is a list of one or more payload digests, with no duplicate. A digest in `withheld` is not a key of `payloads`. `base` is a list of one or more references.
 
 ### Export
 
-**BUN-EXP-1.** The request of `export` has the fields `context` (CTX-OPN-3) and `roots`, a list of one or more references. It can also have the field `permit` (BUN-RED-4) and the field `filter` (BUN-FLT-1). If a root is not in the store, the result has status `not_found` and reason `unknown_ref`. If a root is in the store but not in the read context, the result has status `not_found` and reason `not_in_context`. The result has a reason for each affected root. In these cases, the result has no items and no `bundle`.
+**BUN-EXP-1.** The request of `export` has the fields `context` (CTX-OPN-3) and `roots`, a list of one or more references. It can also have the field `permit` (BUN-RED-4), the field `filter` (BUN-FLT-1) and the field `base_context` (BUN-DLT-1). If a root is not in the store, the result has status `not_found` and reason `unknown_ref`. If a root is in the store but not in the read context, the result has status `not_found` and reason `not_in_context`. The result has a reason for each affected root. In these cases, the result has no items and no `bundle`.
 
-**BUN-EXP-2.** This clause and BUN-EXP-3 give the export of a request with no `filter`. BUN-FLT-1 to BUN-FLT-4 give the export of a request with `filter`. If each root is in the read context, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1). Its `roots` are the roots of the request. Its `descriptors` have the descriptor of each object in the closure of the roots (KND-DEP-3), one time each. Its `payloads` have the bytes of each digest in the byte closure, except a withheld digest (BUN-RED-5). The bundle MUST NOT have a descriptor or bytes outside the closure.
+**BUN-EXP-2.** This clause and BUN-EXP-3 give the export of a request with no `filter`. BUN-FLT-1 to BUN-FLT-4 give the export of a request with `filter`. BUN-DLT-2 gives the changes for a request with `base_context`. If each root is in the read context, the result has status `ok`, and the envelope field `bundle` is a bundle (BUN-MAN-1). Its `roots` are the roots of the request. Its `descriptors` have the descriptor of each object in the closure of the roots (KND-DEP-3), one time each. Its `payloads` have the bytes of each digest in the byte closure, except a withheld digest (BUN-RED-5). The bundle MUST NOT have a descriptor or bytes outside the closure.
 
 **BUN-EXP-3.** The result has one item for each object in the closure of the roots. Each item has status `ok` and the fields `ref`, `redistribution`, `license` and `withheld` (BUN-RED-6). The order of the items and of `descriptors` is not specified.
 
@@ -107,9 +109,9 @@ On a device store with an `ok` import of B, a read context with the roots of B h
 
 ### Import
 
-**BUN-IMP-1.** The request of `import` has the field `bundle`. If the value does not agree with BUN-MAN-1, the result has status `failed` and reason `field_type`. It checks only the form of the field `filter` (BUN-FLT-4).
+**BUN-IMP-1.** The request of `import` has the field `bundle`. If the value does not agree with BUN-MAN-1, the result has status `failed` and reason `field_type`. It checks only the form of the field `filter` (BUN-FLT-4). BUN-DLT-4 gives the checks of the field `base`. An `import` can take a raw bundle in place of this request (BUN-RAW-4).
 
-**BUN-IMP-2.** The store checks each descriptor of the bundle with the steps of STS-MAL-3, with two changes: a reference target or payload bytes can be in the bundle or in the store, and withheld bytes can be absent (BUN-IMP-9). If a reference target or the bytes of a payload are in neither, the result has status `failed` and reason `bundle_incomplete`, except for withheld bytes as BUN-IMP-9 permits. This exception applies also to a device store. If a root is not a descriptor of the bundle, the result also has status `failed` and reason `bundle_incomplete`. A different check that fails gives its own status and reason. If more than one descriptor fails a check, the store applies rule 6 of STS-ENV-3 to the outcomes of the descriptors, as if each descriptor were an item. A root that is not a descriptor of the bundle is one more `failed` outcome. Thus these outcomes give the status and the reasons of the result, but the result has no items (BUN-IMP-4).
+**BUN-IMP-2.** The store checks each descriptor of the bundle with the steps of STS-MAL-3, with two changes: a reference target or payload bytes can be in the bundle or in the store, and withheld bytes can be absent (BUN-IMP-9). If a reference target or the bytes of a payload are in neither, the result has status `failed` and reason `bundle_incomplete`, except for withheld bytes as BUN-IMP-9 permits. This exception applies also to a device store. If a root is not a descriptor of the bundle, the result also has status `failed` and reason `bundle_incomplete`. For a delta bundle, BUN-DLT-4 gives the rule for a root. A different check that fails gives its own status and reason. If more than one descriptor fails a check, the store applies rule 6 of STS-ENV-3 to the outcomes of the descriptors, as if each descriptor were an item. A root that is not a descriptor of the bundle is one more `failed` outcome. Thus these outcomes give the status and the reasons of the result, but the result has no items (BUN-IMP-4).
 
 **BUN-IMP-3.** If each check passes, the store adds each object of the bundle, and the result has status `ok`. The result has one item for each descriptor of the bundle. Each item has status `ok` and the field `ref`. The order of the items is not specified.
 
@@ -135,7 +137,7 @@ Note: An `ok` import can keep a descriptor of absent bytes. The local output sto
 
 ### Bundle update
 
-**BUN-UPD-1.** A bundle update is an `import` on a device store that has objects. The store applies BUN-IMP-1 and BUN-IMP-2 to the bundle, with no change. Thus a reference target or payload bytes can be in the bundle or in the device store. A bundle update has no other check. The store does not compare the roots of the bundle with the roots of an earlier import. The bundle can have an object that the store has, and it does not have to contain each object that the store has.
+**BUN-UPD-1.** A bundle update is an `import` on a device store that has objects. The store applies BUN-IMP-1 and BUN-IMP-2 to the bundle, with no change. Thus a reference target or payload bytes can be in the bundle or in the device store. A bundle update has no other check, except for a delta bundle (BUN-DLT-4). The store does not compare the roots of the bundle with the roots of an earlier import. The bundle can have an object that the store has, and it does not have to contain each object that the store has.
 
 **BUN-UPD-2.** If each check passes, the result is the result of BUN-IMP-3: status `ok`, with one item for each descriptor of the bundle, also for a descriptor that the store has. The store MUST add only the objects and the bytes that it does not have (IDN-CAN-3). Thus an `import` of a bundle whose objects and bytes are all in the store does not change the content of the store.
 
@@ -146,6 +148,51 @@ Note: An `ok` import can keep a descriptor of absent bytes. The local output sto
 **BUN-UPD-5.** A bundle update is a write in the sense of BUN-IMP-10. If the update has the bytes of a digest with a deferred check of an earlier import, the store MUST do each deferred check of that digest before it adds the bytes. If each check passes, the store adds the bytes and removes the records of these checks. Then a read of the affected descriptor gives its bytes (BUN-IMP-12). If a check fails, the result has the status and the reason of the failed check for each descriptor of the bundle that names the digest in a payload field (BUN-IMP-10, BUN-IMP-2), it has no items, and the store does not change (BUN-UPD-6). A bundle update can also withhold a digest (BUN-IMP-9). Then BUN-IMP-9 to BUN-IMP-11 apply to it as to a first import.
 
 **BUN-UPD-6.** A bundle update that is not `ok` MUST leave the device store and its local output store unchanged (BUN-IMP-4). The store keeps each object, the bytes, each deferred check record and each read context of before the call. Thus a failed update of a device store does not affect the content of the earlier imports.
+
+### Delta export and import
+
+**BUN-DLT-1.** The field `base_context` of an `export` request is the identity of a read context of the same store (CTX-OPN-3), the base context. The base context names content that the target store has, for example a read context on the roots of an earlier bundle (DEV-UPD-2). If the value is not a string, the result has status `failed` and reason `field_type`. If the store does not have the base context, the result has status `failed` and reason `context_expired`, as for the field `context`. In these cases, the result has no items and no `bundle`. The store checks the base context after the read context of the request and before the roots (BUN-EXP-1). The base roots are the roots of the base context (CTX-OPN-1), the head snapshot of each name of its `heads` (CTX-VIW-2) and, for a layered context, its layer (LYR-OPN-3). A read context has at most one snapshot of a collection (CTX-CMP-1). Thus the snapshot of an earlier bundle and the snapshot of an update are in two read contexts, and a base root does not have to be a member of the read context of the request. The base context can also be the read context of the request.
+
+**BUN-DLT-2.** An export with `base_context` is a delta export, and its bundle is a delta bundle. The full closure is the closure of the roots of the bundle (BUN-EXP-2, or rule 2 of BUN-FLT-3 for a filtered export). The base closure is the closure of the base roots (KND-DEP-3, LYR-PRE-5), and a base digest is a digest in the byte closure of the base roots. The store reads the base closure only to find the objects and the digests that the bundle leaves out. The bundle and the items have no object and no bytes from outside the full closure (BUN-CLS-1). A delta export gives the result of the same request with no `base_context`, with these changes:
+
+1. `descriptors` has the descriptor of each object of the full closure that is not in the base closure, one time each.
+2. `payloads` has the bytes of each digest that a descriptor of the bundle names in a payload field, except a withheld digest and except a base digest.
+3. The withheld digests are those of BUN-RED-5 and BUN-RED-7 for the full closure. The field `withheld` lists each withheld digest that a descriptor of the bundle names in a payload field. If the list is empty, the bundle has no field `withheld`.
+4. The field `base` of the bundle is the list of the base roots, with no duplicate, in ascending string order.
+5. The result has one item for each descriptor of the bundle, with the fields of BUN-EXP-3 and, for a filtered export, the field `matched` (BUN-FLT-3).
+
+The bundle MUST NOT have a descriptor of the base closure or the bytes of a base digest. The `roots` of the bundle do not change. Thus a root can be an object of the base closure, and then the bundle has no descriptor and no item for it. If each object of the full closure is in the base closure, the bundle has no descriptor and no payload, and the result has status `ok` and no items.
+
+**BUN-DLT-3.** The field `base` of a bundle records the base roots of a delta export. A bundle of an export with no `base_context` has no field `base`. A bundle with the field `base` is a delta bundle. The writer store has no record of the content of a target store. Thus the application names a base context only if the target store has each base root. The import checks this (BUN-DLT-4). The export does not.
+
+**BUN-DLT-4.** An `import` of a delta bundle applies BUN-IMP-1 and BUN-IMP-2 to the bundle, with these changes:
+
+1. Each base root MUST be an object in the store. A base root that is not in the store is one more `failed` outcome with reason `bundle_incomplete`, as for a root in BUN-IMP-2. A store that has an object has each object of its closure (KND-REF-2, BUN-IMP-2). Thus each object that the delta export left out is in the store.
+2. A root MUST be a descriptor of the bundle or an object in the store. A root that is neither is one more `failed` outcome with reason `bundle_incomplete`.
+3. The other checks do not change. A reference target or payload bytes can be in the bundle or in the store. Thus if a descriptor of the bundle names a base digest and the store does not have its bytes, the result has status `failed` and reason `bundle_incomplete`, unless the bundle lists the digest in `withheld` (BUN-IMP-9).
+
+The import does not read the bytes of a base digest that no descriptor of the bundle names. The store has these bytes, or a record of a deferred check for them, from the import that added their descriptor (BUN-IMP-10). An import of a delta bundle that is not `ok` leaves the store unchanged (BUN-IMP-4, BUN-UPD-6). If each check passes, the result is the result of BUN-IMP-3, with one item for each descriptor of the bundle. A delta bundle with no descriptor gives status `ok` and no items.
+
+**BUN-DLT-5.** A store has each base root of a request. After an `ok` import of the delta bundle of the request, the store has each object of the full closure. It has the bytes of each digest in the byte closure of the roots, except a digest that the bundle lists in `withheld` and a base digest whose bytes the store did not have before the import. Thus the store has the same objects as after an `ok` import of the bundle of the same request with no `base_context`. BUN-CLS-3 and BUN-CLS-4 apply to an `ok` import of a delta bundle (BUN-UPD-4). A read that needs bytes that are absent gives `payload_missing` (BUN-IMP-12). A delta bundle is not a record of a removal. It does not remove an object that only the base closure has (BUN-UPD-3).
+
+### Raw bundle form
+
+**BUN-RAW-1.** A raw bundle is a byte sequence with two parts: the manifest line, then the payload section. The manifest line is the UTF-8 text of one JSON object, the manifest, then one line feed byte (`0A`). The text of the manifest has no line feed byte. The manifest has the fields `format`, `roots`, `descriptors` and `payloads`. It can also have the fields `withheld`, `filter` and `base`. It has no other field. `format` is `aavanam-bundle-raw/v1`. `roots`, `descriptors`, `withheld`, `filter` and `base` have the form of BUN-MAN-1. `payloads` is a list of zero or more entries. An entry is an object with the fields `digest` and `size`, and no other field. `digest` is a payload digest. `size` is an integer that is 0 or more. No two entries have the same `digest`. A digest in `withheld` is not the `digest` of an entry.
+
+**BUN-RAW-2.** The payload section has the bytes of each entry of `payloads`, in the order of the list. The bytes of an entry are exactly `size` bytes. The section has no other byte: no length, no separator, no padding and no byte after the bytes of the last entry. No payload is base64 text. Thus a reader gets the position of each payload from the manifest. It can read the section one time, from the start to the end, and check each payload when it has the bytes of that payload.
+
+**BUN-RAW-3.** The bundle of a raw bundle is the bundle (BUN-MAN-1) with the same `roots`, `descriptors`, `withheld`, `filter` and `base`, and with one key in `payloads` for each entry: the `digest` of the entry, with the base64 encoding of the bytes of the entry. A raw form of a bundle is a raw bundle whose bundle is that bundle. The `size` of each entry is the number of bytes of its payload. The order of the entries is not specified. An implementation or an application makes a raw form from a bundle with no read of a store. `export` gives a bundle. It does not give a raw bundle.
+
+**BUN-RAW-4.** `import` takes a raw bundle in place of its request. The store does these checks in this order, and it stops at the first check that fails:
+
+1. The byte sequence has a line feed byte, and the bytes before the first line feed byte are the text of one JSON value. If not, the result has status `failed` and the reason of the JSON form step of STS-MAL-3: `malformed_json`, `duplicate_key` or `non_ijson_value`. A byte sequence with no line feed byte gives `malformed_json`.
+2. The manifest agrees with BUN-RAW-1. If not, the result has status `failed` and reason `field_type`.
+3. For each entry, in the order of the list: the payload section has `size` more bytes, and these bytes have the `digest` of the entry. If the section ends before `size` bytes, the result has status `failed` and reason `field_type`. If the bytes have a different digest, the result has status `failed` and reason `digest_mismatch`.
+4. The payload section has no byte after the bytes of the last entry. If it has, the result has status `failed` and reason `field_type`.
+
+In each of these cases, the result has one reason and no items, and the store does not change (BUN-IMP-4). The store MUST check the digest of an entry before it uses the bytes of that entry. A store that reads a raw bundle piece by piece MUST keep each piece apart from its content until each check of this clause and of BUN-RAW-5 passes.
+
+**BUN-RAW-5.** If each check of BUN-RAW-4 passes, the result of the `import` is the result of an `import` of the bundle of the raw bundle (BUN-RAW-3): the checks of BUN-IMP-2, of BUN-IMP-9 to BUN-IMP-11, of BUN-UPD-1 to BUN-UPD-6 and of BUN-DLT-4 apply with no change. Thus a raw bundle can be a delta bundle, and it can withhold a digest. An `ok` import of a raw bundle gives the same items and the same store content as an `ok` import of its bundle. The digest check of BUN-RAW-4 does not replace the payload bytes step of STS-MAL-3. That step compares the bytes with the `digest` and the `size` of each descriptor that names them.
 
 ### Excerpt objects
 

@@ -18,6 +18,7 @@ The driver `aavanam-conform` reads AAVANAM_STORAGE and AAVANAM_PG_DSN.
 from __future__ import annotations
 
 import atexit
+import base64
 import json
 import os
 import shlex
@@ -230,9 +231,17 @@ class BackendAdapter:
         self.open_local()
 
     def call(self, operation: str, request: dict, store: str = 'writer') -> dict:
+        raw = operation == 'import' and isinstance(request.get('bundle'), bytes)
         if store in self.local:
-            return self.local[store].call(operation, request)
+            return self.local[store].call(operation, request['bundle'] if raw else request)  # BUN-RAW-4
         driver = self.drivers[store]
+        if raw:
+            # BUN-RAW-4: a raw bundle goes to the driver in place of the request. The base64 text is only the test protocol.
+            reply = driver.request({'cmd': 'call', 'store': store, 'op': operation,
+                                    'raw': base64.b64encode(request['bundle']).decode()}, self.validators)
+            if not isinstance(reply.get('result'), dict):
+                raise DriverError(f'the driver gave no result for {operation}')
+            return reply['result']
         added = any(operation in PROFILE_OPERATIONS.get(profile, ()) for profile in self.profiles)
         if store == 'writer' and self.http and driver.read_url and operation not in WRITES and not added:
             return driver.post(operation, request)
@@ -240,6 +249,14 @@ class BackendAdapter:
         if not isinstance(reply.get('result'), dict):
             raise DriverError(f'the driver gave no result for {operation}')
         return reply['result']
+
+    def raw_bundle(self, bundle: dict, store: str = 'writer') -> bytes:
+        """The raw form of a bundle from the implementation of the store (BUN-RAW-3)."""
+        if store in self.local:
+            from aavanam.store import raw_form  # open_local() added src/ to the path
+            return raw_form(bundle)
+        reply = self.drivers[store].request({'cmd': 'raw_bundle', 'bundle': bundle})
+        return base64.b64decode(reply['raw'], validate=True)
 
     def fingerprint(self, store: str = 'writer') -> str:
         if store in self.local:

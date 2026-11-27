@@ -11,6 +11,7 @@ package conformance
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -73,6 +74,19 @@ type message struct {
 	Collection json.RawMessage `json:"collection"`
 	Section    json.RawMessage `json:"section"`
 	Profiles   []string        `json:"profiles"`
+	// Raw is the base64 text of a raw bundle for the operation `import`, in place of Request (BUN-RAW-4).
+	// The base64 text is a part of this test protocol only.
+	Raw *string `json:"raw"`
+	// Bundle is the bundle of the command `raw_bundle` (BUN-RAW-3).
+	Bundle json.RawMessage `json:"bundle"`
+}
+
+// RawStore is a Store that has the raw bundle form (BUN-RAW-3, BUN-RAW-4).
+type RawStore interface {
+	// ImportRaw sends a raw bundle to the operation `import` of one store.
+	ImportRaw(store string, raw []byte, validate Validate) (json.RawMessage, error)
+	// RawBundle returns a raw form of a bundle.
+	RawBundle(bundle json.RawMessage) ([]byte, error)
 }
 
 type answer struct {
@@ -174,6 +188,18 @@ func handle(s Store, line []byte, validate Validate) ([][]byte, error) {
 	case "declare":
 		return ok, s.Declare(m.Profiles)
 	case "call":
+		if m.Raw != nil {
+			rawStore, has := s.(RawStore)
+			raw, err := base64.StdEncoding.DecodeString(*m.Raw)
+			if !has || !stores[m.Store] || string(m.Op) != `"import"` || err != nil {
+				return nil, errors.New("a call with raw needs a store with the raw bundle form, the op import and base64 text")
+			}
+			result, err := rawStore.ImportRaw(m.Store, raw, validate)
+			if err != nil {
+				return nil, err
+			}
+			return [][]byte{[]byte(`{"result":`), result, []byte(`}`)}, nil
+		}
 		if !stores[m.Store] || len(m.Op) == 0 || len(m.Request) == 0 {
 			return nil, errors.New("a call needs store, op and request")
 		}
@@ -182,6 +208,17 @@ func handle(s Store, line []byte, validate Validate) ([][]byte, error) {
 			return nil, err
 		}
 		return [][]byte{[]byte(`{"result":`), result, []byte(`}`)}, nil
+	case "raw_bundle":
+		rawStore, has := s.(RawStore)
+		if !has || len(m.Bundle) == 0 {
+			return nil, errors.New("raw_bundle needs a store with the raw bundle form and a bundle")
+		}
+		raw, err := rawStore.RawBundle(m.Bundle)
+		if err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(map[string]string{"raw": base64.StdEncoding.EncodeToString(raw)})
+		return [][]byte{b}, err
 	case "fingerprint":
 		if !stores[m.Store] {
 			return nil, errors.New("a fingerprint needs store")

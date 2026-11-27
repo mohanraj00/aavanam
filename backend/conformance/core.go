@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -137,6 +138,33 @@ func (c *Core) Call(storeName string, operation, request json.RawMessage, valida
 		return nil, c.failure
 	}
 	return envelope.JSON(), nil
+}
+
+// ImportRaw runs the operation `import` on one store with a raw bundle in place of the request (BUN-RAW-4).
+func (c *Core) ImportRaw(storeName string, raw []byte, validate Validate) (json.RawMessage, error) {
+	store, err := c.store(storeName)
+	if err != nil {
+		return nil, err
+	}
+	c.validate, c.failure = validate, nil
+	envelope := store.ImportRaw(context.Background(), bytes.NewReader(raw))
+	if c.failure != nil {
+		return nil, c.failure
+	}
+	return envelope.JSON(), nil
+}
+
+// RawBundle returns a raw form of a bundle (BUN-RAW-3). It reads no store.
+func (c *Core) RawBundle(bundle json.RawMessage) ([]byte, error) {
+	v, err := value(bundle)
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	if err := transfer.WriteRaw(&out, v); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }
 
 // Fingerprint returns the fingerprint of one store.
