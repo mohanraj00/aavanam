@@ -37,8 +37,8 @@ SHOWN_CHARS = 65536  # the characters of text that one item page shows
 HTTP_TIMEOUT = 30  # seconds, for one call of the read API
 
 # The pinned mugham UI kit. The page uses only its two style files.
-KIT_URL = 'https://github.com/mohanraj00/mugham/releases/download/v0.7.0/mugham.tar'
-KIT_SHA256 = 'c9390dd6b13a8269ed3ddfb20865f481d884ac5e88f48a68d0659cb6b3399fd4'
+KIT_URL = 'https://github.com/mohanraj00/mugham/releases/download/v0.8.0/mugham.tar'
+KIT_SHA256 = '0e58a1f3ba7c5895864d6541dc6a3ec271db764ee4ba5e83b67bde9f8a0b0e26'
 KIT_FILES = {'tokens.css': 'mugham/src/tokens/tokens.css', 'page.css': 'mugham/src/styles/page.css'}
 KIT_MAX_BYTES = 16 << 20
 
@@ -196,10 +196,13 @@ def outcome(envelope: dict) -> str:
             + (f'<ul>{reasons}</ul>' if reasons else ''))
 
 
-def table(headers: list[str], rows: list[list[str]]) -> str:
+def table(label: str, headers: list[str], rows: list[list[str]]) -> str:
+    """A table in the scroll box of the kit page style. If the table is wider than the page, it scrolls in the box,
+    and the page does not scroll to the side. The box takes keyboard focus, and its label tells what the table shows."""
     head = ''.join(f'<th scope="col">{esc(h)}</th>' for h in headers)
     body = ''.join('<tr>' + ''.join(f'<td>{cell}</td>' for cell in row) + '</tr>' for row in rows)
-    return f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
+    return (f'<div data-mu-scroll tabindex="0" role="region" aria-label="{esc(label)}">'
+            f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
 
 
 def pretty(value) -> str:
@@ -224,7 +227,7 @@ class Views:
             head = items[-1].get('head') if items else None
             rows.append([link('/collection', name, name=name), snapshot_link(head), esc(len(items))])
         body = ('<p>The read API has no operation that lists collections. The page shows the collections of its '
-                'configuration.</p>' + table(['Collection', 'Head', 'Publications'], rows))
+                'configuration.</p>' + table('Collections', ['Collection', 'Head', 'Publications'], rows))
         return 'Collections', body
 
     def collection(self, name: str) -> tuple[str, str]:
@@ -239,7 +242,7 @@ class Views:
             return f'Collection {name}', '<p>The collection has no recorded publication, so it has no head.</p>'
         body = ('<h2>History of the head</h2><p>Each row is one publication, in the order of the head updates '
                 '(PUB-LOG-3). The last row has the current head.</p>'
-                + table(['#', 'Previous head', 'Head', 'Candidate', 'Receipt'], rows))
+                + table('History of the head', ['#', 'Previous head', 'Head', 'Candidate', 'Receipt'], rows))
         return f'Collection {name}', body
 
     def _open(self, snapshot: str) -> tuple[str | None, dict | None, str]:
@@ -273,7 +276,7 @@ class Views:
         bad = [item for item in items if item.get('status') != 'ok']
         body = header + '<h2>Content</h2>'
         body += f'<p>Items {offset + 1} to {offset + len(rows)} of the read context on this snapshot (DSC-LST-3).</p>'
-        body += table(['Kind', 'Logical ID', 'Reference'], rows)
+        body += table('Content of the snapshot', ['Kind', 'Logical ID', 'Reference'], rows)
         if bad:
             body += f'<p class="status">{len(bad)} items are not ok. The page does not show them as content.</p>'
         if result['status'] == 'partial':
@@ -335,7 +338,7 @@ class Views:
         if not rows:
             return body + '<p>The collection has no recorded publication.</p>'
         return body + ('<p>The revisions that each head contains (LIF-HST-3). The history does not state which '
-                       'revision is authoritative (LIF-HST-5).</p>' + table(['#', 'Head', 'Change', 'Revisions'], rows))
+                       'revision is authoritative (LIF-HST-5).</p>' + table('Revisions of each head', ['#', 'Head', 'Change', 'Revisions'], rows))
 
 
 def content(item: dict, member: dict) -> str:

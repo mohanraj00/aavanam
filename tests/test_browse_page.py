@@ -10,6 +10,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import tarfile
@@ -75,7 +76,7 @@ class KitTest(unittest.TestCase):
             browse.fetch_kit(cache, url='http://127.0.0.1:9/never', digest=self.digest)
 
     def test_pin_is_the_release_artifact(self):
-        self.assertEqual(browse.KIT_URL, 'https://github.com/mohanraj00/mugham/releases/download/v0.7.0/mugham.tar')
+        self.assertEqual(browse.KIT_URL, 'https://github.com/mohanraj00/mugham/releases/download/v0.8.0/mugham.tar')
         readme = (FOLDER / 'README.md').read_text(encoding='utf-8')
         self.assertIn(browse.KIT_URL, readme)
         self.assertIn(browse.KIT_SHA256, readme)
@@ -169,6 +170,18 @@ class StoreTest(unittest.TestCase):
                 self.assertIn(urllib.parse.quote(self.refs[head]), page)
                 self.assertIn(f'<td>{count}</td>', page)
         self.assertIn('aavanam-read/v1', page)
+
+    def test_each_table_is_in_a_named_scroll_box(self):
+        # The kit page style keeps a wide table in the box data-mu-scroll (mugham 0.8.0). The box takes keyboard
+        # focus and has a name, so a phone user can scroll the table and a screen reader names the region.
+        pages = (self.get('/'), self.get('/collection', name=GUIDE))
+        box = re.compile(r'<div data-mu-scroll tabindex="0" role="region" aria-label="([^"]+)"><table>.*?</table></div>')
+        for page in pages:
+            with self.subTest(page=page[:40]):
+                boxes = box.findall(page)
+                self.assertTrue(boxes)
+                self.assertTrue(all(label.strip() for label in boxes))
+                self.assertEqual(page.count('<table>'), len(boxes))
 
     def test_history_of_a_head(self):
         page = self.get('/collection', name=GUIDE)

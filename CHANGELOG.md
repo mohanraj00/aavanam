@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Pin the browse page example to the mugham UI kit v0.8.0. Each table of the page is in a named scroll box, so a wide table scrolls in its box and the page does not scroll to the side at a phone width.
+
 ## 0.6.0
 
 - Hold the socket lock while the service runs (#137, PR 147). A second start of the service on the same socket path gets no lock, so it cannot remove the socket of a service that runs. Before this change, a full accept queue on macOS made a live socket look stale to a second start. `backend/README.md` has a note on inheritable ACLs: do not put an inheritable ACL on the socket directory. The service still checks only the mode bits of the socket file.
