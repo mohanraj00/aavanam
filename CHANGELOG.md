@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- State the scope of input-lock capabilities and application-owned run dependencies (LCK-CAP-4, #143), the two locks for emission and gated publication (PUB-ACT-6, #144), and the opaque link from an output artifact to its input lock (KND-OPQ-4, #145). Add the vector `publication/act-emission-gated-ok`. The base profile stays at minor version 12.
+
 ## 0.5.0
 
 - Add the layer (document 23, LYR-DEF-1 to LYR-EXP-3, #44). A layer adds members to a base collection, or replaces members of it, for one scope, for example one tenant. `open_context` gets the field `layer`. A layered read context has the base snapshot and one layer. It has no content of a different layer, and a reference that is not a member gives `unknown_ref`. A lock of a layered context records the base snapshot and the layer in its field `view`. The layer is the profile `aavanam/layer/v1`: a store declares it separately, and the base profile stays at minor version 12. A reference store declares the profile with `Store(profiles=...)`, and passes the 52 vectors of `conformance/vectors/layers/`. The backend and the device store declare the profile and pass these vectors (#132). A Go store declares a profile in its field `Profiles`, and the service has the option `--profile`.

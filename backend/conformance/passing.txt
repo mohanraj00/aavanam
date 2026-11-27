@@ -435,6 +435,7 @@ publication/act-build-lock-closure-ok
 publication/act-build-lock-closure-outside
 publication/act-candidate-mismatch
 publication/act-change-outside
+publication/act-emission-gated-ok
 publication/act-execution-lock-binding-ok
 publication/act-execution-lock-ok
 publication/act-execution-lock-outside

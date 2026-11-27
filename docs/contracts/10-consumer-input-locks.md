@@ -51,6 +51,8 @@ This document defines execution and build input locks for application-owned cons
 
 **LCK-CAP-3.** `requires` states the capabilities that the consumer needs when it reads the inputs of the lock, for example on a device store. The store records the names. It does not run the consumer, and it does not check that the consumer uses only these capabilities. Document 11 uses the names for capability closure.
 
+**LCK-CAP-4.** `requires` covers only the capabilities that the consumer uses to read the lock inputs. The run dependencies of code that the consumer generates are application data. The application declares and enforces these dependencies, for example a model, the network or the clock. It can declare them in a `runtime-profile` payload (BND-RUL-3). The store does not read, check or enforce these declarations. For example, the rule `rule:discount-v1` has the data role `rates` and the runtime profile `profile:py-3`. The profile payload is `{"run": {"model": true, "network": false}}`. The consumer uses no capabilities to read the inputs, so `requires` stays empty (LCK-CAP-1).
+
 ### Declared completeness labels
 
 **LCK-CMPL-1.** The value of `completeness` is a completeness label. It MUST have the form `<owner>/<name>/v<N>`. `<owner>` and `<name>` each have one or more characters from `a` to `z`, `0` to `9`, `-` and `.`. `<N>` is a positive integer with no leading zero. A value with a different form gives `field_type`. This also applies to the field `completeness` of a lock descriptor in `put` or `import` (KND-SCH-4).
