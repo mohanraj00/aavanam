@@ -23,15 +23,20 @@ type Call struct {
 	// descriptor in the store only while the store has this epoch. Thus a call that read an object before a
 	// removal does not put it back after the store dropped it (REL-RMV-7).
 	epoch int64
+	// synced tells that the storage of the call has a removal epoch (RemovalEpoch).
+	synced bool
 }
 
 // On returns a call of the same operation and request on a different store, for example on the local
 // output store of a device store (BUN-IMP-7).
 func (c *Call) On(store *Store) *Call {
-	store.mu.RLock()
-	epoch := store.epoch
-	store.mu.RUnlock()
-	return &Call{Ctx: c.Ctx, Store: store, S: store.Storage.Session(c.Ctx), Operation: c.Operation, Request: c.Request, epoch: epoch}
+	session := store.Storage.Session(c.Ctx)
+	// The checks of the call read the store before this point. The second session gets the epoch of the
+	// start of the call, so its update stops if a removal committed after those checks (LIF-GC-5).
+	if carrier, has := session.(RemovalSeen); has && c.synced {
+		carrier.SeeRemovalEpoch(c.epoch)
+	}
+	return &Call{Ctx: c.Ctx, Store: store, S: session, Operation: c.Operation, Request: c.Request, epoch: c.epoch, synced: c.synced}
 }
 
 // parse returns the value of a stored descriptor. The store wrote the text, so it is canonical.

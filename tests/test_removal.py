@@ -231,6 +231,52 @@ class CollectTest(unittest.TestCase):
             first.close()
             second.close()
 
+    def test_a_refresh_reads_the_version_and_the_epoch_of_one_state(self):  # REL-RMV-7, LIF-GC-5
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'store.db')
+            first, second = Store(path), Store(path)
+            refs = evidence(first)
+            context = opened(second, refs['snapshot'])  # the second open keeps the descriptors in its cache
+            self.assertEqual(second.call('close_context', {'context': context})['status'], 'ok')
+            epoch, collected = second.removal_epoch, []
+
+            def collect_then_epoch():  # the first open collects between the two reads of the refresh
+                if not collected:
+                    collected.append(first.call('gc_collect', {}))
+                return epoch()
+            second.removal_epoch = collect_then_epoch
+            result = second.call('open_context', {'roots': [refs['snapshot']]})
+            self.assertEqual(len(collected[0]['items']), 8, collected)
+            self.assertEqual(codes(result), ('not_found', ['unknown_ref']))
+            first.close()
+            second.close()
+
+    def test_a_device_lock_does_not_name_inputs_that_a_second_open_collects(self):  # LIF-GC-5, BUN-IMP-7
+        writer = Store()
+        refs = evidence(writer)
+        bundle = writer.call('export', {'context': opened(writer, refs['snapshot']), 'roots': [refs['snapshot']]})['bundle']
+        with tempfile.TemporaryDirectory() as folder:
+            paths = str(Path(folder) / 'device.db'), str(Path(folder) / 'output.db')
+            first, second = (Store(paths[0], role='device', output_path=paths[1]) for _ in range(2))
+            self.assertEqual(first.call('import', {'bundle': bundle})['status'], 'ok')
+            context = opened(first, refs['snapshot'])
+            gone_in, collected = first.gone_in, []
+
+            def close_and_collect(roots):  # the second open ends the context and collects after the checks of the lock call
+                if not collected:
+                    self.assertEqual(second.call('close_context', {'context': context})['status'], 'ok')
+                    collected.append(second.call('gc_collect', {'roots': []}))
+                return gone_in(roots)
+            first.gone_in = close_and_collect
+            result = first.call('build_inputs', {'context': context, 'inputs': [refs['set']], 'consumer': 'sample/emitter/build/v1',
+                                                 'completeness': 'sample/declared/v1'})
+            self.assertEqual(len(collected[0]['items']), 8, collected)
+            self.assertEqual(codes(result), ('failed', ['context_expired']))
+            self.assertIsNone(result.get('lock'))
+            self.assertEqual(first.output.db.execute('SELECT count(*) FROM objects').fetchone()[0], 0)
+            first.close()
+            second.close()
+
     def test_a_put_runs_again_after_a_removal_of_a_second_open(self):  # REL-RMV-4, STS-MAL-2
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / 'store.db')

@@ -291,3 +291,74 @@ func TestCollectBeforeTheUpdate(t *testing.T) {
 		call(t, reader, "import", fields{"bundle": exportBundle(t, writer, snapshot)}, "ok")
 	}
 }
+
+// DEV-RMV-2: two opens of one device directory, as two programs have. A `gc_collect` of the first open adds
+// 1 to the removal count of the device file. The second open reads the count at the start of its next call
+// and drops the descriptors that it keeps in memory. An update of the second open that starts after a
+// removal of the first open does not write, and its call runs again.
+func TestRemovalCountOfTwoOpens(t *testing.T) {
+	dir, writer, first := newStores(t)
+	dev, out, err := device.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { out.Close(); dev.Close() })
+	second := ops.New(ops.Device, dev, conformance.Registry())
+	second.Output = ops.New(ops.Output, out, conformance.Registry())
+	_, unit := putEntry(t, writer, "The west room has a map collection.\n")
+	snapshot := itemRef(t, call(t, writer, "create_snapshot", fields{"collection": catalog, "units": []string{unit}}, "ok"))
+	bundle := exportBundle(t, writer, snapshot)
+	unknown := func(result envelope.Envelope, what string) {
+		t.Helper()
+		if got := storagetest.Summary(result); got != "not_found:unknown_ref | not_found:unknown_ref" {
+			t.Errorf("%s: %s", what, got)
+		}
+	}
+	count := func() string {
+		t.Helper()
+		var value sql.NullString
+		db := openSQLiteFile(t, dir, device.DeviceFile)
+		if err := db.QueryRow(`SELECT (SELECT value FROM meta WHERE key = 'removals')`).Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		return value.String
+	}
+	roots := jsonBytes(t, fields{"roots": []string{snapshot}})
+
+	// The second open has the descriptors in memory, and no context of it is open.
+	call(t, first, "import", fields{"bundle": bundle}, "ok")
+	for _, store := range []*ops.Store{second, second.Output} {
+		call(t, store, "close_context", fields{"context": openContext(t, store, snapshot)}, "ok")
+	}
+	if got := count(); got != "" {
+		t.Fatalf("the removal count before a removal: %q", got)
+	}
+	call(t, first, "gc_collect", fields{"roots": []string{}}, "ok")
+	if got := count(); got != "1" {
+		t.Fatalf("the removal count after one removal: %q", got)
+	}
+	for _, store := range []*ops.Store{second, second.Output} {
+		unknown(store.Call(t.Context(), jsontext.S("open_context"), roots), "open_context after a removal of a different open")
+	}
+
+	// The first open removes after the checks of a call of the second open and before its update.
+	for n, target := range []*ops.Store{second, second.Output} {
+		call(t, first, "import", fields{"bundle": bundle}, "ok")
+		ran := false
+		raced := ops.New(target.Role, storagetest.Racing(target.Storage, func() {
+			if !ran {
+				ran = true
+				call(t, first, "gc_collect", fields{"roots": []string{}}, "ok")
+			}
+		}), conformance.Registry())
+		unknown(raced.Call(t.Context(), jsontext.S("open_context"), roots), "open_context with a removal of a different open before its update")
+		if got := count(); !ran || got != fmt.Sprint(n+2) {
+			t.Fatalf("the removal count after removal %d: %q", n+2, got)
+		}
+	}
+	// A `gc_collect` that removes nothing does not change the count.
+	call(t, first, "gc_collect", fields{"roots": []string{}}, "ok")
+	if got := count(); got != "3" {
+		t.Fatalf("the removal count after a call that removed nothing: %q", got)
+	}
+}

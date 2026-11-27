@@ -328,6 +328,14 @@ type RemovalEpoch interface {
 	RemovalEpoch() int64
 }
 
+// RemovalSeen is an optional part of a Session with RemovalEpoch. A call that uses a second session, for
+// example the session of the local output store of its device store, gives that session the epoch that the
+// call read at its start. Thus an update of the second session also stops after a removal (ErrRemoved). The
+// device store and its local output store have one epoch, because a removal changes only the device store.
+type RemovalSeen interface {
+	SeeRemovalEpoch(epoch int64)
+}
+
 // RemovalGate is an optional part of a Tx of a storage whose updates run at the same time.
 type RemovalGate interface {
 	// LockRemoval makes this update wait for each other update that wrote, until it ends, and makes each

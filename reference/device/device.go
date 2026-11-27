@@ -112,20 +112,23 @@ type Store struct {
 	// output is the local output store of the device store, or nil. `gc_collect` reads its objects and its
 	// open read contexts (BUN-RMV-1).
 	output *Store
-	// device is the device store of the local output store, or nil.
-	device *Store
-	// epoch is the number of updates of this open of the device store that removed content
-	// (ops.RemovalEpoch). The layout has no column for it (DEV-LAY-3), so a different process does not read it.
-	epoch atomic.Int64
+	// known is the removal count of the device file at the last call of this open (DEV-RMV-2). If the
+	// count changes, a transaction of DEV-RMV-1 removed content, and the open drops its table heads.
+	known atomic.Int64
 }
 
-// removals returns the removal epoch of the device file. The local output store reads the objects of its
-// device store (DEV-OUT-2), so it uses the same epoch.
-func (s *Store) removals() *atomic.Int64 {
-	if s.device != nil {
-		return &s.device.epoch
+// removalCount is the `meta` row of the removal count of the device file (DEV-RMV-2): `{d}` is the schema
+// of the device file. A file with no row has the count 0.
+const removalCount = `SELECT coalesce((SELECT CAST(value AS INTEGER) FROM {d}.meta WHERE key = 'removals'), 0)`
+
+// removals reads the removal count of the device file. The local output store reads it through its
+// attachment (DEV-OUT-2), so the two stores of one directory have one count.
+func (v view) removals() int64 {
+	var count int64
+	if err := v.q.QueryRowContext(v.ctx, strings.ReplaceAll(removalCount, "{d}", v.deviceSchema())).Scan(&count); err != nil {
+		ops.Raise(err)
 	}
-	return &s.epoch
+	return count
 }
 
 // seen has the removal epoch at the start of a call.
@@ -161,7 +164,7 @@ func Open(dir string) (device, output *Store, err error) {
 			return nil, nil, err
 		}
 	}
-	device.output, output.device = output, device
+	device.output = output
 	return device, output, nil
 }
 
@@ -790,13 +793,20 @@ type session struct {
 	seen *seen // the removal epoch at the start of the call
 }
 
-// RemovalEpoch returns the removal epoch of this open of the store (ops.RemovalEpoch). The session keeps
-// it: an update of the session that finds a different epoch stops before its first write (ops.ErrRemoved).
+// RemovalEpoch returns the removal count of the device file (ops.RemovalEpoch, DEV-RMV-2). The session
+// keeps it: an update of the session that finds a different count stops before its first write
+// (ops.ErrRemoved). The count is in the file, so each open of the directory reads the same count.
 func (v session) RemovalEpoch() int64 {
-	epoch := v.s.removals().Load()
+	epoch := v.removals()
 	v.seen.known, v.seen.epoch = true, epoch
+	if v.s.known.Swap(epoch) != epoch {
+		v.s.heads.Clear() // a table head of a removed payload is not correct now
+	}
 	return epoch
 }
+
+// SeeRemovalEpoch gives the session the epoch that a call read at its start (ops.RemovalSeen).
+func (v session) SeeRemovalEpoch(epoch int64) { v.seen.known, v.seen.epoch = true, epoch }
 
 // Update runs fn in one transaction. The transaction of the device file is BEGIN IMMEDIATE (DEV-UPD-1).
 // If fn panics, the transaction rolls back and the panic continues (BUN-UPD-6).
@@ -812,9 +822,10 @@ func (v session) Update(fn func(tx ops.Tx)) {
 		}
 	}()
 	// The transaction has the write lock of its file. A `gc_collect` has the write lock of the two files
-	// until it ends (DEV-RMV-1), and it increments the epoch before its commit. Thus an update that starts
-	// after a removal finds the new epoch here, and the dispatch runs its call again (LIF-GC-5).
-	if v.seen.known && v.s.removals().Load() != v.seen.epoch {
+	// until it ends (DEV-RMV-1), and it increments the removal count of the device file in its transaction
+	// (DEV-RMV-2). Thus an update that starts after a removal reads the new count here, and the dispatch
+	// runs its call again (LIF-GC-5). This read is the first read of the transaction.
+	if v.seen.known && (view{s: v.s, ctx: v.ctx, q: t}).removals() != v.seen.epoch {
 		ops.Raise(ops.ErrRemoved)
 	}
 	state := &work{}
@@ -860,9 +871,12 @@ func (t tx) LockDigests([]string)     {}
 // LockRemoval has no effect: the transaction has the write lock of the file (ops.RemovalGate).
 func (t tx) LockRemoval() {}
 
-// AdvanceEpoch increments the removal epoch before the commit (ops.RemovalGate). If the update does not
-// commit, a different call runs one more time than necessary.
-func (t tx) AdvanceEpoch() { t.s.removals().Add(1) }
+// AdvanceEpoch adds 1 to the removal count of the device file, in the transaction of the removal
+// (ops.RemovalGate, DEV-RMV-2).
+func (t tx) AdvanceEpoch() {
+	t.exec(`INSERT INTO main.meta (key, value) VALUES ('removals', '1')
+		ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`)
+}
 
 // PutObject adds a descriptor and its references (DEV-UPD-1 rules 1, KND-DEP-2). A descriptor that the
 // store has, or that the device store of the local output store has, does not change (IDN-CAN-3, BUN-IMP-8).

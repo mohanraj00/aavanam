@@ -80,13 +80,14 @@ type Store struct {
 	epoch atomic.Int64
 }
 
-// removals returns the removal epoch that a call of the store reads: the epoch of the store plus the epoch
-// of its device store, because a local output store reads the objects of its device store (BUN-IMP-8).
-func (s *Store) removals() int64 {
+// removals returns the removal epoch that a call of the store reads. A local output store reads the
+// objects of its device store (BUN-IMP-8), and a removal changes only the device store, so the two stores
+// have the epoch of the device store.
+func (s *Store) removals() *atomic.Int64 {
 	if s.device != nil {
-		return s.epoch.Load() + s.device.epoch.Load()
+		return &s.device.epoch
 	}
-	return s.epoch.Load()
+	return &s.epoch
 }
 
 // seen has the removal epoch at the start of a call.
@@ -127,10 +128,13 @@ type session struct {
 // RemovalEpoch returns the removal epoch of the store (ops.RemovalEpoch). The session keeps it: an update
 // of the session that finds a different epoch stops before its first write (ops.ErrRemoved).
 func (v session) RemovalEpoch() int64 {
-	epoch := v.s.removals()
+	epoch := v.s.removals().Load()
 	v.seen.known, v.seen.epoch = true, epoch
 	return epoch
 }
+
+// SeeRemovalEpoch gives the session the epoch that a call read at its start (ops.RemovalSeen).
+func (v session) SeeRemovalEpoch(epoch int64) { v.seen.known, v.seen.epoch = true, epoch }
 
 func (v session) Update(fn func(tx ops.Tx)) {
 	if v.s.device != nil { // the order is always the device store, then the output store
@@ -141,14 +145,14 @@ func (v session) Update(fn func(tx ops.Tx)) {
 	defer v.s.mu.Unlock()
 	// The checks of the call read the store before this update had the lock. If an update removed content
 	// after the start of the call, the dispatch runs the call again (REL-RMV-4, LIF-GC-5).
-	if v.seen.known && v.s.removals() != v.seen.epoch {
+	if v.seen.known && v.s.removals().Load() != v.seen.epoch {
 		ops.Raise(ops.ErrRemoved)
 	}
 	work := tx{view{v.s, v.s.st.clone()}}
 	fn(work)
 	if work.st.advance {
 		work.st.advance = false
-		v.s.epoch.Add(1)
+		v.s.removals().Add(1)
 	}
 	v.s.st = work.st // the commit. A panic of fn keeps the old state.
 }

@@ -228,19 +228,19 @@ func (s *Store) flush() {
 
 // sync reads the removal epoch of a storage that has one (RemovalEpoch), and returns it. If the epoch
 // changed after the last call, an update removed content, so the store drops what it kept in memory.
-func (s *Store) sync(session Session) int64 {
+func (s *Store) sync(session Session) (epoch int64, has bool) {
 	source, ok := session.(RemovalEpoch)
 	if !ok {
-		return 0
+		return 0, false
 	}
-	epoch := source.RemovalEpoch()
+	epoch = source.RemovalEpoch()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if epoch != s.epoch {
 		s.flush()
 		s.epoch = epoch
 	}
-	return epoch
+	return epoch, true
 }
 
 // Supports tells if the operation has a row with more than `unsupported` for this store: a row of the
@@ -465,8 +465,8 @@ func (s *Store) run(ctx context.Context, name string, operation jsontext.Value, 
 		Fail("field_type")
 	}
 	session := s.Storage.Session(ctx)
-	epoch := s.sync(session)
-	call = &Call{Ctx: ctx, Store: s, S: session, Operation: name, Request: value, epoch: epoch}
+	epoch, synced := s.sync(session)
+	call = &Call{Ctx: ctx, Store: s, S: session, Operation: name, Request: value, epoch: epoch, synced: synced}
 	return s.marked(call, handler(call)), false
 }
 

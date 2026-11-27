@@ -225,6 +225,12 @@ func (s racingSession) RemovalEpoch() int64 {
 	return 0
 }
 
+func (s racingSession) SeeRemovalEpoch(epoch int64) {
+	if carrier, has := s.Session.(ops.RemovalSeen); has {
+		carrier.SeeRemovalEpoch(epoch)
+	}
+}
+
 // REL-RMV-4, LIF-GC-5: a `gc_collect` or a `remove` commits after the checks of a different call and before
 // its update. The update does not write, and the call runs again on the content that the store has.
 func removalBeforeTheUpdate(t *testing.T, f *fixture) {

@@ -530,11 +530,14 @@ class Store:
     def fresh(self) -> None:
         """Empty the caches if a different open of the store file wrote to it. A different open can remove an object
         (REL-RMV-7, LIF-GC-5), and this open MUST NOT give a descriptor that the store does not have."""
-        version = self.data_version()
+        while True:  # the data version and the removal epoch of one state of the file
+            version, epoch = self.data_version(), self.removal_epoch()
+            if self.data_version() == version:
+                break
         if version != self.version:
             self.version, self.gone = version, None
             self.cache.clear()
-        self.epoch = self.removal_epoch()
+        self.epoch = epoch
 
     def data_version(self) -> int:
         """A number that changes when a different open of the store file commits a write."""
