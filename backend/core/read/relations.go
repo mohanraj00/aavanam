@@ -2,6 +2,7 @@ package read
 
 import (
 	"bytes"
+	"sort"
 
 	"github.com/mohanraj00/aavanam/backend/core/check"
 	"github.com/mohanraj00/aavanam/backend/core/envelope"
@@ -24,10 +25,14 @@ func subjectOf(c *ops.Call) (*ops.ReadContext, string) {
 // Evidence is the operation `evidence` (REL-EVD-1 to REL-EVD-3, REL-RET-3).
 func Evidence(c *ops.Call) envelope.Envelope {
 	rc, subject := subjectOf(c)
+	members := rc.Members() // in ascending order
 	reachable := map[string]struct{}{}
-	for _, r := range Records(c, rc.Members(), "relation-set") {
+	for _, r := range Records(c, members, "relation-set") {
 		for _, x := range field(r.Desc, "members").Arr {
-			reachable[x.Str] = struct{}{}
+			// CTX-OPN-4, REL-RMV-13: a record that is in the store but not in the context gives no item
+			if n := sort.SearchStrings(members, x.Str); n < len(members) && members[n] == x.Str {
+				reachable[x.Str] = struct{}{}
+			}
 		}
 	}
 	refs := ops.Sorted(reachable)

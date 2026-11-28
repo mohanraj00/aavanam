@@ -268,6 +268,51 @@ func removalBeforeTheUpdate(t *testing.T, f *fixture) {
 	}
 }
 
+// REL-RMV-9, REL-RMV-11, REL-RMV-13: a `put` adds a removed object again after the checks of an `open_context`
+// of a different call and before its update. The item reports the object in `removed` only if the context
+// does not have the object as a member.
+func putAgainBeforeTheUpdate(t *testing.T, f *fixture) {
+	data := "alpha"
+	set := `{` + profile + `,"kind":"binding-set","parameters":{"p":"1"}}`
+	reading := `{` + profile + `,"kind":"reading","source":"` + revision(t, Source(data)) + `","producer":"p","coverage_profile":"c/c/v1","payload":{"digest":"` +
+		jsontext.Digest([]byte(data)) + `","media_type":"text/plain","size":5}}`
+	record := `{` + profile + `,"kind":"evidence","subject":"` + revision(t, set) + `","supports":"` + revision(t, reading) + `","origin":"o/o/v1"}`
+	relations := `{` + profile + `,"kind":"relation-set","members":["` + revision(t, record) + `"]}`
+	if got := Summary(f.call("put", Put([]string{set, Source(data), reading, record, relations}, data))); !strings.HasPrefix(got, "ok") {
+		t.Fatal(got)
+	}
+	made := f.call("create_snapshot", `{"collection":"e","relation_sets":["`+revision(t, relations)+`"]}`)
+	if made.Status != "ok" {
+		t.Fatal(Summary(made))
+	}
+	snapshot, removed := field(made.Items[0], "ref"), revision(t, record)
+	if e := f.call("remove", `{"ref":"`+removed+`","reason":"sample request"}`); e.Status != "ok" {
+		t.Fatal(Summary(e))
+	}
+	ran := false
+	again := Racing(f.storage, func() {
+		if ran {
+			return
+		}
+		ran = true
+		if e := f.call("put", Put([]string{record})); e.Status != "ok" {
+			t.Errorf("put of the removed descriptor before the update: %s", Summary(e))
+		}
+	})
+	opened := ops.New(ops.Writer, again, Registry()).Call(context.Background(), jsontext.S("open_context"), []byte(`{"roots":["`+snapshot+`"]}`))
+	if opened.Status != "ok" || !ran {
+		t.Fatalf("open_context with a put before its update: %s", Summary(opened))
+	}
+	reported := field(opened.Items[0], "removed") != "[]"
+	support := f.call("evidence", `{"context":"`+opened.Context.Str+`","subject":"`+revision(t, set)+`"}`)
+	if support.Status != "ok" {
+		t.Fatal(Summary(support))
+	}
+	if member := len(support.Items) == 1; reported == member {
+		t.Errorf("the item reports the object in removed: %v, and the context has the object as a member: %v", reported, member)
+	}
+}
+
 // A gate declaration of a different open waits for an update that has the lock of the collection, as the
 // atomic step of a `publish` has (PUB-GAT-3, PUB-HED-3 step 5). Thus no declaration ends between the gate
 // check of that step and its commit.

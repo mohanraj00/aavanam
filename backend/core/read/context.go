@@ -194,18 +194,42 @@ func OpenContext(c *ops.Call) envelope.Envelope {
 		ops.Raise(err)
 	}
 	id := "ctx-" + hex.EncodeToString(random)
-	for n := range items { // REL-RMV-9: the store reports each object that a removal took from the view
-		removed := c.RemovedIn(items[n].Fields[0].Val.Str)
-		items[n].Fields = append(items[n].Fields[:1:1], m("removed", jsontext.Strings(removed)))
-	}
 	record := ops.ContextRecord{Roots: resolved, Capabilities: capabilities}
 	if life, has := c.Request.Get("life"); has { // CTX-LIF-1: the life starts at the time of the store clock
 		seconds, _ := life.Int()
 		record.Expires = c.Store.Millis() + seconds*1000
 	}
+	// The call reads the removed objects before its update. If it finds none, the context has each object
+	// of its closures: a removal after this read stops the update, and the call runs again (ops.ErrRemoved).
+	sawRemoved := len(c.Removed()) > 0
+	// REL-RMV-9: the store reports each object that a removal took from the view. The storage reads the
+	// removed objects in its update. A `put` of a different call can add a removed object again after the
+	// checks of this call and before that update (REL-RMV-11). Thus an item reports the references of the
+	// closure of its root that the content of the context does not have, and not the result of an earlier
+	// read (REL-RMV-13). The call reads that content in the same update: a later removal can end the context.
+	var members map[string]struct{}
 	c.S.Update(func(tx ops.Tx) { // the storage reads the closure of each root one time (KND-DEP-3)
 		tx.PutContext(id, record)
+		if sawRemoved {
+			kept := tx.Members(id)
+			members = make(map[string]struct{}, len(kept))
+			for _, ref := range kept {
+				members[ref] = struct{}{}
+			}
+		}
 	})
+	for n := range items {
+		removed := []string{}
+		if members != nil {
+			for ref := range c.References(items[n].Fields[0].Val.Str) {
+				if _, kept := members[ref]; !kept {
+					removed = append(removed, ref)
+				}
+			}
+			sort.Strings(removed)
+		}
+		items[n].Fields = append(items[n].Fields[:1:1], m("removed", jsontext.Strings(removed)))
+	}
 	return c.Envelope("ok", nil, items).WithContext(id) // CTX-OPN-2
 }
 
