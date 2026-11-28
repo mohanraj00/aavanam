@@ -3,6 +3,9 @@ __pycache__/
 .venv/
 *.sqlite
 *.sqlite-*
+# The stored forms of a release store are fixtures (fixtures/README.md).
+!/fixtures/releases/*/reference/*.sqlite
+!/fixtures/releases/*/device/*.sqlite
 *.tar
 .DS_Store
 build/

@@ -1,0 +1,108 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An export from a read context of release 0.6.0 gives the closure of its root",
+  "clauses": [
+    "MIG-VER-2",
+    "MIG-VER-4",
+    "BUN-EXP-3",
+    "KND-DEP-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "export",
+      "request": {
+        "context": {
+          "$context": "c2"
+        },
+        "roots": [
+          {
+            "$ref": "s2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u1"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u2"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b1"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b2"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              },
+              "withheld": false
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d2"
+              },
+              "withheld": false
+            }
+          }
+        ],
+        "unordered": true
+      }
+    }
+  ]
+}

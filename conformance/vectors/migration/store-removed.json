@@ -1,0 +1,57 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An object that release 0.6.0 removed stays removed in a read context of that release",
+  "clauses": [
+    "MIG-VER-2",
+    "MIG-VER-4",
+    "REL-RMV-7",
+    "REL-RMV-8"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "pair": "migration/store-evidence-ok",
+  "steps": [
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "ce"
+        },
+        "refs": [
+          {
+            "$ref": "ex1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_found",
+        "reasons": [
+          "removed"
+        ],
+        "store_unchanged": true,
+        "items": [
+          {
+            "status": "not_found",
+            "reasons": [
+              "removed"
+            ],
+            "reason_details": [
+              {
+                "code": "removed",
+                "refs": [
+                  {
+                    "$ref": "ex1"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -170,6 +170,8 @@ class Expander:
             del value['withheld']
         elif fault == 'format':
             value['format'] = 'sample/bundle/v1'
+        elif fault == 'format_major':
+            value['format'] = 'aavanam-bundle/v2'  # a different major version of the format (MIG-MAJ-2)
         elif fault in ('withheld_size', 'withheld_excerpt_range'):
             # Plant a fault behind absent bytes, with a valid root revision (BUN-IMP-9, BUN-IMP-10).
             schemas = check_spec.schemas()
@@ -871,16 +873,52 @@ def declare_problem(adapter, profiles: list[str]) -> str | None:
     return None
 
 
+def restored_result(operation: str, step: dict, request: dict, contexts: dict, bundles: dict) -> dict:
+    """Return the values that the runner binds for a step of a release store, with no call of the store.
+
+    The adapter restored the store of the step from a stored form of the release. Thus the store already has
+    the result of the step. A revision is a function of the descriptor (IDN-CAN-2), so the runner computes it.
+    A context identity and a bundle come from the files of the release.
+    """
+    schemas = check_spec.schemas()
+    if operation == 'put':
+        return {'items': [{'ref': revision(json.loads(text), schemas)} for text in request['descriptors']]}
+    if operation in CREATE_OPERATIONS:
+        field, value = created(operation, request)
+        return {'items': [{field: value}]}
+    if operation == 'open_context':
+        name = step['as_context']
+        if not isinstance(contexts.get(name), str):
+            raise VectorError(f'the restored store gave no context identity for the handle {name}')
+        return {'context': contexts[name], 'items': [{'ref': r} for r in request['roots']]}
+    if operation == 'export':
+        return {'bundle': bundles[step['as_bundle']]}
+    if operation == 'import':
+        return {'items': [{'ref': revision(json.loads(text), schemas)} for text in request['bundle']['descriptors']]}
+    return {}
+
+
 def run_vector(adapter, vid: str, vector: dict) -> list[str]:
     """Run each step of one vector. Return the problems of the first step that fails."""
     try:
+        planned = len(check_spec.release_steps(vector))  # the steps of the release store come first
+        bundles = check_spec.release_bundles(vector['release']) if planned else {}
+        release = vector.get('release')
         vector = check_spec.with_fixture(vector)
-    except ValueError as e:
+    except (ValueError, OSError) as e:
         raise VectorError(f'{vid}: {e}') from None
     adapter.reset()
     declared = [vector['profile']] if vector.get('profile', BASE_PROFILE) != BASE_PROFILE else []
     if problem := declare_problem(adapter, declared):
         return [problem]
+    # The stores that the adapter made from a stored form of the release (MIG-VER-1). A restored store is a new
+    # open, so the policies, the gates and the sections of the vector come after it.
+    restored: dict[str, dict] = {}
+    if planned and hasattr(adapter, 'restore'):
+        try:
+            restored = adapter.restore(release)
+        except Exception as e:  # noqa: BLE001  a stored form that does not open fails this vector only
+            return [f'the adapter did not open the stores of release {release}: {e!r} (MIG-VER-1)']
     expander = Expander(vid, vector)
     profiles = check_spec.reserved()
     complete = complete_operations(vector.get('profile', BASE_PROFILE))
@@ -922,57 +960,66 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
         except StepProblem as e:
             return [f'step {n} ({operation}): {e}']
         expect = expander.value(step['expect'], {})
-        if 'advance_clock' in step:
+        if n <= planned and store in restored:  # the restored store has the result of this step
             try:
-                adapter.advance(step['advance_clock'])  # CTX-LIF-2: the clock of each store, before the call
-            except Exception as e:  # noqa: BLE001  an adapter with no clock fails this vector only
-                return [f'step {n} ({operation}): the adapter did not advance the store clock: {e!r} (CTX-LIF-2)']
-        prints = {s: adapter.fingerprint(store=s) for s in check_spec.STORES}
-        before = prints[store]
-        calls.clear()
-        try:
-            actual = adapter.call(operation, copy.deepcopy(request), store=store)  # the checks use the request of the vector
-        except Exception as e:  # noqa: BLE001  STS-MAL-1: no raw exception crosses the API
-            return [f'step {n} ({operation}): the adapter raised {type(e).__name__}: {e}']
-        problems = compare(expect, actual, operation)
-        if isinstance(actual, dict):
-            problems += context_problems(operation, step, request, expect, actual)
-            base = request.get('base_context')
-            problems += bundle_problems(operation, request, expect, actual, expander.stored,
-                                        bases.get((store, base)) if isinstance(base, str) else None)
-            view = views.get((store, request.get('context')))  # LYR-LCK-1
-            problems += lock_problems(operation, request, expect, actual, view)
-            problems += value_problems(operation, actual)
-            problems += revision_problems(operation, request, expect, actual)
-            problems += created_problems(operation, request, expect, actual)
-            problems += reserved_problems(operation, expect, actual, profiles)
-            problems += complete_problems(operation, actual, complete)
-            problems += render_problems(operation, request, actual)
-        problems += validator_problems(operation, request, expect, calls)
-        if operation == 'open_context' and expect['status'] == 'ok' and not problems:
-            roots = {i['ref'] for i in actual.get('items') or [] if isinstance(i, dict) and isinstance(i.get('ref'), str)}  # CTX-OPN-1
-            if isinstance(request.get('layer'), dict):
-                roots.add(request['layer']['ref'])  # LYR-OPN-3
-            bases[(store, actual['context'])] = sorted(roots)
-        if operation == 'open_context' and isinstance(request.get('layer'), dict) and expect['status'] == 'ok' and not problems:
-            root = request['roots'][0] if request.get('roots') else actual['items'][0]['ref']  # the head snapshot (CTX-VIW-2)
-            views[(store, actual['context'])] = [root, request['layer']['ref']]
-        if expect.get('store_unchanged'):
-            problems += [f'the {s} store changed (STS-MAL-2)' for s in check_spec.STORES if adapter.fingerprint(store=s) != prints[s]]
-        if operation in LOCK_OPERATIONS and expect['status'] == 'ok' and not problems:
-            if lock_store != store and adapter.fingerprint(store=store) != prints[store]:
-                problems.append(f'the {store} store changed, but the lock goes to the {lock_store} store (BUN-IMP-7)')
-            if actual['lock'] not in kept[lock_store] and adapter.fingerprint(store=lock_store) == prints[lock_store]:
-                problems.append(f'the {lock_store} store did not change, so it has no lock (LCK-EXE-4, LCK-BLD-3)')
-            problems += stored_lock_problems(adapter, operation, request, actual['lock'], lock_store, view)
-            kept[lock_store].add(actual['lock'])
-        published = expected_item(operation, expect).get('fields', {}).get('disposition') == 'published'
-        if published and not problems and adapter.fingerprint(store=store) == before:
-            problems.append('the store did not change, so it did not record the publication (PUB-HED-3)')
-        if operation in CREATE_OPERATIONS and expect['status'] == 'ok' and not problems:
-            value = created(operation, request)[1]
-            if value not in (stored if operation == 'create_snapshot' else candidates) and adapter.fingerprint(store=store) == before:
-                problems.append('the store did not change, so it did not write the new record (PUB-SNP-3, PUB-CND-4)')
+                actual = restored_result(operation, step, request, restored[store], bundles)
+            except VectorError as e:
+                return [f'step {n} ({operation}): {e}']
+            if operation == 'open_context':
+                bases[(store, actual['context'])] = sorted(request['roots'])
+            problems = []
+        else:
+            if 'advance_clock' in step:
+                try:
+                    adapter.advance(step['advance_clock'])  # CTX-LIF-2: the clock of each store, before the call
+                except Exception as e:  # noqa: BLE001  an adapter with no clock fails this vector only
+                    return [f'step {n} ({operation}): the adapter did not advance the store clock: {e!r} (CTX-LIF-2)']
+            prints = {s: adapter.fingerprint(store=s) for s in check_spec.STORES}
+            before = prints[store]
+            calls.clear()
+            try:
+                actual = adapter.call(operation, copy.deepcopy(request), store=store)  # the checks use the request of the vector
+            except Exception as e:  # noqa: BLE001  STS-MAL-1: no raw exception crosses the API
+                return [f'step {n} ({operation}): the adapter raised {type(e).__name__}: {e}']
+            problems = compare(expect, actual, operation)
+            if isinstance(actual, dict):
+                problems += context_problems(operation, step, request, expect, actual)
+                base = request.get('base_context')
+                problems += bundle_problems(operation, request, expect, actual, expander.stored,
+                                            bases.get((store, base)) if isinstance(base, str) else None)
+                view = views.get((store, request.get('context')))  # LYR-LCK-1
+                problems += lock_problems(operation, request, expect, actual, view)
+                problems += value_problems(operation, actual)
+                problems += revision_problems(operation, request, expect, actual)
+                problems += created_problems(operation, request, expect, actual)
+                problems += reserved_problems(operation, expect, actual, profiles)
+                problems += complete_problems(operation, actual, complete)
+                problems += render_problems(operation, request, actual)
+            problems += validator_problems(operation, request, expect, calls)
+            if operation == 'open_context' and expect['status'] == 'ok' and not problems:
+                roots = {i['ref'] for i in actual.get('items') or [] if isinstance(i, dict) and isinstance(i.get('ref'), str)}  # CTX-OPN-1
+                if isinstance(request.get('layer'), dict):
+                    roots.add(request['layer']['ref'])  # LYR-OPN-3
+                bases[(store, actual['context'])] = sorted(roots)
+            if operation == 'open_context' and isinstance(request.get('layer'), dict) and expect['status'] == 'ok' and not problems:
+                root = request['roots'][0] if request.get('roots') else actual['items'][0]['ref']  # the head snapshot (CTX-VIW-2)
+                views[(store, actual['context'])] = [root, request['layer']['ref']]
+            if expect.get('store_unchanged'):
+                problems += [f'the {s} store changed (STS-MAL-2)' for s in check_spec.STORES if adapter.fingerprint(store=s) != prints[s]]
+            if operation in LOCK_OPERATIONS and expect['status'] == 'ok' and not problems:
+                if lock_store != store and adapter.fingerprint(store=store) != prints[store]:
+                    problems.append(f'the {store} store changed, but the lock goes to the {lock_store} store (BUN-IMP-7)')
+                if actual['lock'] not in kept[lock_store] and adapter.fingerprint(store=lock_store) == prints[lock_store]:
+                    problems.append(f'the {lock_store} store did not change, so it has no lock (LCK-EXE-4, LCK-BLD-3)')
+                problems += stored_lock_problems(adapter, operation, request, actual['lock'], lock_store, view)
+                kept[lock_store].add(actual['lock'])
+            published = expected_item(operation, expect).get('fields', {}).get('disposition') == 'published'
+            if published and not problems and adapter.fingerprint(store=store) == before:
+                problems.append('the store did not change, so it did not record the publication (PUB-HED-3)')
+            if operation in CREATE_OPERATIONS and expect['status'] == 'ok' and not problems:
+                value = created(operation, request)[1]
+                if value not in (stored if operation == 'create_snapshot' else candidates) and adapter.fingerprint(store=store) == before:
+                    problems.append('the store did not change, so it did not write the new record (PUB-SNP-3, PUB-CND-4)')
         if problems:
             return [f'step {n} ({operation}): {p}' for p in problems]
         if operation in ('put', 'import') and expect['status'] == 'ok' and isinstance(actual.get('items'), list):
@@ -986,7 +1033,8 @@ def run_vector(adapter, vid: str, vector: dict) -> list[str]:
         if 'as_bundle' in step:
             if not isinstance(actual.get('bundle'), dict):
                 return [f'step {n} ({operation}): no bundle for handle {step["as_bundle"]} (BUN-EXP-2)']
-            expander.bundles[step['as_bundle']] = actual['bundle']
+            # A step of a release store gives the bundle that the release exported, also if this run made the call.
+            expander.bundles[step['as_bundle']] = bundles[step['as_bundle']] if n <= planned else actual['bundle']
         if operation in CREATE_OPERATIONS:
             field, value = created(operation, request)  # created_problems() checked it.
             if operation == 'create_snapshot':

@@ -225,6 +225,27 @@ class BackendAdapter:
             driver.request({'cmd': 'reset'})
         self.open_local()
 
+    def restore(self, release: str) -> dict:
+        """Make each store from the stored form that a release wrote (MIG-VER-1). Return the context identities
+        of each store that has such a form, by the handles of the release. A driver whose storage has no stored
+        form, for example the storage in memory, keeps its empty store. The runner calls it after `reset`."""
+        folder = ROOT / 'fixtures' / 'releases' / release
+        contexts: dict = {}
+        forms = {'writer': ('backend', 'postgresql.sql', ('writer',)), 'device': ('device', '', ('device', 'output'))}
+        for role, (form, name, stores) in forms.items():
+            if role not in self.drivers:
+                continue
+            if self.drivers[role].request({'cmd': 'restore', 'path': str(folder / form / name)}).get('restored') is True:
+                recorded = json.loads((folder / form / 'contexts.json').read_text())
+                contexts.update({store: recorded.get(store, {}) for store in stores})
+        roles = [role for role in ('writer', 'device') if role in self.local]
+        if roles:
+            from store_adapter import release_stores  # the files of the reference store of the release
+            self.copies = tempfile.mkdtemp(prefix='release-', dir=self.folder)
+            self.local, local = release_stores(release, self.copies, self.local, roles)
+            contexts.update(local)
+        return contexts
+
     def declare(self, profiles) -> None:
         """Make each store declare the profiles (LYR-PRF-1, IDX-PRF-1). The runner calls it after `reset`, so
         each store is empty. A driver makes new stores for the command `declare`."""

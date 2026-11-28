@@ -18,6 +18,7 @@ This document adds no operation, no status and no reason. Documents 11 and 20 gi
 | `OUT` | The output file |
 | `UPD` | The transaction of an import |
 | `RMV` | The transaction of a removal |
+| `MIG` | A file of an earlier version of the layout |
 
 ## Clauses
 
@@ -49,7 +50,7 @@ This document adds no operation, no status and no reason. Documents 11 and 20 gi
 | `deferred` | `digest`, `ref` | One record of BUN-IMP-10: the descriptor `ref` has a deferred check that needs the bytes of `digest`. The key is the two columns |
 | `imports` | `seq` (key), `roots` | One `ok` import (DEV-UPD-2) |
 | `contexts` | `id` (key), `roots`, `capabilities` | One read context (CTX-OPN-2). `roots` and `capabilities` are JSON lists |
-| `context_ends` | `id` (key), `expires` | The end of the declared life of one read context (DEV-LAY-5). A context with no `life` has no row |
+| `context_ends` | `id` (key), `expires` | The end of the declared life of one read context (DEV-LAY-6). A context with no `life` has no row |
 | `closures` | `root`, `member` | Derived. The object `member` is in the closure of `root` (KND-DEP-3). The key is the two columns |
 | `table_rows` | `digest`, `idx`, `row` | Derived. Row `idx` of the table payload `digest` (`aavanam/table/v1`), in the table order, from 0. `row` is the RFC 8785 bytes of the row |
 | `text_docs` | `id` (key), `digest` | Derived. One indexed digest (DEV-FTS-2). `id` is an integer, and `digest` has no duplicate |
@@ -57,7 +58,9 @@ This document adds no operation, no status and no reason. Documents 11 and 20 gi
 
 **DEV-LAY-4.** The tables `edges`, `closures`, `table_rows`, `text_docs` and `text_index` are a function of `objects` and `payloads`. `edges` comes only from the typed reference fields of the descriptors (KND-DEP-2). A rebuild of these tables from `objects` and `payloads` MUST give the same rows, except the `id` values of `text_docs`. A store can add the rows of `closures` and `table_rows` at the first use of a root or of a table. No operation gives a value from a derived table without the descriptor or the payload bytes that the value comes from.
 
-**DEV-LAY-5.** The column `expires` of `context_ends` is an `INTEGER`: the end of the declared life of the context, in milliseconds from 1970-01-01T00:00:00Z (CTX-LIF-2). The table `contexts` keeps its three columns, so a reader of an earlier version of this layout reads the file. That reader does not read `context_ends`, so it does not end a context at the end of its life. A file of an earlier version has no table `context_ends`. Before a store uses such a file, it MUST add the table. Thus each context of that file has no declared life. When a read context ends, the store removes its `contexts` row and its `context_ends` row, or it does not use the rows again (CTX-LIF-5).
+**DEV-LAY-5.** (withdrawn) DEV-LAY-6 replaces this clause. This clause told a store to add the table `context_ends` before it used a file of an earlier version. Thus a program that only read such a file changed it. DEV-LAY-6 keeps the other rules of this clause, and DEV-MIG-2 gives the time of the addition.
+
+**DEV-LAY-6.** The column `expires` of `context_ends` is an `INTEGER`: the end of the declared life of the context, in milliseconds from 1970-01-01T00:00:00Z (CTX-LIF-2). The table `contexts` keeps its three columns, so a reader of an earlier version of this layout reads the file. That reader does not read `context_ends`, so it does not end a context at the end of its life. A file of an earlier version has no table `context_ends`. Each context of that file has no declared life, and DEV-MIG-2 states when a store adds the table. When a read context ends, the store removes its `contexts` row and its `context_ends` row, or it does not use the rows again (CTX-LIF-5).
 
 ### Text index
 
@@ -112,3 +115,18 @@ If the import is not `ok`, the transaction MUST roll back, and the two files do 
 **DEV-RMV-1.** Each `gc_collect` on the device store is one `BEGIN IMMEDIATE` transaction on the device file. The store reads the objects and the open read contexts of the output file for the retained roots (BUN-RMV-1), and it MUST NOT write to the output file. For each object that the call removes (LIF-GC-5), the transaction deletes its `objects` row, each `edges` row with the object as `src`, each `deferred` row with the object as `ref`, and each `closures` row with the object as `root` or as `member`. For each payload digest that the call removes, the transaction deletes its `payloads` row, its `table_rows` rows, its `text_docs` row and the row of `text_index` with that row ID. The transaction MUST NOT delete an `imports` row or a `meta` row. After the transaction, the derived tables agree with DEV-LAY-4 and DEV-FTS-2. If the call is not `ok`, the transaction MUST roll back.
 
 **DEV-RMV-2.** The device file can have a `meta` row with the key `removals`. Its value is a decimal integer of 1 or more: the number of transactions of DEV-RMV-1 that removed an object or payload bytes. A file with no such row has the count 0. Each transaction of DEV-RMV-1 that removes an object or payload bytes MUST add 1 to the count in that transaction. More than one program can have the two files open at the same time. A store that keeps a descriptor, a table head or other content of the device file in memory MUST read the count at the start of each call, and it MUST drop that content if the count changed. An update of the device file or of the output file that follows a check of content MUST read the count after it has the write lock of its file. If the count is not the count at the start of the call, the update MUST NOT write, and the store applies the checks of the call again. A reader of an earlier version of this layout does not read the row. That reader does not have this protection.
+
+### A file of an earlier version
+
+**DEV-MIG-1.** A file of an earlier version of this layout has the `meta` rows of DEV-PRF-2, with the layout identity `aavanam/device-sqlite/v1`. It can be different from a file of this version only in these points:
+
+| Difference | A store of this version |
+|---|---|
+| The file has no table `context_ends` | It reads the file as a file whose table `context_ends` has no row (DEV-LAY-6) |
+| The device file has no `meta` row `removals` | It reads the count 0 (DEV-RMV-2) |
+
+A store of this version MUST open such a file, and document 25 gives the results of its operations (MIG-VER-2).
+
+**DEV-MIG-2.** A file can have no table `context_ends`. A store adds the table in the transaction that adds its first row. This is the transaction of an `open_context` with `life` (DEV-UPD-3). It adds the `meta` row `removals` in the first transaction of DEV-RMV-1 that removes an object or payload bytes (DEV-RMV-2). A store MUST NOT add a table or a `meta` row to a file of an earlier version at a different time, and it MUST NOT change a row that the earlier version wrote, except as DEV-UPD-3 and DEV-RMV-1 permit.
+
+**DEV-MIG-3.** The open of the two files MUST NOT change a byte of the device file or of the output file. A call that adds, changes or removes no row MUST NOT change a byte of the two files either. Thus a program does not change a file of an earlier version if it only reads through a read context that the file has, and if no read adds a derived row. A read can add a derived row at the first use of a table, as DEV-LAY-4 permits. The files that SQLite keeps beside a database file, for example `device.sqlite-wal`, are not the device file.

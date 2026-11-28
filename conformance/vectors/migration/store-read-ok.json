@@ -1,0 +1,113 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A writer store of release 0.6.0 opens, and a read context of that release gives its members and their bytes",
+  "clauses": [
+    "MIG-VER-1",
+    "MIG-VER-2",
+    "MIG-VER-4",
+    "QRY-GET-1",
+    "CRD-READ-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "c1"
+        },
+        "refs": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "u1"
+          },
+          {
+            "$ref": "b1"
+          },
+          {
+            "$ref": "d1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    },
+    {
+      "operation": "read",
+      "request": {
+        "context": {
+          "$context": "c1"
+        },
+        "ref": {
+          "$ref": "d1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              },
+              "kind": "artifact",
+              "data": "Q2hlY2sgdGhlIHB1bXAgc2VhbCBldmVyeSB3ZWVrLgo="
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

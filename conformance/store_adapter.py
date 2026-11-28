@@ -1,15 +1,41 @@
 """The conformance adapter of the reference implementation in src/. Run: python3 -B conformance/runner.py --adapter store_adapter:StoreAdapter"""
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import sys
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'src'))
 
 from aavanam import Store  # noqa: E402
 from aavanam.store import raw_form  # noqa: E402
+
+
+def release_stores(release: str, folder: str, stores: dict, roles=('writer', 'device')) -> tuple[dict, dict]:
+    """Replace the stores of `roles` with stores on copies of the files of a release store, in `folder`.
+    Return the stores and the context identities of each new store. The fixture files do not change."""
+    source = ROOT / 'fixtures' / 'releases' / release / 'reference'
+    recorded = json.loads((source / 'contexts.json').read_text())
+    stores, contexts = dict(stores), {}
+    debug, profiles = bool(os.environ.get('AAVANAM_DEBUG')), next(iter(stores.values())).profiles
+    for role in roles:
+        stores[role].close()  # the device store closes its output store
+        names = ('device', 'output') if role == 'device' else (role,)
+        paths = {n: os.path.join(folder, f'{n}.sqlite') for n in names}
+        for name, path in paths.items():
+            shutil.copyfile(source / f'{name}.sqlite', path)
+            contexts[name] = recorded.get(name, {})
+        if role == 'device':
+            stores['device'] = Store(paths['device'], debug=debug, role='device', output_path=paths['output'], profiles=profiles)
+            stores['output'] = stores['device'].output
+        else:
+            stores[role] = Store(paths[role], debug=debug, role=role, profiles=profiles)
+    return stores, contexts
 
 
 class StoreAdapter:
@@ -21,10 +47,23 @@ class StoreAdapter:
         device = Store(debug=debug, role='device', profiles=profiles)  # with its local output store (BUN-IMP-5)
         self.stores = {'writer': Store(debug=debug, profiles=profiles), 'device': device, 'output': device.output}
 
+    copies = None  # the folder with the copies of the files of a release store
+
     def reset(self, profiles=()) -> None:
         for store in ('writer', 'device'):  # the device store closes its output store
             self.stores[store].close()
+        if self.copies:
+            self.copies.cleanup()
+            self.copies = None
         self.__init__(profiles)
+
+    def restore(self, release: str) -> dict:
+        """Open copies of the three files that the reference store of a release wrote (MIG-VER-1). Return the
+        context identities of each store, by the handles of the release. The runner calls it after reset()."""
+        self.reset(self.stores['writer'].profiles)
+        self.copies = tempfile.TemporaryDirectory(prefix='aavanam-release-')
+        self.stores, contexts = release_stores(release, self.copies.name, self.stores)
+        return contexts
 
     def declare(self, profiles) -> None:
         self.reset(profiles)  # the runner calls it after reset(), so each store is empty (LYR-PRF-1)

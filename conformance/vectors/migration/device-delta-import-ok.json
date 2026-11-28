@@ -1,0 +1,230 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A device store of release 0.6.0 imports the delta bundle that the release exported",
+  "clauses": [
+    "MIG-TRF-1",
+    "MIG-VER-2",
+    "BUN-DLT-4",
+    "BUN-DLT-5",
+    "CRD-TXT-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "import",
+      "request": {
+        "bundle": {
+          "$bundle": "x2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d2"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      },
+      "store": "device"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "store": "device",
+      "as_context": "dc2"
+    },
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "dc2"
+        },
+        "refs": [
+          {
+            "$ref": "s2"
+          },
+          {
+            "$ref": "u1"
+          },
+          {
+            "$ref": "u2"
+          },
+          {
+            "$ref": "b1"
+          },
+          {
+            "$ref": "b2"
+          },
+          {
+            "$ref": "d1"
+          },
+          {
+            "$ref": "d2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d2"
+              }
+            }
+          }
+        ]
+      },
+      "store": "device"
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "dc2"
+        },
+        "query": "gasket"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d2"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s2"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 18,
+                "end": 24
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      },
+      "store": "device"
+    }
+  ]
+}

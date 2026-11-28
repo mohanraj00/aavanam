@@ -83,6 +83,8 @@ type message struct {
 	Raw *string `json:"raw"`
 	// Bundle is the bundle of the command `raw_bundle` (BUN-RAW-3).
 	Bundle json.RawMessage `json:"bundle"`
+	// Path is the stored form of the command `restore`: a file or a folder of a release store.
+	Path string `json:"path"`
 }
 
 // RawStore is a Store that has the raw bundle form (BUN-RAW-3, BUN-RAW-4).
@@ -91,6 +93,13 @@ type RawStore interface {
 	ImportRaw(store string, raw []byte, validate Validate) (json.RawMessage, error)
 	// RawBundle returns a raw form of a bundle.
 	RawBundle(bundle json.RawMessage) ([]byte, error)
+}
+
+// Restorer is a Store that can make its stores from a stored form that an earlier release wrote (MIG-VER-1).
+type Restorer interface {
+	// Restore makes each store of the driver from the stored form at path. Each store keeps its declared
+	// profiles. It returns false, and it changes no store, if the storage of the driver has no stored form.
+	Restore(path string) (bool, error)
 }
 
 type answer struct {
@@ -248,6 +257,19 @@ func handle(s Store, line []byte, validate Validate) ([][]byte, error) {
 			return nil, errors.New("section needs collection and section")
 		}
 		return ok, s.Section(m.Collection, m.Section)
+	case "restore":
+		if m.Path == "" {
+			return nil, errors.New("restore needs path")
+		}
+		restored := false
+		if r, has := s.(Restorer); has {
+			var err error
+			if restored, err = r.Restore(m.Path); err != nil {
+				return nil, err
+			}
+		}
+		b, err := json.Marshal(map[string]bool{"restored": restored})
+		return [][]byte{b}, err
 	case "clock":
 		if m.Advance == nil || *m.Advance < 0 {
 			return nil, errors.New("clock needs advance, a number of seconds that is 0 or more")

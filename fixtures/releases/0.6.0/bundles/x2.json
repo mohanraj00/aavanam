@@ -1,0 +1,18 @@
+{
+  "base": [
+    "sha256:254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad"
+  ],
+  "descriptors": [
+    "{\"artifact_type\":\"sample/document/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:5b7c1f37c62f8f96411319d9ea754eb10f0c1b9ed0c970f203efb078fad09017\",\"media_type\":\"text/plain\",\"size\":36}}",
+    "{\"collection\":\"sample-manual\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"units\":[\"sha256:c53bd7f65fa657c2f8d86ff4eaa60062bf3a8213d5065d58ffedfa4e02b85baf\",\"sha256:e7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb\"]}",
+    "{\"binding_set\":\"sha256:f035eb57fd6ebd62f42685f3af84a2246009665fe6ed2c8570a98c32b93ff5bf\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}",
+    "{\"bindings\":{\"doc\":\"sha256:9083fb08df48de39f4aa74bf35c75ba024c99c4fb4e314d95368ea5a54f1d48f\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\"}"
+  ],
+  "format": "aavanam-bundle/v1",
+  "payloads": {
+    "sha256:5b7c1f37c62f8f96411319d9ea754eb10f0c1b9ed0c970f203efb078fad09017": "UmVwbGFjZSB0aGUgdmFsdmUgZ2Fza2V0IGVhY2ggeWVhci4K"
+  },
+  "roots": [
+    "sha256:925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2"
+  ]
+}

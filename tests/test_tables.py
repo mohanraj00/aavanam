@@ -108,7 +108,7 @@ class StatesTest(unittest.TestCase):  # SPEC.md, "Document states"
         return {**self.documents, prefix: (name, text.replace(old, new))}
 
     def test_each_document_is_normative_and_no_topic_is_draft(self):
-        self.assertEqual(len(self.documents), 24)
+        self.assertEqual(len(self.documents), 25)
         self.assertEqual(check_spec.check_states(self.documents, self.readme), [])
 
     def test_an_unknown_state_is_a_problem(self):

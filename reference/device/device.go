@@ -36,8 +36,9 @@ const (
 	OutputFile = "output.sqlite"
 )
 
-// contextEnds is the table of the end of the declared life of a read context (DEV-LAY-5). A file of an
-// earlier version of the layout does not have it, so each open of a file makes it if it is not there.
+// contextEnds is the table of the end of the declared life of a read context (DEV-LAY-6). A file of an
+// earlier version of the layout does not have it. The store adds it in the transaction that adds its first
+// row (DEV-MIG-2), so an open and a read do not change such a file (DEV-MIG-3).
 const contextEnds = `CREATE TABLE IF NOT EXISTS main.context_ends (id TEXT PRIMARY KEY, expires INTEGER NOT NULL)`
 
 // tables has the tables of both files (DEV-LAY-3, DEV-OUT-1). The indexes are not tables.
@@ -115,6 +116,8 @@ type Store struct {
 	// known is the removal count of the device file at the last call of this open (DEV-RMV-2). If the
 	// count changes, a transaction of DEV-RMV-1 removed content, and the open drops its table heads.
 	known atomic.Int64
+	// ends is true after a read found the table `context_ends` in the file of the store (DEV-MIG-1).
+	ends atomic.Bool
 }
 
 // removalCount is the `meta` row of the removal count of the device file (DEV-RMV-2): `{d}` is the schema
@@ -200,10 +203,37 @@ func (s *Store) checkLayout() error {
 		return fmt.Errorf("the %s file is not a store of %s: objects.kind has type %q, want BLOB (DEV-LAY-2 rule 2)",
 			s.role, Layout, kindType)
 	}
-	if _, err := s.db.Exec(contextEnds); err != nil { // DEV-LAY-5: a file of an earlier version gets the table
-		return fmt.Errorf("the %s file has no table context_ends, and the store cannot add it (DEV-LAY-5): %w", s.role, err)
+	return nil // DEV-MIG-3: the open adds no table to a file of an earlier version
+}
+
+// noEnds stands for the table `context_ends` in a query on a file that does not have it: a table with no
+// row (DEV-MIG-1).
+const noEnds = `(SELECT NULL AS id, 0 AS expires WHERE 0)`
+
+// hasEnds tells if the file of the store has the table `context_ends`. A file does not lose the table, so
+// the store keeps the answer yes. It keeps it only from a read with no update, because an update that
+// adds the table can roll back. A different program can add the table, so the answer no is not kept.
+func (v view) hasEnds() bool {
+	if v.s.ends.Load() {
+		return true
 	}
-	return nil
+	var count int
+	err := v.q.QueryRowContext(v.ctx, `SELECT count(*) FROM main.sqlite_master WHERE type = 'table' AND name = 'context_ends'`).Scan(&count)
+	if err != nil {
+		ops.Raise(err)
+	}
+	if count == 1 && v.work == nil {
+		v.s.ends.Store(true)
+	}
+	return count == 1
+}
+
+// ends returns the query with the table `context_ends` of the file in the place of `{e}`.
+func (v view) ends(query string) string {
+	if v.hasEnds() {
+		return strings.ReplaceAll(query, "{e}", "main.context_ends")
+	}
+	return strings.ReplaceAll(query, "{e}", noEnds)
 }
 
 // connector opens connections to one file. A connection of the output file attaches the device file.
@@ -420,12 +450,13 @@ func (v view) ProducerRemovals(string) []ops.Removal        { return nil }
 func (v view) ProducerEntries(string, string) []ops.Entry   { return nil }
 
 // Context reads the record of a read context, and the end of its declared life from `context_ends`
-// (DEV-LAY-5). A context with no row there has no declared life.
+// (DEV-LAY-6). A context with no row there has no declared life, and so does each context of a file with
+// no such table (DEV-MIG-1).
 func (v view) Context(id string) (ops.ContextRecord, bool) {
 	var roots, capabilities []byte
 	var expires int64
-	err := v.q.QueryRowContext(v.ctx, `SELECT x.roots, x.capabilities,
-		coalesce((SELECT e.expires FROM main.context_ends e WHERE e.id = x.id), 0) FROM main.contexts x WHERE x.id = ?`, id).
+	err := v.q.QueryRowContext(v.ctx, v.ends(`SELECT x.roots, x.capabilities,
+		coalesce((SELECT e.expires FROM {e} e WHERE e.id = x.id), 0) FROM main.contexts x WHERE x.id = ?`), id).
 		Scan(&roots, &capabilities, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ops.ContextRecord{}, false
@@ -484,12 +515,12 @@ func (v view) ContextsWith(ref string) []string {
 }
 
 func (v view) OpenRoots(now int64) []string {
-	return v.own(`SELECT DISTINCT unhex(substr(r.value, 8)) AS k FROM main.contexts x, json_each(x.roots) r
-		WHERE NOT EXISTS (SELECT 1 FROM main.context_ends e WHERE e.id = x.id AND e.expires <= ?) ORDER BY k`, now)
+	return v.own(v.ends(`SELECT DISTINCT unhex(substr(r.value, 8)) AS k FROM main.contexts x, json_each(x.roots) r
+		WHERE NOT EXISTS (SELECT 1 FROM {e} e WHERE e.id = x.id AND e.expires <= ?) ORDER BY k`), now)
 }
 
 func (v view) EndedContexts(now int64) []string {
-	return v.strings(`SELECT id FROM main.context_ends WHERE expires <= ? ORDER BY id`, now)
+	return v.strings(v.ends(`SELECT id FROM {e} WHERE expires <= ? ORDER BY id`), now)
 }
 
 // OwnObjects reads only the file of the store (BUN-RMV-2).
@@ -968,16 +999,21 @@ func (t tx) PutContext(id string, record ops.ContextRecord) {
 	}
 	t.exec(`INSERT INTO main.contexts (id, roots, capabilities) VALUES (?, ?, ?)`, id, list(record.Roots),
 		list(record.Capabilities))
-	if record.Expires != 0 { // DEV-LAY-5: only a context with a declared life has a row
+	if record.Expires != 0 { // DEV-LAY-6: only a context with a declared life has a row
+		t.exec(contextEnds) // DEV-MIG-2: a file of an earlier version gets the table with its first row
 		t.exec(`INSERT INTO main.context_ends (id, expires) VALUES (?, ?)`, id, record.Expires)
 	}
 }
 
-// DeleteContexts removes the `contexts` row and the `context_ends` row of each context (DEV-LAY-5).
+// DeleteContexts removes the `contexts` row and the `context_ends` row of each context (DEV-LAY-6). A
+// file with no table `context_ends` has no such row (DEV-MIG-1).
 func (t tx) DeleteContexts(ids []string) {
+	ends := len(ids) > 0 && t.hasEnds()
 	for _, id := range ids {
 		t.exec(`DELETE FROM main.contexts WHERE id = ?`, id)
-		t.exec(`DELETE FROM main.context_ends WHERE id = ?`, id)
+		if ends {
+			t.exec(`DELETE FROM main.context_ends WHERE id = ?`, id)
+		}
 	}
 }
 

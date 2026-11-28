@@ -42,15 +42,19 @@ type Backing interface {
 type Core struct {
 	// Open makes the empty storage of each store of the driver. Reset calls it.
 	Open func() (map[string]Backing, error)
+	// Stored makes the storage of each store from a stored form that an earlier release wrote (MIG-VER-1).
+	// A driver whose storage has no stored form leaves it nil.
+	Stored func(path string) (map[string]Backing, error)
 	// Debug lets a defect of an operation stop the driver, in place of `storage_error`.
 	Debug bool
 
 	mu       sync.RWMutex // the read binding of a driver reads the stores from a different goroutine
 	stores   map[string]*ops.Store
 	backings map[string]Backing
-	validate Validate     // the validator connection of the call in progress
-	failure  error        // a failure of the validator connection in the call in progress
-	ahead    atomic.Int64 // the time that the clock of each store is ahead of the system clock, in nanoseconds
+	declared kinds.Profiles // the profiles that each store declares
+	validate Validate       // the validator connection of the call in progress
+	failure  error          // a failure of the validator connection in the call in progress
+	ahead    atomic.Int64   // the time that the clock of each store is ahead of the system clock, in nanoseconds
 }
 
 // Reset makes each store empty, with no policy, gate or section. Each store declares no profile, and the
@@ -81,6 +85,29 @@ func (c *Core) open(declared kinds.Profiles) error {
 	if err != nil {
 		return err
 	}
+	c.use(backings, declared)
+	return nil
+}
+
+// Restore makes each store from the stored form at path, with the profiles of the last Reset or Declare.
+// It returns false if the driver has no stored form (Restorer).
+func (c *Core) Restore(path string) (bool, error) {
+	if c.Stored == nil {
+		return false, nil
+	}
+	backings, err := c.Stored(path)
+	if err != nil {
+		return false, err
+	}
+	c.mu.RLock()
+	declared := c.declared
+	c.mu.RUnlock()
+	c.use(backings, declared)
+	return true, nil
+}
+
+// use makes the stores of the driver on the given storage.
+func (c *Core) use(backings map[string]Backing, declared kinds.Profiles) {
 	registry := Registry()
 	stores := map[string]*ops.Store{}
 	for name, backing := range backings {
@@ -94,9 +121,8 @@ func (c *Core) open(declared kinds.Profiles) error {
 		device.Output = stores["output"] // BUN-IMP-7
 	}
 	c.mu.Lock()
-	c.backings, c.stores = backings, stores
+	c.backings, c.stores, c.declared = backings, stores, declared
 	c.mu.Unlock()
-	return nil
 }
 
 func (c *Core) store(name string) (*ops.Store, error) {

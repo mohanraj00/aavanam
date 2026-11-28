@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -198,9 +199,25 @@ func TestRemovalContract(t *testing.T) {
 	})
 }
 
-// DEV-LAY-5: a file of an earlier version of the layout has no table `context_ends`. An open of the file
-// adds the table, and the table `contexts` keeps its three columns.
-func TestOpenAddsContextEnds(t *testing.T) {
+// fileDigests returns the SHA-256 digest of the bytes of the device file and of the output file.
+func fileDigests(t *testing.T, dir string) [2][sha256.Size]byte {
+	t.Helper()
+	var out [2][sha256.Size]byte
+	for n, name := range []string{DeviceFile, OutputFile} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out[n] = sha256.Sum256(data)
+	}
+	return out
+}
+
+// DEV-MIG-1 to DEV-MIG-3 and DEV-LAY-6: a file of an earlier version of the layout has no table
+// `context_ends`. The open and the reads do not change a byte of the two files, and each context of the
+// file has no declared life. An update with no declared life does not add the table. The update that adds
+// the first row of the table adds the table, and the table `contexts` keeps its three columns.
+func TestEarlierFileGetsContextEndsWithItsFirstRow(t *testing.T) {
 	dir := t.TempDir()
 	if err := Create(dir); err != nil {
 		t.Fatal(err)
@@ -210,28 +227,80 @@ func TestOpenAddsContextEnds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = db.Exec(`DROP TABLE context_ends; INSERT INTO contexts (id, roots, capabilities) VALUES ('old', CAST('[]' AS BLOB), CAST('[]' AS BLOB))`)
+		_, err = db.Exec(`DROP TABLE context_ends; INSERT INTO contexts (id, roots, capabilities) VALUES ('old', CAST('[]' AS BLOB), CAST('[]' AS BLOB));
+			PRAGMA wal_checkpoint(TRUNCATE)`)
 		db.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
+	before := fileDigests(t, dir)
 	dev, out, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dev.Close()
 	defer out.Close()
+	tables := func(s *Store) int {
+		var count int
+		if err := s.db.QueryRow(`SELECT count(*) FROM main.sqlite_master WHERE name = 'context_ends'`).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		return count
+	}
 	for _, s := range []*Store{dev, out} {
+		r := s.Session(context.Background())
+		if record, ok := r.Context("old"); !ok || record.Expires != 0 {
+			t.Errorf("%s: a context of the earlier layout: %+v, %t", s.role, record, ok)
+		}
+		if ended := r.EndedContexts(5); len(ended) != 0 {
+			t.Errorf("%s: a file with no table context_ends has the ended contexts %v", s.role, ended)
+		}
+		_ = r.OpenRoots(5)
+		if tables(s) != 0 { // a write goes to the write-ahead log first, so the digest does not show it yet
+			t.Errorf("%s: the open or a read added the table context_ends (DEV-MIG-3)", s.role)
+		}
+	}
+	// A write goes to the write-ahead log first. The close moves it into the file, so the digest after the
+	// close shows each write of the open and of the reads.
+	if err := out.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dev.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if fileDigests(t, dir) != before {
+		t.Error("the open, the reads and the close changed a file of the earlier layout (DEV-MIG-3)")
+	}
+	if dev, out, err = Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	defer out.Close()
+	for _, s := range []*Store{dev, out} {
+		s.Session(context.Background()).Update(func(tx ops.Tx) {
+			tx.PutContext("plain", ops.ContextRecord{})
+			tx.DeleteContexts([]string{"plain"})
+		})
+		if tables(s) != 0 {
+			t.Errorf("%s: an update with no declared life added the table context_ends (DEV-MIG-2)", s.role)
+		}
 		s.Session(context.Background()).Update(func(tx ops.Tx) {
 			tx.PutContext("new", ops.ContextRecord{Expires: 5})
 		})
+		if tables(s) != 1 {
+			t.Errorf("%s: the update that adds the first row did not add the table context_ends (DEV-MIG-2)", s.role)
+		}
 		r := s.Session(context.Background())
 		if record, ok := r.Context("old"); !ok || record.Expires != 0 {
 			t.Errorf("%s: a context of the earlier layout: %+v, %t", s.role, record, ok)
 		}
 		if record, ok := r.Context("new"); !ok || record.Expires != 5 || !reflect.DeepEqual(r.EndedContexts(5), []string{"new"}) {
 			t.Errorf("%s: a context with a life in a file of the earlier layout: %+v", s.role, record)
+		}
+		s.Session(context.Background()).Update(func(tx ops.Tx) { tx.DeleteContexts([]string{"new"}) })
+		if _, ok := s.Session(context.Background()).Context("new"); ok {
+			t.Errorf("%s: the context stays after DeleteContexts", s.role)
 		}
 		var columns int
 		if err := s.db.QueryRow(`SELECT count(*) FROM pragma_table_info('contexts')`).Scan(&columns); err != nil || columns != 3 {

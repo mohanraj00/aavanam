@@ -1,0 +1,47 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A writer store of release 0.6.0 gives the publication record of that release",
+  "clauses": [
+    "MIG-VER-2",
+    "PUB-LOG-2",
+    "PUB-LOG-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "publications",
+      "request": {
+        "collection": "sample-manual"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "store_unchanged": true,
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "candidate": {
+                "$ref": "k1"
+              },
+              "receipt": {
+                "$ref": "r1"
+              },
+              "activation": null,
+              "previous_head": null,
+              "head": {
+                "$ref": "s1"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

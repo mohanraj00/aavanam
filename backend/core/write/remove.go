@@ -279,7 +279,7 @@ func Collect(c *ops.Call) envelope.Envelope {
 			tx.DeleteCandidates(candidates)
 		}
 		// A context whose life ended is not a read context of the store, so its record goes (CTX-LIF-5,
-		// DEV-LAY-5). The call removes no read context that is open (LIF-GC-5).
+		// DEV-LAY-6). The call removes no read context that is open (LIF-GC-5).
 		tx.DeleteContexts(tx.EndedContexts(c.Store.Millis()))
 		if len(refs)+len(payloads)+len(candidates) > 0 {
 			advanceEpoch(tx)
