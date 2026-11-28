@@ -116,6 +116,80 @@ class RemovalTest(unittest.TestCase):
         got = store.call('get', {'context': result['context'], 'refs': [refs['excerpt'], refs['evidence']]})
         self.assertEqual([codes(i) for i in got['items']], [('not_found', ['unknown_ref']), ('ok', [])])
 
+    def put_again(self, store, refs):
+        """Put the descriptor of the removed `evidence` record again (REL-RMV-11)."""
+        again = put_ref(store, desc('evidence', subject=refs['table'], supports=refs['excerpt'], origin='sample/editor/v1'))
+        self.assertEqual(again, refs['evidence'])
+
+    def reads(self, store, context, refs):
+        """The support items, and the outcomes of an export and of a build lock, in one read context."""
+        lock = {'context': context, 'inputs': [refs['set']], 'consumer': 'sample/emitter/build/v1', 'completeness': 'sample/declared/v1'}
+        return ([i['ref'] for i in store.call('evidence', {'context': context, 'subject': refs['table']})['items']],
+                codes(store.call('export', {'context': context, 'roots': [refs['snapshot']]})),
+                codes(store.call('build_inputs', lock)))
+
+    def test_a_put_of_a_second_open_does_not_add_a_removed_object_to_an_open_context(self):  # REL-RMV-13, CTX-OPN-2
+        first, second = Store(self.path), Store(self.path)
+        refs = evidence(first)
+        self.assertEqual(self.remove(first, refs['evidence'])['status'], 'ok')
+        result = second.call('open_context', {'roots': [refs['snapshot']]})
+        self.assertEqual(result['items'][0]['removed'], [refs['evidence']])
+        context, gone = result['context'], ('not_found', ['removed'])
+        self.assertEqual(self.reads(second, context, refs), ([], gone, gone))
+        self.put_again(first, refs)  # a different open adds the object again
+        outside = ('not_found', ['not_in_context'])
+        self.assertEqual(self.reads(second, context, refs), ([], outside, outside))
+        self.assertEqual(codes(second.call('get', {'context': context, 'refs': [refs['evidence']]})), outside)
+        self.assertEqual(self.reads(first, context, refs), ([], outside, outside))  # each open reads the same context
+        new = opened(second, refs['snapshot'])
+        self.assertEqual(self.reads(second, new, refs), ([refs['evidence']], ('ok', []), ('ok', [])))
+        first.close()
+        second.close()
+        third = Store(self.path)  # CTX-OPN-2: a later open of the store file keeps the content of the context
+        self.assertEqual(self.reads(third, context, refs), ([], outside, outside))
+        self.assertEqual(self.reads(third, new, refs)[0], [refs['evidence']])
+        third.close()
+
+    def test_a_second_removal_gives_removed_again_in_the_open_context(self):  # REL-RMV-13, REL-RMV-7
+        store = Store(self.path)
+        refs = evidence(store)
+        self.assertEqual(self.remove(store, refs['evidence'])['status'], 'ok')
+        context = opened(store, refs['snapshot'])
+        self.put_again(store, refs)
+        self.assertEqual(self.remove(store, refs['evidence'])['status'], 'ok')  # the object is not a member, so the context stays open
+        gone = ('not_found', ['removed'])
+        self.assertEqual(self.reads(store, context, refs), ([], gone, gone))
+        self.put_again(store, refs)
+        outside = ('not_found', ['not_in_context'])
+        self.assertEqual(self.reads(store, context, refs), ([], outside, outside))
+        store.close()
+
+    def test_an_import_does_not_add_a_removed_object_to_an_open_context(self):  # REL-RMV-13, REL-RMV-11
+        store = Store(self.path)
+        refs = evidence(store)
+        bundle = store.call('export', {'context': opened(store, refs['snapshot']), 'roots': [refs['snapshot']]})['bundle']
+        self.assertEqual(self.remove(store, refs['excerpt'])['status'], 'ok')
+        context = opened(store, refs['snapshot'])
+        self.assertEqual(store.call('import', {'bundle': bundle})['status'], 'ok')
+        self.assertIsNotNone(store.descriptor(refs['excerpt']))
+        outside = ('not_found', ['not_in_context'])
+        self.assertEqual(self.reads(store, context, refs), ([refs['evidence']], outside, outside))
+        self.assertEqual(self.reads(store, opened(store, refs['snapshot']), refs), ([refs['evidence']], ('ok', []), ('ok', [])))
+        store.close()
+
+    def test_a_layered_context_does_not_get_a_removed_object_from_a_later_put(self):  # REL-RMV-13, LYR-ISO-2
+        store = Store(profiles=(LAYER_PROFILE,))
+        refs = evidence(store)
+        layer = put_ref(store, desc('layer', base='sample-evidence', scope='sample-scope'))
+        self.assertEqual(self.remove(store, refs['evidence'])['status'], 'ok')
+        request = {'roots': [refs['snapshot']], 'layer': {'ref': layer, 'scope': 'sample-scope'}}
+        context = store.call('open_context', request)['context']
+        self.put_again(store, refs)
+        outside = ('not_found', ['unknown_ref'])
+        self.assertEqual(self.reads(store, context, refs), ([], outside, outside))
+        new = store.call('open_context', request)['context']
+        self.assertEqual(self.reads(store, new, refs), ([refs['evidence']], ('ok', []), ('ok', [])))
+
     def test_a_removal_does_not_change_the_producer_section(self):  # PRD-RMV-5, REL-RMV-12
         store = Store()
         refs = evidence(store)
@@ -260,14 +334,14 @@ class CollectTest(unittest.TestCase):
             first, second = (Store(paths[0], role='device', output_path=paths[1]) for _ in range(2))
             self.assertEqual(first.call('import', {'bundle': bundle})['status'], 'ok')
             context = opened(first, refs['snapshot'])
-            gone_in, collected = first.gone_in, []
+            checked_closure, collected = first.checked_closure, []
 
-            def close_and_collect(roots):  # the second open ends the context and collects after the checks of the lock call
+            def close_and_collect(roots, members):  # the second open ends the context and collects after the checks of the lock call
                 if not collected:
                     self.assertEqual(second.call('close_context', {'context': context})['status'], 'ok')
                     collected.append(second.call('gc_collect', {'roots': []}))
-                return gone_in(roots)
-            first.gone_in = close_and_collect
+                return checked_closure(roots, members)
+            first.checked_closure = close_and_collect
             result = first.call('build_inputs', {'context': context, 'inputs': [refs['set']], 'consumer': 'sample/emitter/build/v1',
                                                  'completeness': 'sample/declared/v1'})
             self.assertEqual(len(collected[0]['items']), 8, collected)

@@ -262,20 +262,50 @@ func (c *Call) Removed() map[string]struct{} {
 	return c.removed
 }
 
-// RemovedIn returns the removed objects in the closure of the roots, in ascending order (REL-RMV-9,
-// REL-RMV-10). The result is not nil.
-func (c *Call) RemovedIn(roots ...string) []string {
-	out := []string{}
-	removed := c.Removed()
-	if len(removed) == 0 {
-		return out
+// Outside returns one reason for each object in the closure of the roots that a bundle or a lock of the
+// read context cannot have, in the ascending order of the references (REL-RMV-10, REL-RMV-13). A removed
+// object gives `removed`. An object that the context reported in `removed`, and that a later `put` added
+// again, gives the reason of an object that is not in the context (CTX-OPN-4, LYR-ISO-2).
+//
+// The storage keeps the closure of each root of a context without the objects that a removal took before
+// the open (REL-RMV-8), and each root of the list is a member. Thus an object of the closure that the store
+// has and that the storage does not keep for the context is an object of the second case. Only an object
+// with a removal record can be in one of the two cases, and only a writer store has removal records
+// (REL-RMV-1).
+func (rc *ReadContext) Outside(roots ...string) []envelope.Reason {
+	c := rc.call
+	if c.Store.Role != Writer {
+		return nil
 	}
-	for ref := range c.References(roots...) {
-		if _, gone := removed[ref]; gone {
-			out = append(out, ref)
+	records := c.S.Removals()
+	if len(records) == 0 {
+		return nil
+	}
+	closure, removed := c.References(roots...), c.Removed()
+	outside := "not_in_context"
+	if rc.Layer != "" {
+		outside = "unknown_ref"
+	}
+	codes := map[string]string{} // one reason for a reference with more than one removal record
+	for _, record := range records {
+		if _, in := closure[record.Ref]; !in {
+			continue
+		}
+		if _, gone := removed[record.Ref]; gone {
+			codes[record.Ref] = "removed"
+		} else if !c.S.IsMember(rc.ID, record.Ref) {
+			codes[record.Ref] = outside
 		}
 	}
-	sort.Strings(out)
+	refs := make([]string, 0, len(codes))
+	for ref := range codes {
+		refs = append(refs, ref)
+	}
+	sort.Strings(refs)
+	out := make([]envelope.Reason, len(refs))
+	for n, ref := range refs {
+		out[n] = envelope.R(codes[ref], ref)
+	}
 	return out
 }
 
@@ -404,7 +434,26 @@ func (c *Call) Unreached(base, layer string, stored func(ref string) bool) map[s
 	if len(replaced) == 0 {
 		return map[string]struct{}{}
 	}
-	doubt := c.Closure(roots...) // each object that can have a path with a replaced member
+	// Each reference that can have a path with a replaced member. The set has the removed objects of these
+	// closures also, as references: a path goes through the kept `refs` of a removed object (REL-RMV-8). Thus
+	// the result does not change when a later `put` adds a removed object again (REL-RMV-13).
+	doubt := c.References(roots...)
+	// content tells if a reference is in one of the two closures. The storage does not keep a reference that
+	// named a removed object at the open of the context, and only a removal makes such a reference.
+	var all map[string]struct{}
+	content := func(ref string) bool {
+		if stored(ref) {
+			return true
+		}
+		if c.Store.Role != Writer || !c.S.HasRemoval(ref) {
+			return false
+		}
+		if all == nil {
+			all = c.References(base, layer)
+		}
+		_, in := all[ref]
+		return in
+	}
 	kept := make(map[string]struct{}, len(baseMembers))
 	for _, ref := range baseMembers {
 		kept[ref] = struct{}{}
@@ -424,7 +473,7 @@ func (c *Call) Unreached(base, layer string, stored func(ref string) bool) map[s
 			if start {
 				break
 			}
-			if _, inDoubt := doubt[source]; !inDoubt && source != base && source != layer && stored(source) {
+			if _, inDoubt := doubt[source]; !inDoubt && source != base && source != layer && content(source) {
 				start = true
 			}
 		}
