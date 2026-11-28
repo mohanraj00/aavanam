@@ -314,13 +314,17 @@ func SearchText(c *ops.Call) envelope.Envelope {
 			// A store that got its text payloads before it had the index has no tokens for them. The scan
 			// of such a digest gives its tokens to the index, so the next search does not read its bytes.
 			// Each group writes its tokens, so the search keeps the tokens of one group at most.
+			digests := make([]string, 0, len(fill))
+			for digest := range fill {
+				digests = append(digests, digest)
+			}
+			sort.Strings(digests)
 			c.S.Update(func(tx ops.Tx) {
 				if w, ok := tx.(ops.TextIndex); ok {
-					for _, digest := range group {
-						if tokens, ok := fill[digest]; ok {
-							w.PutTextTokens(digest, tokens)
-							delete(fill, digest) // a group can have one digest two times
-						}
+					// Take the same digest locks as a write before the first token write.
+					tx.LockDigests(digests)
+					for _, digest := range digests {
+						w.PutTextTokens(digest, fill[digest])
 					}
 				}
 			})

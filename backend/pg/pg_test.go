@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/mohanraj00/aavanam/backend/core/jsontext"
 	"github.com/mohanraj00/aavanam/backend/core/ops"
 	"github.com/mohanraj00/aavanam/backend/core/storagetest"
+	"github.com/mohanraj00/aavanam/backend/core/text"
 )
 
 const (
@@ -237,6 +239,90 @@ func TestClosureWritesHaveOneOrder(t *testing.T) {
 	members := s.Session(context.Background()).Members("second")
 	if len(members) != 2 || members[0] != refA || members[1] != refB {
 		t.Errorf("the members of the context with two roots: %v", members)
+	}
+}
+
+// A search that fills missing tokens and a write that flushes more than once must both finish (CRD-TXT-3).
+func TestSearchTokenFillWaitsForWrite(t *testing.T) {
+	s := open(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	const first, second = "alpha one", "alpha two"
+	a, z := jsontext.Digest([]byte(first)), jsontext.Digest([]byte(second))
+	low, high := first, second
+	if a > z {
+		a, z = z, a
+		low, high = high, low
+	}
+	artifact := func(digest, data string) string {
+		return fmt.Sprintf(`{"descriptor_profile":"aavanam/base/v1","kind":"artifact","artifact_type":"note","payload":{"digest":%q,"media_type":"text/plain","size":%d}}`, digest, len(data))
+	}
+
+	// Set up the payloads with no text index, as in a version 0.4.0 store.
+	r := storagetest.Registry()
+	var searchFault error
+	r.Handle("search_text", func(c *ops.Call) (out envelope.Envelope) {
+		searchFault = storagetest.Fault(func() { out = text.SearchText(c) })
+		if searchFault != nil {
+			panic(searchFault)
+		}
+		return out
+	})
+	store := ops.New(ops.Writer, s, r)
+	call := func(operation, request string) envelope.Envelope {
+		return store.Call(ctx, jsontext.S(operation), []byte(request))
+	}
+	put := call("put", storagetest.Put([]string{artifact(a, low), artifact(z, high),
+		`{"descriptor_profile":"aavanam/base/v1","kind":"binding-set"}`}, low, high))
+	if got := storagetest.Summary(put); got != "ok | ok | ok | ok" {
+		t.Fatalf("put payloads and bindings: %s", got)
+	}
+	unit := fmt.Sprintf(`{"descriptor_profile":"aavanam/base/v1","kind":"knowledge-unit","binding_set":%q,"narratives":[%q,%q]}`,
+		put.Items[2].Fields[0].Val.Str, put.Items[0].Fields[0].Val.Str, put.Items[1].Fields[0].Val.Str)
+	put = call("put", storagetest.Put([]string{unit}))
+	if got := storagetest.Summary(put); got != "ok | ok" {
+		t.Fatalf("put knowledge unit: %s", got)
+	}
+	opened := call("open_context", fmt.Sprintf(`{"roots":[%q]}`, put.Items[0].Fields[0].Val.Str))
+	if got := storagetest.Summary(opened); got != "ok | ok" {
+		t.Fatalf("open_context: %s", got)
+	}
+	index := s.Session(ctx).(ops.TextIndex)
+	if index.TextIndexed(a) || index.TextIndexed(z) {
+		t.Fatal("the payloads already have tokens")
+	}
+
+	inside := make(chan struct{})
+	searched := make(chan envelope.Envelope, 1)
+	go func() {
+		select {
+		case <-inside:
+			searched <- call("search_text", fmt.Sprintf(`{"context":%q,"query":"alpha"}`, opened.Context.Str))
+		case <-ctx.Done():
+			searched <- envelope.Envelope{}
+		}
+	}()
+	writeFault := storagetest.Fault(func() {
+		s.Session(ctx).Update(func(work ops.Tx) {
+			writer := work.(tx)
+			writer.LockDigests([]string{a, z})
+			writer.PutTextTokens(z, text.TokensOf([]byte(high)))
+			writer.flushTokens() // Flush as a large batch would before it reaches a.
+			close(inside)
+			// Wait until the fill is blocked by this write before adding the second row.
+			for !writer.exists(`SELECT 1 FROM pg_locks WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))`) {
+				time.Sleep(10 * time.Millisecond)
+			}
+			writer.PutTextTokens(a, text.TokensOf([]byte(low)))
+		})
+	})
+	got := storagetest.Summary(<-searched)
+	if got != "ok | ok | ok" || writeFault != nil || searchFault != nil {
+		t.Fatalf("search_text: %s (fault: %v), write: %v", got, searchFault, writeFault)
+	}
+	if !index.TextIndexed(a) || !index.TextIndexed(z) {
+		t.Fatal("the payloads have missing tokens")
 	}
 }
 

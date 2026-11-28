@@ -105,8 +105,8 @@ func (t tx) PutTextTokens(digest string, tokens []string) {
 	}
 }
 
-// flushTokens writes the kept rows in ascending order of the digest. Thus two updates that write the same
-// rows take the row locks in one order and cannot wait for each other.
+// flushTokens writes this batch in ascending digest order. An update can flush more than once.
+// Writers and search fills take the digest locks before any flush.
 func (t tx) flushTokens() {
 	if len(t.tokens.rows) == 0 {
 		return
