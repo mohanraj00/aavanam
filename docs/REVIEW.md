@@ -26,21 +26,21 @@ A harness does not review its own change. The branch prefix names the harness th
 Follow these rules for each request:
 
 1. Ask when CI is green and the PR is ready.
-2. For a Codex code review request, write `Head: <sha>` on the next line of the comment, with the short SHA of the PR head commit. Do not add this line to a Claude request. The Claude review starts only for the exact text in the table, and its comment names the head that it reviewed.
-3. Write a security review request as the exact text in the table, with no other text in the comment. If the comment has other text, for example a `Head:` line, Codex does a code review and no security review. The Codex result names the commit that it reviewed.
+2. For a code review request, write `Head: <sha>` on the next line of the comment, with the short SHA of the PR head commit. A Claude request can also have this line. The first line of a Claude request must be a text in the table. The Claude review comment names the head that it reviewed.
+3. Write a Codex security review request as the exact text in the table, with no other text in the comment. If the comment has other text, for example a `Head:` line, Codex does a code review and no security review. The Codex result names the commit that it reviewed.
 4. Ask one time for each head commit. Before you ask, read the PR comments. If a request names the current head, or comes after the last push, do not ask again.
 5. If you push fixes after a review, ask again for the new head. Ask at most 3 times for each PR. After that, ask the maintainer to review. The `gate` job of the Claude review stops a second Claude review of one kind for a head, and a Claude review after 3 of one kind.
 6. Fix each real finding, or write on the PR why it is not a defect. For a finding in the gates, use the stop rule of the [standard](STANDARD.md). The gates are the files of `mohanraj00/.github` and their copies in this project. Do not change a copy. File the finding in `mohanraj00/.github`.
 
 The `cross-review` check passes only for a review of the current head from the other harness. A Claude-built PR needs a completed Codex code review. A Codex-built or agy-built PR needs a Claude review marker with `findings=0`. If the review came from the agy fallback or from the maintainer, the maintainer adds the `cross-reviewed` label. The label counts only with an approval record for the current head and base.
 
-Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow. The workflow starts only if all of these are true:
+Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow. The workflow starts a review only if all of these are true:
 
 - The comment is on a PR.
-- The comment body is exactly one of the two Claude request texts in the table. GitHub compares these texts with no regard to letter case.
+- The first line of the comment is one of the two Claude request texts in the table. The `gate` job compares this line with no regard to letter case, to the white space at the two ends and to the length of each run of white space. The next lines do not count.
 - The commenter is an owner, a member or a collaborator and has repository write permission.
 
-A comment or a review with other text does not start the workflow. The comment text selects one of two fixed prompts, and it never goes into a prompt.
+GitHub expressions have no regular expressions, so the workflow starts for each comment of a writer that names `@claude`. If the first line is not a request text, the `gate` job sets no kind, and the review and the post jobs skip. If the commenter has no repository write permission, the `gate` job fails, and the review and the post jobs skip. A comment with other text does not start a review. The comment text selects one of two fixed prompts, and it never goes into a prompt.
 
 ### Claude review design
 
@@ -65,18 +65,19 @@ The `review` job has `contents: read` and `pull-requests: read` only. It uses th
 5. It checks the JSON result: `type` is `result`, `subtype` is `success`, `is_error` is false, `result` is not empty and `permission_denials` is empty. If a check fails, the job fails.
 6. It keeps the review text and the head SHA in an artifact.
 
-The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. This file is a copy of `gates/claude_review.py` of `mohanraj00/.github`. The comment starts with a fixed marker: `<!-- claude-review:v2 kind=<code|security> head=<sha> base=<sha> findings=<count|unknown> run=<run id> -->`. The script writes the marker outside the model text. `base` is the merge base of the base branch and the head, where the diff of the review starts. The count comes from the first line of the model text, `Findings: <number>`. If that line is not valid, the count is `unknown`. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA. If the `gate` job stopped the request, the comment gives the reason of the `gate` job.
+The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. This file is a copy of `gates/claude_review.py` of `mohanraj00/.github`. The comment starts with a fixed marker: `<!-- claude-review:v2 kind=<code|security> head=<sha> base=<sha> findings=<count|unknown> run=<run id> -->`. The script writes the marker outside the model text. `base` is the merge base of the base branch and the head, where the diff of the review starts. The count comes from the first count line of the model text, `Findings: <number>`, with no indent. Lines of plain prose that end a sentence can come before it. If no line is a valid count line, the count is `unknown`. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA. If the `gate` job stopped the request, the comment gives the reason of the `gate` job.
 
 The `post` job writes as the workflow bot, and the gates trust approval records and review markers from this bot. Thus the script treats the model text as untrusted. The model text cannot make a marker or an approval record. It escapes `&` and `<`, changes each `@` to a character that makes no mention, and limits the length.
 
 ### Use of a Claude result
 
-The `cross-review` gate reads the marker. It accepts a marker only from an `issue_comment` run of this workflow on the default branch, for the current head and merge base, with `findings=0`. It does not accept a `v1` marker, because that marker names no base. A new commit on the base branch does not change the merge base, so the review stays valid. If the base branch of the PR changes, ask for a new Claude review. The marker gives `findings=unknown` if the review text does not agree with the count on its first line:
+The `cross-review` gate reads the marker. It accepts a marker only from an `issue_comment` run of this workflow on the default branch, for the current head and merge base, with `findings=0`. It does not accept a `v1` marker, because that marker names no base. A new commit on the base branch does not change the merge base, so the review stays valid. If the base branch of the PR changes, ask for a new Claude review. The marker gives `findings=unknown` if the review text does not agree with the count on its first count line:
 
-- `INCOMPLETE REVIEW` is on a line below the first line.
-- A later `Findings: N` line gives a different count.
-- The count is 0, and a later line starts with a severity tag or a `path:line` reference.
-- The count is 0, and a severity tag P0 to P3 is at any position in a later line.
+- A line before the count line is not plain prose, or the last of these lines does not end a sentence. Code fences, quote lines, list markers, HTML and double quotes are not plain prose.
+- `INCOMPLETE REVIEW` is on a different line.
+- A different `Findings: N` line gives a different count.
+- The count is 0, and a different line starts with a severity tag or a `path:line` reference.
+- The count is 0, and a severity tag P0 to P3 is at any position in a different line.
 
 The check reads the text in NFKC form with no format characters. It does not find prose that describes a defect with no severity tag and no `path:line` reference. A Claude security marker is advisory. The `security-review` gate writes a line about it, but it does not pass for it. A person also reads the text. The review has no inline comments and no conversation. A push makes a new head, so ask again as the request rules say. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
 

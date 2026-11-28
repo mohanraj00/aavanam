@@ -10,7 +10,7 @@ The folder [browse_page](browse_page/README.md) has a read-only page that browse
 
 ## Run an example from a clean checkout
 
-You need Python 3.14 or later. The [README](../README.md#python-version) gives the reason.
+You need Python 3.14 or later. The [README](../README.md#try-it) gives the reason. This page describes release 0.6.0.
 
 1. Clone the repository and go to its folder:
 

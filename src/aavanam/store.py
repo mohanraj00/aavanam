@@ -455,6 +455,7 @@ class Store:
         self.epoch = None  # the removal epoch of the file at the start of the call
         self.mutex = threading.RLock()  # one connection, one call at a time
         self.called = False  # a gate is declared before the first call (PUB-GAT-1)
+        self.parts = None  # the parts of the raw bundle of the current call, from its first run
         self.cache: dict[str, dict] = {}  # descriptors do not change (IDN-CAN-1)
         self.policies: dict[str, object] = {}  # the acceptance policies of the application (PUB-RCP-1)
         self.output = Store(output_path, debug, 'output', device=self, profiles=profiles) if role == 'device' else None
@@ -770,21 +771,29 @@ class Store:
         # A local output store reads its device store, so it waits for a device call, for example an import (CTX-OPN-2).
         # The order is always the device store, then the output store.
         with self.device.mutex if self.device else contextlib.nullcontext(), self.mutex:
-            for _ in range(ATTEMPTS):
-                try:
-                    return self.attempt(operation, method, request)
-                except Stale:
-                    continue
-                except Failure as f:
-                    return self.marked(self.envelope(operation, f.status, f.reasons, context=context, **self.empty(operation)), request)
-                except Exception:  # noqa: BLE001  STS-MAL-1
-                    if self.debug:
-                        raise
-                    self.rollback()
-                    break
-                finally:
-                    self.wrote = True
-            return self.envelope(operation, 'failed', [reason('storage_error')], context=context, **self.empty(operation))
+            outer, self.parts = self.parts, None  # a call in a call has its own raw bundle
+            try:
+                return self.attempts(operation, method, request, context)
+            finally:
+                self.parts = outer
+
+    def attempts(self, operation: str, method, request, context) -> dict:
+        """Run the call until a run does not raise Stale. The caller has the mutexes."""
+        for _ in range(ATTEMPTS):
+            try:
+                return self.attempt(operation, method, request)
+            except Stale:
+                continue
+            except Failure as f:
+                return self.marked(self.envelope(operation, f.status, f.reasons, context=context, **self.empty(operation)), request)
+            except Exception:  # noqa: BLE001  STS-MAL-1
+                if self.debug:
+                    raise
+                self.rollback()
+                break
+            finally:
+                self.wrote = True
+        return self.envelope(operation, 'failed', [reason('storage_error')], context=context, **self.empty(operation))
 
     def attempt(self, operation: str, method, request) -> dict:
         """Run the call one time. The caller has the mutexes."""
@@ -1546,7 +1555,9 @@ class Store:
 
     def op_import(self, request) -> dict:
         if is_raw(request):
-            bundle, data = raw_parts(request)  # BUN-RAW-4; then the import of its bundle (BUN-RAW-5)
+            if self.parts is None:  # a stream gives its bytes one time, so a later run of the call uses these parts
+                self.parts = raw_parts(request)  # BUN-RAW-4; then the import of its bundle (BUN-RAW-5)
+            bundle, data = detached(self.parts[0]), dict(self.parts[1])
         else:
             bundle = request.get('bundle')
             if not (set(request) == {'bundle'} and is_manifest(bundle, BUNDLE_FORMAT) and isinstance(bundle['payloads'], dict)

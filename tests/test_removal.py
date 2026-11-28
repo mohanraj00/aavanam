@@ -1,5 +1,7 @@
 """The removal rules that the runner cannot express: two opens of one store file, the store file, the store clock,
 a layered context, and the locks and layers that `gc_collect` keeps only as declared roots."""
+import base64
+import io
 import json
 import sqlite3
 import tempfile
@@ -9,6 +11,7 @@ from pathlib import Path
 
 from support import BASE, Store, candidate, payload, put_ref, receipt, snapshot
 from aavanam.kinds import LAYER_PROFILE
+from aavanam.store import raw_form
 
 SECRET = 'Synthetic source text 5b90e2 that the maintainer removes.'
 
@@ -367,6 +370,92 @@ class CollectTest(unittest.TestCase):
             self.assertEqual(removed[0]['status'], 'ok')
             self.assertEqual(result['status'], 'ok', result)  # the second run of the call, not storage_error
             self.assertEqual(first.db.execute('SELECT count(*) FROM objects WHERE ref = ?', (result['items'][0]['ref'],)).fetchone()[0], 1)
+            first.close()
+            second.close()
+
+    def test_a_raw_import_from_a_stream_runs_again_after_a_collect_of_a_second_open(self):  # BUN-RAW-5, LIF-GC-5
+        writer = Store()
+        kept, other = evidence(writer), evidence(writer, 'sample-other')
+        bundles = [writer.call('export', {'context': opened(writer, r['snapshot']), 'roots': [r['snapshot']]})['bundle']
+                   for r in (kept, other)]
+        added = evidence(writer, 'sample-added')['snapshot']
+        delivered = writer.call('export', {'context': opened(writer, added), 'roots': [added]})['bundle']
+        raw = raw_form(delivered)
+        for source in (io.BytesIO(raw), raw):  # a binary stream gives its bytes one time
+            with self.subTest(type(source).__name__), tempfile.TemporaryDirectory() as folder:
+                paths = str(Path(folder) / 'device.db'), str(Path(folder) / 'output.db')
+                first, second = (Store(paths[0], role='device', output_path=paths[1]) for _ in range(2))
+                for bundle in bundles:
+                    self.assertEqual(first.call('import', {'bundle': bundle})['status'], 'ok')
+                write, collected = first.write, []
+
+                def collect_then_write(*args):  # the second open collects after the checks of the import
+                    if not collected:
+                        collected.append(second.call('gc_collect', {'roots': [kept['snapshot']]}))
+                    return write(*args)
+                first.write = collect_then_write
+                result = first.call('import', source)
+                self.assertEqual(collected[0]['status'], 'ok')
+                self.assertIn(other['snapshot'], [i['ref'] for i in collected[0]['items']])  # the epoch changed
+                self.assertEqual(result['status'], 'ok', result)  # the second run of the call, not malformed_json
+                self.assertEqual(first.call('open_context', {'roots': [added]})['status'], 'ok')
+                self.has_bundle(first, result, delivered)
+                first.close()
+                second.close()
+
+    def has_bundle(self, store, result, bundle):
+        """The store has each object and each payload of the bundle of an `ok` import (BUN-IMP-3)."""
+        self.assertEqual(len(result['items']), len(bundle['descriptors']))
+        self.assertTrue(all(store.descriptor(i['ref']) for i in result['items']))
+        self.assertTrue(bundle['payloads'])
+        for key, data in bundle['payloads'].items():
+            self.assertEqual(store.raw_blob(key), base64.b64decode(data))
+
+    def test_a_raw_import_from_a_stream_runs_again_after_a_removal_of_a_second_open(self):  # BUN-RAW-5, REL-RMV-4
+        source = Store()
+        refs = evidence(source, 'sample-added')
+        bundle = source.call('export', {'context': opened(source, refs['snapshot']), 'roots': [refs['snapshot']]})['bundle']
+        raw = raw_form(bundle)
+        for stream in (io.BytesIO(raw), raw):
+            with self.subTest(type(stream).__name__), tempfile.TemporaryDirectory() as folder:
+                path = str(Path(folder) / 'store.db')
+                first, second = Store(path), Store(path)
+                old = evidence(first)  # the same content in a different collection of the writer store
+                write, removed = first.write, []
+
+                def remove_then_write(*args):  # the second open removes after the checks of the import
+                    if not removed:
+                        removed.append(second.call('remove', {'ref': old['evidence'], 'reason': 'sample request'}))
+                    return write(*args)
+                first.write = remove_then_write
+                result = first.call('import', stream)
+                self.assertEqual(removed[0]['status'], 'ok')
+                self.assertEqual(result['status'], 'ok', result)
+                self.has_bundle(first, result, bundle)  # REL-RMV-11: the import adds the removed object again
+                first.close()
+                second.close()
+
+    def test_a_raw_import_from_a_stream_does_not_give_malformed_json_after_each_run_stops(self):  # BUN-RAW-4, STS-MAL-1
+        source = Store()
+        refs = evidence(source)
+        raw = raw_form(source.call('export', {'context': opened(source, refs['snapshot']), 'roots': [refs['snapshot']]})['bundle'])
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'store.db')
+            first, second = Store(path), Store(path)
+            write, runs = first.write, []
+
+            def change_then_write(*args):  # a planted change of the removal epoch before the write of each run
+                runs.append(len(runs))
+                second.db.execute('UPDATE removal_epoch SET epoch = epoch + 1')
+                return write(*args)
+            first.write = change_then_write
+            before = first.fingerprint()
+            result = first.call('import', io.BytesIO(raw))
+            self.assertGreater(len(runs), 1)
+            self.assertEqual(codes(result), ('failed', ['storage_error']))  # the bundle is valid: not malformed_json
+            self.assertEqual(first.fingerprint(), before)
+            first.write = write
+            self.assertEqual(first.call('import', io.BytesIO(raw))['status'], 'ok')
             first.close()
             second.close()
 
