@@ -1,6 +1,6 @@
 # Project standard
 
-Version: 6
+Version: 7
 
 ## Documents
 
@@ -45,8 +45,10 @@ The gates do not protect against an actor with write access. That actor uses the
 | No harness | Codex app | Codex security review | Claude workflow, with a security prompt |
 
 - If the code reviewer is not available, agy does the review. If agy built the change or is not available, the owner does a manual review.
+- The local agy review is `gates/cross_review.py` of `mohanraj00/.github` at the gate pin of the project. A project does not keep its own copy. Before the review, the tool sends one short prompt to agy with a time limit. If that call fails, times out or asks for a sign-in, the tool stops and sends no diff.
 - Ask one time for each head commit, and at most 3 times for each PR. The `gate` job of the Claude workflow stops a second Claude review of one kind for a head, and a Claude review after 3 of one kind.
-- At the cap, stop the requests. Examine the approach, then report to the owner. The owner decides if more reviews are necessary.
+- The `cross-review` check fails if a PR has more than 3 `@codex review` requests from the owner login. The text is "Codex review cap reached. Examine the approach and report to the owner."
+- At the cap, stop the requests. Examine the approach, then report to the owner. The owner decides if more reviews are necessary. To permit more requests, the owner adds the `review-cap-lifted` label. The label lifts the cap of `@codex review` requests and the cap of 3 Claude reviews of each kind. The gate records the label for the current head and base, as for the other owner labels. The rule of one request for each head commit still applies.
 - When a finding shows a class of problem, fix all instances of the class in the same commit.
 - Do not make a commit only for a nit. Close the thread with a reason.
 - If a finding is about code that the PR did not change, file an issue. It does not block the PR.
@@ -64,6 +66,7 @@ The gates are the files of `mohanraj00/.github` and their copies in each project
 - Fix a finding in the gates now if an actor of the threat model can reach it, and its severity is P0 or P1.
 - Otherwise, add it to "Known limits" in `README.md` of `mohanraj00/.github`, close the finding with a reason, and do not change code.
 - Collect the other fixes of the gates in one release each month. A project repins one time for each release.
+- On the day of each monthly gates release, run `python3 tools/review_cost.py <owner/name> <first day> <last day>` from `mohanraj00/.github` for each project. Use the dates of the month before the release, and post the tables on the release PR. The script reads the `review-cost` line that each passed gate writes. A PR that ran an older gates SHA has no line.
 - A reviewer disagreement about the threat model goes to the owner.
 
 The review guidelines in `AGENTS.md` are short. They state what a failure looks like in the project, the paths to skip and the limit for nits. If a finding occurs again, add a check, a test or a line in these guidelines.
@@ -75,7 +78,10 @@ A Codex-built PR gets a Codex security review as an exception to the rule that a
 The agents use the owner login. An agent posts each review request in a PR comment.
 
 - A code review request is `@codex review`, with `Head: <short SHA>` on the next line. A security review request is a separate comment with the exact text `@codex security review`.
-- A Claude request is one of the two exact texts in `docs/REVIEW.md` of the project.
+- A Claude request is a comment with one of these two texts on its first line:
+  - code review: `@claude review this PR. Use the Review guidelines in AGENTS.md.`
+  - security review: `@claude do a security review of this PR. Use the Review guidelines in AGENTS.md.`
+- The gate job of the Claude workflow compares only the first line. It ignores the letter case, the white space at the two ends, and the length of each run of white space. The next lines can hold other text, for example `Head: <short SHA>`. A first line with other words, or with a word more or less, does not start a review.
 - For a fork PR, ask for a review only after the owner approval of stage 2.
 
 ## Security review trigger
@@ -90,14 +96,21 @@ The shared categories are:
 - credentials, logins and RBAC;
 - named boundaries for untrusted input, commands, network and file paths.
 
+The gates compare a path with the shared lists and with the lists of the project with no regard to the letter case. A file system can ignore the letter case, and then a harness also loads `agents.md`.
+
 Each project names its boundary files. It does not list all of its source. A code reviewer can report that a security review is necessary. Then the author adds the `security-needed` label, and the gate requires the review.
 
 After a clean security review, a new push needs a new review only if the new commits touch a listed path.
 
+Before you ask for a security review, read the `Security review:` line in the job summary of the `security-review` check. If the line says "not needed" or "valid", do not ask. If the line is not there, the project pins an older gates SHA.
+
 The security review of `mohanraj00/.github` covers the copies of its files in each project. Thus these listed changes need no review:
 
 - an exact copy of a file of `mohanraj00/.github` at the pinned SHA;
-- a change of only the SHA in a pin line of the gates action, if the new SHA is on `main` of `mohanraj00/.github`.
+- a change of only the SHA in a pin line of the gates action, if the new SHA is on `main` of `mohanraj00/.github`;
+- an action bump PR of Dependabot. The PR author is `dependabot[bot]`. Each changed line is a `uses:` line, where only the 40-character SHA and its version comment change. No other file or line changes.
+
+If the owner lists a `.py` path in `docstring_only` of `.github/gates.json`, a change of only the text of its existing docstrings also needs no review, because the code does not change. The owner lists a path only if no tool of the project reads its docstrings. Each file keeps its path and its file mode. Its `ast` tree without the docstrings does not change, and no byte outside the docstrings changes. No file of the head tree reads a docstring or a listed source file.
 
 The gate proves each one. Each other listed change still needs a review. The PR stays level 1.
 
@@ -109,6 +122,7 @@ These `.md` files are not docs:
 
 - agent instructions, `CONSTITUTION.md`, `docs/STANDARD.md` and skill files;
 - `SPEC.md` and contract files;
+- `CHANGELOG.md`, in a project that has it in `level1`;
 - docs that a project test runs.
 
 ## Approvals
@@ -127,8 +141,9 @@ Filing a sanitized issue needs no approval.
 
 Level 1 paths in all projects:
 
-- `CONSTITUTION.md`, `docs/STANDARD.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`;
-- `.github/`, `.agents/`, `.claude/`, `.codex/`;
+- `CONSTITUTION.md`, `docs/STANDARD.md`;
+- `AGENTS.md`, `CLAUDE.md` and `GEMINI.md` in each directory, with their `.local.md` and `.override.md` forms;
+- `.github/`, and in each directory `.agents/`, `.claude/`, `.codex/` and `.mcp.json`;
 - the gate tools;
 - dependency manifests and lock files.
 
@@ -141,6 +156,9 @@ Added level 1 paths:
 | groundgate | `SPEC.md`, `conformance/` |
 | nookku | `SPEC.md`, the relay path, the record format |
 | entelos | `docs/contracts/`, the lifecycle specs (a first estimate) |
+| mugham | `catalog/schema/`, `docs/contracts/` |
+
+`CHANGELOG.md` is not a level 1 path in all projects. If a release step of a project reads `CHANGELOG.md`, the project adds it to `level1` in its `.github/gates.json`. groundgate and nookku add it when they pin the release with this rule.
 
 ## CI and GitHub settings
 
@@ -153,16 +171,19 @@ Each repository has the same 4 required checks:
 | `security-review` | Requires a security review if the trigger applies | Shared gate |
 | `acceptance` | Controls outside PRs, a reviewer disagreement and the `owner-needed` label | Shared gate |
 
+groundgate has a temporary exception: `outside-pr-paths` is a fifth required check. The check adds a control and removes none. The exception ends when groundgate pins the gates release that makes the agent config variants level 1 (mohanraj00/.github#23). Then groundgate adds `CHANGELOG.md` to `level1`, and removes the check, the required check setting and the `maintainer-approved` label. The `accepted` label of the PR and the owner approval of stage 2 do the work of that label. The next release of this standard removes this exception.
+
 - The gates run from the base branch, so a PR cannot change its own gate.
 - Package the gates as a composite action, so that the tools and the workflow cannot differ.
 - Parse each workflow in CI. In a test, an invalid workflow passed the project check and both Codex reviews.
-- Use SHA pins, `permissions: {}`, job timeouts and `persist-credentials: false`. Enable Dependabot for actions.
+- Use SHA pins, `permissions: {}`, job timeouts and `persist-credentials: false`.
+- Enable Dependabot for actions with an exact copy of `docs/dependabot.yml` of `mohanraj00/.github` at `.github/dependabot.yml`. It has one group for all GitHub Actions updates and a monthly schedule, so each project gets one bump PR each month. The owner merges the bump PR, because it is level 1.
 - The Claude workflow uses the hardened aavanam form in each repository.
 - The main ruleset has squash only, linear history and resolved threads. It dismisses a stale approval when a push occurs. Remove classic protection.
 - The only bypass on `main` is the admin role, in PR-only mode. The owner uses it to merge a level 1 PR.
 - Each repository uses the groundgate tag ruleset.
 - Delete the branch after merge, and enable auto-merge after `cross-review` is required.
-- The up-to-date rule is off by default. koodam can keep it as a recorded exception, because of its generated files.
+- The up-to-date rule is off. No project has an exception. In koodam, a CI check of the generated files replaces the rule (mohanraj00/koodam#329).
 - After a revert, or a bug that passed all reviews, file an issue that names the layer that had to find it. Add a check, a test or a guideline line. If the reverts increase in a project, the owner can move all PRs of that project to level 1.
 
 The gates read a Codex result with these rules:
