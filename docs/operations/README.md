@@ -14,7 +14,7 @@ In the Python reference, each operation is one call: `store.call(operation, requ
 | `context` | The read context of the call, or null |
 | `operation`, `operation_profile` | The operation and its profile |
 
-The backend service gives the same operations over HTTP, with `POST /v1/op/<operation>` on the read binding `aavanam-read/v1` (document 22). No raw exception crosses the API.
+No raw exception crosses the API. The backend service gives the read operations over HTTP, with `POST /v1/op/<operation>` on the read binding `aavanam-read/v1` (NET-SCP-1 in document 22). An operation that writes or removes content gives HTTP status 404 on that listener (NET-SCP-3). The service has a separate listener for writes (NET-TRN-5).
 
 Each example continues the [quickstart](../../README.md#try-it). Run the quickstart first, in the same Python session. The test [tests/test_operation_docs.py](../../tests/test_operation_docs.py) runs each example and compares its output.
 
