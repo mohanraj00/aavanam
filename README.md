@@ -18,7 +18,7 @@ Aavanam puts the document, the table and the evidence that links them into one i
 
 ## Try it
 
-You need Python 3.14 or later. There are no other dependencies: the store uses the SQLite module that ships with Python.
+You need Python 3.14 or later, because the CI tests only Python 3.14. There are no other dependencies: the store uses the SQLite module that ships with Python. This README describes release 0.6.0.
 
 ```bash
 git clone https://github.com/mohanraj00/aavanam && cd aavanam
@@ -89,7 +89,7 @@ script reads seal interval_h = 500
 lock ok 3 objects
 ```
 
-The lock covers the binding set, the table and its schema. The test suite runs this block and compares the output, so it stays true ([tests/test_readme.py](tests/test_readme.py)).
+The lock covers the binding set, the table and its schema. The test suite runs this block and compares the output, so it stays true ([tests/test_readme.py](tests/test_readme.py)). Each call has its own page in [docs/operations/](docs/operations/README.md), with an example that continues this one.
 
 ## How it fits
 
@@ -113,9 +113,17 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 - Not a vector database. Semantic search is reserved and not built.
 - Not the product runtime. The code in `src/aavanam/` is a reference implementation that shows the spec can be built and that each conformance vector is exact.
 
+## Next docs
+
+- [docs/operations/](docs/operations/README.md): one page for each operation, with an example that runs.
+- [SPEC.md](SPEC.md): the specification and its 24 contract documents.
+- [examples/](examples/README.md): complete examples, from a clean install of the package.
+- [docs/STATUS.md](docs/STATUS.md): the status and the vector result of each implementation.
+- [CHANGELOG.md](CHANGELOG.md): the contents and the known limits of each release.
+
 ## Where it stands
 
-Version 0.6.0 is the current version. In version 0.6.0, all 24 contract documents are normative. Version 0.6.0 adds the delta bundle and the raw bundle form for a device update. It also adds the removal from the Evidence section, the life of a read context and `gc_collect`. The spec now states the scope of input-lock capabilities, the locks for emission and gated publication, and the link from an output artifact to its input lock. The service holds a lock on its Unix socket while it runs. The next work is integrations with producers and consumers. [docs/STATUS.md](docs/STATUS.md) gives the status.
+Version 0.6.0 is the current version. In version 0.6.0, all 24 contract documents are normative.
 
 | Fact | Value |
 |---|---|
@@ -152,10 +160,6 @@ The CI builds a wheel and a source archive from a clean copy of each commit. The
 
 The package is not on a package index. A publication to an index needs a separate approval of the maintainer.
 
-## Python version
-
-The package requires Python 3.14 or later. The reason: the CI tests only Python 3.14.6. Thus the package claims only a version that the CI tests. The package has no dependencies outside the standard library. If the CI starts to test an older version, the bound can go down.
-
 ## What the 0.x series can change
 
 Aavanam has no stable release. Until version 1.0, a minor version (for example 0.1 to 0.2) can change these:
@@ -184,8 +188,6 @@ The topics in the `draft` state: none.
 Each topic of documents 01 to 24 is normative. If a later 0.6 release keeps a new topic in the `draft` state, this list names it, and a clause of that topic can change in place.
 
 The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. Reserved operations return their specified unsupported status. The source version identifies the specification, the conformance vectors and the reference store together.
-
-See [the changelog](CHANGELOG.md) for the contents of 0.1.0, 0.2.0, 0.3.0, 0.4.0, 0.5.0 and 0.6.0.
 
 ## Run the checks
 

@@ -1,6 +1,6 @@
 # Status
 
-Version 0.6.0 is the current version. The specification has 24 contract documents in the `normative` state. No topic is in the `draft` state (#146). The reference implementation in `src/`, the backend in `backend/` and the device store in `reference/` each pass all conformance vectors. The null implementation fails, as it must.
+This page describes release 0.6.0. Version 0.6.0 is the current version. The specification has 24 contract documents in the `normative` state. No topic is in the `draft` state (#146). The reference implementation in `src/`, the backend in `backend/` and the device store in `reference/` each pass all conformance vectors. The null implementation fails, as it must.
 
 ## Implementations
 
@@ -17,25 +17,7 @@ The lists are `backend/conformance/passing.txt`, `backend/conformance/passing-me
 
 ## Done
 
-- Specification and conformance: the vector format, the runner, a null implementation and the vectors of each contract document.
-- Core: the reference implementation over SQLite, the typed references, the snapshots, the input locks, lookup, rendering and the producer adapter contract.
-- Transfer and composition: export, import, device stores and composed contexts, with end-to-end acceptance vectors. An export reports the license and the redistribution status of each item, and withholds the bytes that its target does not permit. An export with a base context gives a delta bundle, which has only the content that the base does not have. A store imports a bundle also in the raw form, with payload bytes and no base64 (#129).
-- Activation gate: gated collections, the `activation` kind, the activation checks of `publish` and the `publications` read.
-- Lifecycle and discovery: the changes between two snapshots, the history of a logical ID and the exact item listing (documents 17 and 18).
-- Filters: the half-open range match and the interval match on declared columns, and the filter on declared metadata for a listing and an export.
-- Producer exports: the admitted-facts adapter accepts the optional export members, and the PDF example reads the page from the citation locator (#80, PR 85).
-- Device imports: a bundle with absent withheld bytes keeps each descriptor and defers the byte checks until a read (#58).
-- Bundle update: a device store accepts a second import and adds only the new content. A context that was open before the update keeps its members (BUN-UPD-1 to BUN-UPD-6, #97). Documents 21 and 22 specify the SQLite layout of a device store and the network read binding. The reference implementation does not declare these two profiles.
-- Activation integration: the seam test checks a valid activation, a refused activation and a repeat (#4). The library example moves one update through the gate and reads the head with a metadata filter (#83). Both use the signed activation records of entelos v0.5.0 (#95).
-- Backend reads: the backend reads a context through the closures of its roots, searches text through a text index and reads rows through a row cache (#128). A PostgreSQL store of version 0.4.0 gets the schema changes when the service opens it.
-- Read service: the service can serve the read binding on a Unix socket with a file mode, in place of the TCP listener (#125). The example in `examples/browse_page/` browses a store through the read API and writes no content (#62).
-- Budget bench: `make check-bench` measures the shape `S0` in CI, and `make bench-s1` measures `S1` on PostgreSQL (#105). [docs/bench.md](bench.md) gives the records.
-- Layers: a layer adds or replaces members of a base collection for one scope. A layered read context has the base snapshot and one layer, and no content of a different layer. A lock of a layered context records the base snapshot and the layer (document 23, the profile `aavanam/layer/v1`, #44). A store of the reference implementation declares the profile with `Store(profiles=...)`. The runner declares the profile only for the vectors of the profile, so each base vector runs on a store of the base profile only. Each implementation passes the vectors. A Go store declares a profile in its field `Profiles`, and the service has the option `--profile` (#132). The record of a layered context has the base snapshot and then the layer as its roots, so the SQLite layout of a device store does not change (DEV-LAY-3).
-- Retrieval indexes: an index is an object that records its snapshot, its method and the parameters of the method. `semantic_search` gives the items of that snapshot that share a term with the query. Each result names its item, its snapshot and its index. A lock can record the indexes that a run used, and an index of an earlier snapshot gives `index_stale` in a context of a later snapshot (document 24, the profile `aavanam/semantic-index/v1`, #45). The one method of the profile, `aavanam/hashed-terms/v1`, is deterministic and needs no model. No measured retrieval quality exists for it. No implementation keeps derived data: each one makes the items again from the snapshot. A Go store that does not declare the profile keeps the reserved response (#132). The network read binding does not have `semantic_search`, because NET-SCP-1 does not list it.
-- Delta bundle: an `export` with `base_context` gives only the content that the closure of the base roots does not have, and the raw bundle form `aavanam-bundle-raw/v1` keeps each payload with no base64 (BUN-DLT-1 to BUN-DLT-5, BUN-RAW-1 to BUN-RAW-5, #129).
-- Emission and run dependencies: the spec states the scope of input-lock capabilities and application-owned run dependencies (LCK-CAP-4, #143), the two locks for emission and gated publication (PUB-ACT-6, #144), and the opaque link from an output artifact to its input lock (KND-OPQ-4, #145).
-- Socket lock: the service holds the socket lock while it runs, so a second start on the same path cannot remove a live socket (#137).
-- Removal and the life of a context: `remove` takes an object of the Evidence section from a writer store and adds a removal record with no content. A read of the removed object gives `removed`, each closure keeps its references, and `open_context` reports the removed objects. A read context has a declared life, and `close_context` ends it. `gc_collect` removes the content that no retained root reaches, on a writer store and on a device store, and its result names each removed object (documents 06, 08, 11 and 17, #69). The base profile is at minor version 14.
+Release 0.6.0 has the base profile at minor version 14, the producer section (document 19), the device store and the read binding (documents 21 and 22), the layer (document 23) and the retrieval index (document 24). [CHANGELOG.md](../CHANGELOG.md) gives the contents and the known limits of each release. [docs/operations/](operations/README.md) gives one page for each operation.
 
 ## Next
 
