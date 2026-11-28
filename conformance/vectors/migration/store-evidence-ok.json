@@ -1,0 +1,127 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A read context of release 0.6.0 keeps its members after a removal of that release",
+  "clauses": [
+    "MIG-VER-2",
+    "MIG-VER-4",
+    "REL-RMV-8",
+    "REL-RMV-9",
+    "REL-EVD-2",
+    "CRD-READ-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "ce"
+        },
+        "refs": [
+          {
+            "$ref": "ex2"
+          },
+          {
+            "$ref": "ev1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ev1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "evidence",
+      "request": {
+        "context": {
+          "$context": "ce"
+        },
+        "subject": {
+          "$ref": "tab"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ev1"
+              },
+              "relation": "support"
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ev2"
+              },
+              "relation": "support"
+            }
+          }
+        ],
+        "unordered": true
+      }
+    },
+    {
+      "operation": "read",
+      "request": {
+        "context": {
+          "$context": "ce"
+        },
+        "ref": {
+          "$ref": "ex2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "ex2"
+              },
+              "kind": "excerpt",
+              "data": "Y2xlYW4gdGhlIGJsYWRlLg=="
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

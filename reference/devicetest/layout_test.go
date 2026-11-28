@@ -18,7 +18,7 @@ type column struct {
 	key     bool
 }
 
-// DEV-PRF-2, DEV-LAY-1 to DEV-LAY-3, DEV-LAY-5 and DEV-OUT-1 specify the files and tables.
+// DEV-PRF-2, DEV-LAY-1 to DEV-LAY-3, DEV-LAY-6 and DEV-OUT-1 specify the files and tables.
 func TestSQLiteDeviceLayout(t *testing.T) {
 	dir, writer, reader := newStores(t)
 	const entry = "Maps and atlases.\n"

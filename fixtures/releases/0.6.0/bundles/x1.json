@@ -1,0 +1,15 @@
+{
+  "descriptors": [
+    "{\"collection\":\"sample-manual\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"snapshot\",\"units\":[\"sha256:e7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb\"]}",
+    "{\"bindings\":{\"doc\":\"sha256:6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f\"},\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"binding-set\"}",
+    "{\"artifact_type\":\"sample/document/v1\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"artifact\",\"payload\":{\"digest\":\"sha256:b4ed3ef3a9a94839c30e5ad2924124d276798127756f09a5219cf4176cd601bb\",\"media_type\":\"text/plain\",\"size\":32}}",
+    "{\"binding_set\":\"sha256:33394e1f7fcd8e20283903f5f2b9c9cdd5b26e7d05cb6a2ebc91ec85160202f9\",\"descriptor_profile\":\"aavanam/base/v1\",\"kind\":\"knowledge-unit\"}"
+  ],
+  "format": "aavanam-bundle/v1",
+  "payloads": {
+    "sha256:b4ed3ef3a9a94839c30e5ad2924124d276798127756f09a5219cf4176cd601bb": "Q2hlY2sgdGhlIHB1bXAgc2VhbCBldmVyeSB3ZWVrLgo="
+  },
+  "roots": [
+    "sha256:254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad"
+  ]
+}

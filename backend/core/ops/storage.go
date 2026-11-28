@@ -28,7 +28,7 @@ type ContextRecord struct {
 	Roots        []string // the resolved roots, in the order of the request
 	Capabilities []string // in ascending order (CTX-PRJ-2)
 	// Expires is the end of the declared life of the context, in milliseconds from 1970-01-01T00:00:00Z
-	// (CTX-LIF-1, DEV-LAY-5). Zero is a context with no declared life.
+	// (CTX-LIF-1, DEV-LAY-6). Zero is a context with no declared life.
 	Expires int64
 }
 

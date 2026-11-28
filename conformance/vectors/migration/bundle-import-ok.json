@@ -1,0 +1,177 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "An empty device store imports the bundle and the raw delta bundle that release 0.6.0 exported",
+  "clauses": [
+    "MIG-TRF-1",
+    "BUN-IMP-3",
+    "BUN-RAW-4",
+    "BUN-DLT-5",
+    "CRD-READ-3"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "import",
+      "request": {
+        "bundle": {
+          "$bundle": "x1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      },
+      "store": "device",
+      "fresh_store": true
+    },
+    {
+      "operation": "import",
+      "request": {
+        "bundle": {
+          "$bundle": "x2",
+          "form": "raw"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b2"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d2"
+              }
+            }
+          }
+        ],
+        "unordered": true
+      },
+      "store": "device"
+    },
+    {
+      "operation": "open_context",
+      "request": {
+        "roots": [
+          {
+            "$ref": "s2"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": []
+          }
+        ]
+      },
+      "store": "device",
+      "as_context": "dn"
+    },
+    {
+      "operation": "read",
+      "request": {
+        "context": {
+          "$context": "dn"
+        },
+        "ref": {
+          "$ref": "d2"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d2"
+              },
+              "kind": "artifact",
+              "data": "UmVwbGFjZSB0aGUgdmFsdmUgZ2Fza2V0IGVhY2ggeWVhci4K"
+            }
+          }
+        ],
+        "store_unchanged": true
+      },
+      "store": "device"
+    }
+  ]
+}

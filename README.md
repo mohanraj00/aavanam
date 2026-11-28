@@ -116,20 +116,20 @@ A changed byte is a new object, so a new table means a new snapshot. A context t
 ## Next docs
 
 - [docs/operations/](docs/operations/README.md): one page for each operation, with an example that runs.
-- [SPEC.md](SPEC.md): the specification and its 24 contract documents.
+- [SPEC.md](SPEC.md): the specification and its 25 contract documents.
 - [examples/](examples/README.md): complete examples, from a clean install of the package.
 - [docs/STATUS.md](docs/STATUS.md): the status and the vector result of each implementation.
 - [CHANGELOG.md](CHANGELOG.md): the contents and the known limits of each release.
 
 ## Where it stands
 
-Version 0.6.0 is the current version. In version 0.6.0, all 24 contract documents are normative.
+Version 0.6.0 is the current version. In version 0.6.0, the 24 contract documents of that version are normative. Document 25, the migration rules between versions, is new after version 0.6.0, and all 25 contract documents are normative.
 
 | Fact | Value |
 |---|---|
-| Contract clauses | 513, in 24 documents under `docs/contracts/` |
-| Conformance vectors | 824. The reference implementation passes all of them |
-| Null implementation | Passes 1 vector and fails 823. The runner exits with 1 |
+| Contract clauses | 533, in 25 documents under `docs/contracts/`. One clause is withdrawn |
+| Conformance vectors | 837. The reference implementation passes all of them |
+| Null implementation | Passes 1 vector and fails 836. The runner exits with 1 |
 | End-to-end acceptance | 9 vectors. Four consumers on two neutral collections, through an export, a device import and a read on the device, plus 1 composed context |
 | Reference implementation | Python over SQLite. The standard library only |
 
@@ -175,7 +175,7 @@ A patch version (for example 0.1.0 to 0.1.1) keeps the guarantees in the next se
 
 Each 0.6.x release keeps these:
 
-- The normative clauses of contract documents 01 to 24. A change of the meaning of a normative clause withdraws the clause, adds a new clause and names the affected vectors (SPEC.md, "Clause IDs").
+- The normative clauses of contract documents 01 to 25. A change of the meaning of a normative clause withdraws the clause, adds a new clause and names the affected vectors (SPEC.md, "Clause IDs").
 - The descriptor meanings of `aavanam/base/v1` at minor version 14, and of the profiles of documents 21 to 24.
 - The canonical reference digests.
 - The transfer formats `aavanam-bundle/v1` and `aavanam-bundle-raw/v1`.
@@ -185,9 +185,9 @@ A later 0.6 release can add compatible clauses, kinds, fields, reasons and vecto
 
 The topics in the `draft` state: none.
 
-Each topic of documents 01 to 24 is normative. If a later 0.6 release keeps a new topic in the `draft` state, this list names it, and a clause of that topic can change in place.
+Each topic of documents 01 to 25 is normative. If a later 0.6 release keeps a new topic in the `draft` state, this list names it, and a clause of that topic can change in place.
 
-The Python reference API, the conformance runner interface, the SQLite layout and the producer adapter interface can change. Use a versioned bundle to transfer a snapshot between store versions. Reserved operations return their specified unsupported status. The source version identifies the specification, the conformance vectors and the reference store together.
+The Python reference API, the conformance runner interface, the SQLite layout of the reference store and the producer adapter interface can change. A later release opens a store that an earlier release of the same major version wrote, and it imports a bundle of that release (document 25). Reserved operations return their specified unsupported status. The source version identifies the specification, the conformance vectors and the reference store together.
 
 ## Run the checks
 

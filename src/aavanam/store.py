@@ -94,6 +94,14 @@ class Stale(Exception):
 ATTEMPTS = 8  # the number of runs of one call before the result is storage_error
 
 
+class UnsupportedStore(ValueError):
+    """A store file has a form that this implementation does not know: a later form, or the form of a different
+    major version (MIG-STG-3, MIG-MAJ-3). It is a failure to open the store, not the result of an operation.
+    `reason` is the reason code of this failure."""
+
+    reason = 'unsupported_profile'
+
+
 class Failure(Exception):
     """An outcome of the operation as a whole (STS-ENV-3 rule 1)."""
 
@@ -441,13 +449,18 @@ class Store:
         self.debug = debug  # raise in place of storage_error, for tests
         self.broken = False  # a rollback failed, so the connection can show a partial write
         self.db = sqlite3.connect(path, timeout=60, isolation_level=None, check_same_thread=False)
+        # MIG-STG-3, MIG-MAJ-3: this implementation writes no version number in a store file. Thus a file with a
+        # version number has a later form, or the form of a different major version. The open does not change it.
+        found = self.db.execute('PRAGMA user_version').fetchone()[0]
+        if found:
+            self.db.close()
+            raise UnsupportedStore(f'the store file has the form version {found}, which this implementation does not know (MIG-STG-3)')
+        # MIG-STG-1, MIG-STG-2: the store finds the tables that a file of an earlier release does not have, and
+        # it adds each one. A statement adds a table only one time, also if two programs open the file together.
         self.db.executescript(SCHEMA)
         self.db.execute('PRAGMA secure_delete = ON')  # a removed producer object leaves no bytes in a free page (PRD-RMV-3)
         self.clock = lambda: datetime.now(timezone.utc)  # the store clock of a removal record (PRD-RMV-1)
-        columns = [c for (_, c, *_) in self.db.execute('PRAGMA table_info(contexts)')]
-        if 'capabilities' not in columns:  # a context of an older store file has each capability (CTX-PRJ-2)
-            self.db.execute('ALTER TABLE contexts ADD COLUMN capabilities TEXT NOT NULL DEFAULT ' +
-                            "'" + json.dumps(sorted(CAPABILITIES)) + "'")
+        self.migrate_capabilities()
         self.migrate_publications()
         self.gone: set[str] | None = None  # the removed objects, read at the first use (REL-RMV-7)
         self.version = None  # the data version of the file at the last call (REL-RMV-7)
@@ -462,6 +475,24 @@ class Store:
         if self.output and ':memory:' not in (path, output_path) and os.path.samefile(path, output_path):
             self.close()  # a hard link names one file with two paths (BUN-IMP-7)
             raise ValueError('a device store and its local output store have separate databases (BUN-IMP-7)')
+
+    def migrate_capabilities(self) -> None:
+        """Add the column `capabilities` to the table `contexts` of a store before CTX-PRJ-2, in one write
+        transaction (MIG-STG-1). A context of that store has each capability. A second open that waits for the
+        lock reads the new form."""
+        def absent() -> bool:
+            return 'capabilities' not in [c for (_, c, *_) in self.db.execute('PRAGMA table_info(contexts)')]
+        if not absent():
+            return
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            if absent():
+                self.db.execute('ALTER TABLE contexts ADD COLUMN capabilities TEXT NOT NULL DEFAULT ' +
+                                "'" + json.dumps(sorted(CAPABILITIES)) + "'")
+            self.db.execute('COMMIT')
+        except BaseException:
+            self.db.execute('ROLLBACK')
+            raise
 
     def migrate_publications(self) -> None:
         """Add the fields of PUB-LOG-2 to the table of a store before PUB-LOG-2, in one write transaction.

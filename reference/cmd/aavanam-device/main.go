@@ -21,8 +21,8 @@ type files struct {
 	stores []*device.Store
 }
 
-// open closes the stores that are open, deletes the two files and makes new ones (DEV-LAY-1).
-func (f *files) open() (map[string]conformance.Backing, error) {
+// remove closes the stores that are open and deletes the two files.
+func (f *files) remove() error {
 	for _, s := range f.stores {
 		s.Close()
 	}
@@ -31,13 +31,44 @@ func (f *files) open() (map[string]conformance.Backing, error) {
 		path := filepath.Join(f.dir, name)
 		for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
 			if err := os.Remove(path + suffix); err != nil && !os.IsNotExist(err) {
-				return nil, err
+				return err
 			}
 		}
+	}
+	return nil
+}
+
+// open closes the stores that are open, deletes the two files and makes new ones (DEV-LAY-1).
+func (f *files) open() (map[string]conformance.Backing, error) {
+	if err := f.remove(); err != nil {
+		return nil, err
 	}
 	if err := device.Create(f.dir); err != nil {
 		return nil, err
 	}
+	return f.use()
+}
+
+// stored replaces the two files with copies of the two files of the folder `from`, which an earlier
+// release wrote, and it opens the copies (MIG-VER-1, DEV-MIG-1). The files of `from` do not change.
+func (f *files) stored(from string) (map[string]conformance.Backing, error) {
+	if err := f.remove(); err != nil {
+		return nil, err
+	}
+	for _, name := range []string{device.DeviceFile, device.OutputFile} {
+		data, err := os.ReadFile(filepath.Join(from, name))
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(filepath.Join(f.dir, name), data, 0o600); err != nil {
+			return nil, err
+		}
+	}
+	return f.use()
+}
+
+// use opens the two files of the directory.
+func (f *files) use() (map[string]conformance.Backing, error) {
 	dev, out, err := device.Open(f.dir)
 	if err != nil {
 		return nil, err
@@ -89,7 +120,7 @@ func main() {
 		*dir = temp
 	}
 	f := &files{dir: *dir}
-	s := &conformance.Core{Open: f.open}
+	s := &conformance.Core{Open: f.open, Stored: f.stored}
 	if err := s.Reset(); err != nil {
 		fmt.Fprintln(os.Stderr, "aavanam-device:", err)
 		os.Exit(2)

@@ -1,0 +1,10 @@
+{
+  "device": {
+    "dc1": "ctx:c84ee1de86b04cacbeb537ddd553c656"
+  },
+  "writer": {
+    "c1": "ctx:44602780fe81446c82e20f4a7ae147fc",
+    "c2": "ctx:36e4717f459042afb9928102c7558ad5",
+    "ce": "ctx:ac7eff36f94644abbc8487e3b61f0838"
+  }
+}

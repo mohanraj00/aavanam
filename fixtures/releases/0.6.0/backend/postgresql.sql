@@ -1,0 +1,812 @@
+--
+-- PostgreSQL database dump
+--
+
+
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: aavanam_inserts_only(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.aavanam_inserts_only() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RAISE EXCEPTION 'the table % takes inserts only', TG_TABLE_NAME;
+END $$;
+
+
+--
+-- Name: aavanam_removal_only(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.aavanam_removal_only() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'DELETE' AND current_setting('aavanam.removal', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'the table % takes inserts only', TG_TABLE_NAME;
+END $$;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: candidates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.candidates (
+    id bytea NOT NULL,
+    snapshot bytea NOT NULL,
+    collection bytea NOT NULL,
+    policy bytea NOT NULL,
+    expected_head bytea
+);
+
+
+--
+-- Name: closures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.closures (
+    root bytea NOT NULL,
+    member bytea NOT NULL
+);
+
+
+--
+-- Name: collection_locks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collection_locks (
+    collection bytea NOT NULL
+);
+
+
+--
+-- Name: contexts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contexts (
+    id bytea NOT NULL,
+    roots bytea[] NOT NULL,
+    capabilities text[] NOT NULL,
+    opened timestamp with time zone DEFAULT now() NOT NULL,
+    expires bigint,
+    gone bytea[]
+);
+
+
+--
+-- Name: deferred; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.deferred (
+    digest bytea NOT NULL,
+    ref bytea NOT NULL
+);
+
+
+--
+-- Name: edges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.edges (
+    src bytea NOT NULL,
+    dst bytea NOT NULL
+);
+
+
+--
+-- Name: gates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gates (
+    collection bytea NOT NULL
+);
+
+
+--
+-- Name: heads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.heads (
+    collection bytea NOT NULL,
+    snapshot bytea NOT NULL
+);
+
+
+--
+-- Name: objects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.objects (
+    ref bytea NOT NULL,
+    kind text NOT NULL COLLATE pg_catalog."C",
+    collection bytea,
+    canonical bytea NOT NULL,
+    CONSTRAINT objects_ref_check CHECK ((octet_length(ref) = 32))
+);
+
+
+--
+-- Name: payloads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payloads (
+    digest bytea NOT NULL,
+    size bigint NOT NULL,
+    data bytea NOT NULL,
+    CONSTRAINT payloads_digest_check CHECK ((octet_length(digest) = 32))
+);
+
+
+--
+-- Name: producer_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.producer_entries (
+    producer bytea NOT NULL,
+    log bytea NOT NULL,
+    sequence bigint NOT NULL,
+    entry bytea NOT NULL
+);
+
+
+--
+-- Name: producer_objects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.producer_objects (
+    producer bytea NOT NULL,
+    key bytea NOT NULL,
+    data bytea NOT NULL
+);
+
+
+--
+-- Name: producer_removals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.producer_removals (
+    producer bytea NOT NULL,
+    sequence bigint NOT NULL,
+    key bytea NOT NULL,
+    "time" text NOT NULL COLLATE pg_catalog."C",
+    reason bytea NOT NULL
+);
+
+
+--
+-- Name: publications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.publications (
+    seq bigint NOT NULL,
+    collection bytea NOT NULL,
+    candidate bytea NOT NULL,
+    receipt bytea NOT NULL,
+    activation bytea,
+    previous_head bytea,
+    head bytea NOT NULL
+);
+
+
+--
+-- Name: publications_seq_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.publications ALTER COLUMN seq ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.publications_seq_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: removal_epoch; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.removal_epoch (
+    epoch bigint NOT NULL
+);
+
+
+--
+-- Name: removals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.removals (
+    sequence bigint NOT NULL,
+    ref bytea NOT NULL,
+    kind text NOT NULL COLLATE pg_catalog."C",
+    "time" text NOT NULL COLLATE pg_catalog."C",
+    reason bytea NOT NULL,
+    CONSTRAINT removals_ref_check CHECK ((octet_length(ref) = 32))
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version integer NOT NULL,
+    applied timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: sections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sections (
+    collection bytea NOT NULL,
+    section text NOT NULL COLLATE pg_catalog."C"
+);
+
+
+--
+-- Name: table_heads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.table_heads (
+    digest bytea NOT NULL,
+    columns bytea NOT NULL,
+    count integer NOT NULL,
+    CONSTRAINT table_heads_digest_check CHECK ((octet_length(digest) = 32))
+);
+
+
+--
+-- Name: table_rows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.table_rows (
+    digest bytea NOT NULL,
+    idx integer NOT NULL,
+    cells bytea NOT NULL
+);
+
+
+--
+-- Name: text_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.text_tokens (
+    digest bytea NOT NULL,
+    bits bytea NOT NULL,
+    CONSTRAINT text_tokens_digest_check CHECK ((octet_length(digest) = 32))
+);
+ALTER TABLE ONLY public.text_tokens ALTER COLUMN bits SET STORAGE MAIN;
+
+
+--
+-- Data for Name: candidates; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.candidates VALUES ('\x2c2f95878e100c18c68454b9590fd19e0a413d1cc19453d518f4a60fc78b2a73', '\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', '\x73616d706c652d6d616e75616c', '\x6578616d706c652f7265766965772d626f6172642f7631', NULL);
+
+
+--
+-- Data for Name: closures; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.closures VALUES ('\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', '\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad');
+INSERT INTO public.closures VALUES ('\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', '\x33394e1f7fcd8e20283903f5f2b9c9cdd5b26e7d05cb6a2ebc91ec85160202f9');
+INSERT INTO public.closures VALUES ('\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', '\x6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f');
+INSERT INTO public.closures VALUES ('\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', '\xe7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x23d258eeda33e7e9bcd7ba4f04c51d0e7ac7f4491fbf3714120edc4bd31239fd');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x3c873e8d2edd9ce72be24157a3bbecd72d513eef52f307eabd8eb8d904944538');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x4e70f1b124233f604e9238f6f166237e6f38ba474ed75e8903b33b96431c4c86');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x512cf5dfe448c22bc6398f79b78349cc71c81bad6fc88aff7a4d5eaaf6c9a500');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x6295fe228a64a23b6a66e187d0a099bfa3966a41414d7292d55b6292a78b5d4c');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x72234d02c46a3eff728d27d359cfae7c252135eef35c80eaedfd4941231e23a1');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x7c32c7773da407a9a71ff2169876c618bcd35ee4e64b786c4ca78c561cebf804');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x9fdfd081d21c8ff2a6d3aeb81f5ce6256b2187fb506caeb27869886ebd8af92c');
+INSERT INTO public.closures VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\xca0b4a219b6fdc68349cd26dc89852222edbccd7fec84841e7de7b03feb7866e');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\x33394e1f7fcd8e20283903f5f2b9c9cdd5b26e7d05cb6a2ebc91ec85160202f9');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\x6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\x9083fb08df48de39f4aa74bf35c75ba024c99c4fb4e314d95368ea5a54f1d48f');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\xc53bd7f65fa657c2f8d86ff4eaa60062bf3a8213d5065d58ffedfa4e02b85baf');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\xe7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb');
+INSERT INTO public.closures VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\xf035eb57fd6ebd62f42685f3af84a2246009665fe6ed2c8570a98c32b93ff5bf');
+
+
+--
+-- Data for Name: collection_locks; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.collection_locks VALUES ('\x73616d706c652d65766964656e6365');
+INSERT INTO public.collection_locks VALUES ('\x73616d706c652d6d616e75616c');
+
+
+--
+-- Data for Name: contexts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.contexts VALUES ('\x6374782d6333346263323365663262336236346162626531613966383765376136393135', '{"\\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad"}', '{aavanam/data/v1,aavanam/export/v1,aavanam/lexical/v1,aavanam/locks/v1,aavanam/text/v1}', '2026-11-28 11:36:36.003667+00', NULL, NULL);
+INSERT INTO public.contexts VALUES ('\x6374782d3965653832316533333738313139336264346266373733616636646638363833', '{"\\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da"}', '{aavanam/data/v1,aavanam/export/v1,aavanam/lexical/v1,aavanam/locks/v1,aavanam/text/v1}', '2026-11-28 11:36:36.036425+00', NULL, '{"\\xca0b4a219b6fdc68349cd26dc89852222edbccd7fec84841e7de7b03feb7866e"}');
+INSERT INTO public.contexts VALUES ('\x6374782d6262343331373761323166336464313431393666623934646465303836663330', '{"\\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2"}', '{aavanam/data/v1,aavanam/export/v1,aavanam/lexical/v1,aavanam/locks/v1,aavanam/text/v1}', '2026-11-28 11:36:36.116105+00', NULL, NULL);
+
+
+--
+-- Data for Name: deferred; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: edges; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.edges VALUES ('\x33394e1f7fcd8e20283903f5f2b9c9cdd5b26e7d05cb6a2ebc91ec85160202f9', '\x6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f');
+INSERT INTO public.edges VALUES ('\xe7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb', '\x33394e1f7fcd8e20283903f5f2b9c9cdd5b26e7d05cb6a2ebc91ec85160202f9');
+INSERT INTO public.edges VALUES ('\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', '\xe7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb');
+INSERT INTO public.edges VALUES ('\x174ec58b0ce5a5b2dde49d4e3f880579ff1013a13b1618d19d45c2ae6299f4c8', '\x6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f');
+INSERT INTO public.edges VALUES ('\x341df5a6d9bee8cf790433eb52fe70ae3f73b055930b185c3d7d2fe65cbce7cd', '\x6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f');
+INSERT INTO public.edges VALUES ('\x512cf5dfe448c22bc6398f79b78349cc71c81bad6fc88aff7a4d5eaaf6c9a500', '\x7c32c7773da407a9a71ff2169876c618bcd35ee4e64b786c4ca78c561cebf804');
+INSERT INTO public.edges VALUES ('\x9fdfd081d21c8ff2a6d3aeb81f5ce6256b2187fb506caeb27869886ebd8af92c', '\x6295fe228a64a23b6a66e187d0a099bfa3966a41414d7292d55b6292a78b5d4c');
+INSERT INTO public.edges VALUES ('\x4e70f1b124233f604e9238f6f166237e6f38ba474ed75e8903b33b96431c4c86', '\x9fdfd081d21c8ff2a6d3aeb81f5ce6256b2187fb506caeb27869886ebd8af92c');
+INSERT INTO public.edges VALUES ('\xca0b4a219b6fdc68349cd26dc89852222edbccd7fec84841e7de7b03feb7866e', '\x9fdfd081d21c8ff2a6d3aeb81f5ce6256b2187fb506caeb27869886ebd8af92c');
+INSERT INTO public.edges VALUES ('\x23d258eeda33e7e9bcd7ba4f04c51d0e7ac7f4491fbf3714120edc4bd31239fd', '\x512cf5dfe448c22bc6398f79b78349cc71c81bad6fc88aff7a4d5eaaf6c9a500');
+INSERT INTO public.edges VALUES ('\x23d258eeda33e7e9bcd7ba4f04c51d0e7ac7f4491fbf3714120edc4bd31239fd', '\xca0b4a219b6fdc68349cd26dc89852222edbccd7fec84841e7de7b03feb7866e');
+INSERT INTO public.edges VALUES ('\x72234d02c46a3eff728d27d359cfae7c252135eef35c80eaedfd4941231e23a1', '\x4e70f1b124233f604e9238f6f166237e6f38ba474ed75e8903b33b96431c4c86');
+INSERT INTO public.edges VALUES ('\x72234d02c46a3eff728d27d359cfae7c252135eef35c80eaedfd4941231e23a1', '\x512cf5dfe448c22bc6398f79b78349cc71c81bad6fc88aff7a4d5eaaf6c9a500');
+INSERT INTO public.edges VALUES ('\x3c873e8d2edd9ce72be24157a3bbecd72d513eef52f307eabd8eb8d904944538', '\x23d258eeda33e7e9bcd7ba4f04c51d0e7ac7f4491fbf3714120edc4bd31239fd');
+INSERT INTO public.edges VALUES ('\x3c873e8d2edd9ce72be24157a3bbecd72d513eef52f307eabd8eb8d904944538', '\x72234d02c46a3eff728d27d359cfae7c252135eef35c80eaedfd4941231e23a1');
+INSERT INTO public.edges VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', '\x3c873e8d2edd9ce72be24157a3bbecd72d513eef52f307eabd8eb8d904944538');
+INSERT INTO public.edges VALUES ('\xf035eb57fd6ebd62f42685f3af84a2246009665fe6ed2c8570a98c32b93ff5bf', '\x9083fb08df48de39f4aa74bf35c75ba024c99c4fb4e314d95368ea5a54f1d48f');
+INSERT INTO public.edges VALUES ('\xc53bd7f65fa657c2f8d86ff4eaa60062bf3a8213d5065d58ffedfa4e02b85baf', '\xf035eb57fd6ebd62f42685f3af84a2246009665fe6ed2c8570a98c32b93ff5bf');
+INSERT INTO public.edges VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\xc53bd7f65fa657c2f8d86ff4eaa60062bf3a8213d5065d58ffedfa4e02b85baf');
+INSERT INTO public.edges VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', '\xe7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb');
+
+
+--
+-- Data for Name: gates; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: heads; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.heads VALUES ('\x73616d706c652d6d616e75616c', '\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad');
+
+
+--
+-- Data for Name: objects; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.objects VALUES ('\x6d7700930033c3871f154a63cfc99999448c457c40dc4027029e9c99a9f89f8f', 'artifact', NULL, '\x7b2261727469666163745f74797065223a2273616d706c652f646f63756d656e742f7631222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a226172746966616374222c227061796c6f6164223a7b22646967657374223a227368613235363a62346564336566336139613934383339633330653561643239323431323464323736373938313237373536663039613532313963663431373663643630316262222c226d656469615f74797065223a22746578742f706c61696e222c2273697a65223a33327d7d');
+INSERT INTO public.objects VALUES ('\x33394e1f7fcd8e20283903f5f2b9c9cdd5b26e7d05cb6a2ebc91ec85160202f9', 'binding-set', NULL, '\x7b2262696e64696e6773223a7b22646f63223a227368613235363a36643737303039333030333363333837316631353461363363666339393939393434386334353763343064633430323730323965396339396139663839663866227d2c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2262696e64696e672d736574227d');
+INSERT INTO public.objects VALUES ('\xe7d28b817a1eb16d511e80c7a4fce942a02fdfbeeaa456348a8d23374602a6cb', 'knowledge-unit', NULL, '\x7b2262696e64696e675f736574223a227368613235363a33333339346531663766636438653230323833393033663566326239633963646435623236653764303563623661326562633931656338353136303230326639222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a226b6e6f776c656467652d756e6974227d');
+INSERT INTO public.objects VALUES ('\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad', 'snapshot', '\x73616d706c652d6d616e75616c', '\x7b22636f6c6c656374696f6e223a2273616d706c652d6d616e75616c222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22736e617073686f74222c22756e697473223a5b227368613235363a65376432386238313761316562313664353131653830633761346663653934326130326664666265656161343536333438613864323333373436303261366362225d7d');
+INSERT INTO public.objects VALUES ('\x174ec58b0ce5a5b2dde49d4e3f880579ff1013a13b1618d19d45c2ae6299f4c8', 'receipt', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2272656365697074222c227061796c6f6164223a7b22646967657374223a227368613235363a32316366663763323230386161626266666264303133306536386332336233353139333135363332356334396165393365613639383833363539636539313936222c226d656469615f74797065223a226170706c69636174696f6e2f6a736f6e222c2273697a65223a34317d2c2270726f6475636572223a226578616d706c652f7265766965772d626f617264222c227375626a65637473223a5b227368613235363a36643737303039333030333363333837316631353461363363666339393939393434386334353763343064633430323730323965396339396139663839663866225d7d');
+INSERT INTO public.objects VALUES ('\x341df5a6d9bee8cf790433eb52fe70ae3f73b055930b185c3d7d2fe65cbce7cd', 'check', NULL, '\x7b22636865636b5f70726f66696c65223a2273616d706c652f636865636b2f7631222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22636865636b222c226f726967696e223a226578616d706c652f636865636b6572222c226f7574636f6d65223a2270617373222c2273636f7065223a7b7d2c227375626a656374223a227368613235363a36643737303039333030333363333837316631353461363363666339393939393434386334353763343064633430323730323965396339396139663839663866227d');
+INSERT INTO public.objects VALUES ('\x6295fe228a64a23b6a66e187d0a099bfa3966a41414d7292d55b6292a78b5d4c', 'source', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22736f75726365222c227061796c6f6164223a7b22646967657374223a227368613235363a38313634633734306236383562343239323735393738393436643538366238626462343339353037356332626633383133656363383236303637663364626239222c226d656469615f74797065223a22746578742f706c61696e222c2273697a65223a34347d7d');
+INSERT INTO public.objects VALUES ('\x7c32c7773da407a9a71ff2169876c618bcd35ee4e64b786c4ca78c561cebf804', 'schema', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22736368656d61222c227061796c6f6164223a7b22646967657374223a227368613235363a33323964633164633536396238303437663831363338623766363739393234366265373865623664616236663835663564303665323161383439346563663239222c226d656469615f74797065223a226170706c69636174696f6e2f6a736f6e222c2273697a65223a33347d2c22736368656d615f70726f66696c65223a2273616d706c652f736368656d612f7631227d');
+INSERT INTO public.objects VALUES ('\x512cf5dfe448c22bc6398f79b78349cc71c81bad6fc88aff7a4d5eaaf6c9a500', 'data-resource', NULL, '\x7b22646174615f70726f66696c65223a22616176616e616d2f7461626c652f7631222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22646174612d7265736f75726365222c227061796c6f6164223a7b22646967657374223a227368613235363a64666330646334303665383765373361396663303035343364653266656662336233623265313861636435353132326538633631663230333934333837373431222c226d656469615f74797065223a226170706c69636174696f6e2f6a736f6e222c2273697a65223a39337d2c22736368656d61223a227368613235363a37633332633737373364613430376139613731666632313639383736633631386263643335656534653634623738366334636137386335363163656266383034227d');
+INSERT INTO public.objects VALUES ('\x9fdfd081d21c8ff2a6d3aeb81f5ce6256b2187fb506caeb27869886ebd8af92c', 'reading', NULL, '\x7b22636f7665726167655f70726f66696c65223a2273616d706c652f636f7665726167652f7631222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2272656164696e67222c227061796c6f6164223a7b22646967657374223a227368613235363a38313634633734306236383562343239323735393738393436643538366238626462343339353037356332626633383133656363383236303637663364626239222c226d656469615f74797065223a22746578742f706c61696e222c2273697a65223a34347d2c2270726f6475636572223a2273616d706c652f7265616465722f7631222c22736f75726365223a227368613235363a36323935666532323861363461323362366136366531383764306130393962666133393636613431343134643732393264353562363239326137386235643463227d');
+INSERT INTO public.objects VALUES ('\x4e70f1b124233f604e9238f6f166237e6f38ba474ed75e8903b33b96431c4c86', 'excerpt', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2265786365727074222c22706172656e74223a227368613235363a39666466643038316432316338666632613664336165623831663563653632353662323138376662353036636165623237383639383836656264386166393263222c227061796c6f6164223a7b22646967657374223a227368613235363a33663436643237366635343234363464386538623762313134643262653366663836306635646532303933383035623461376139633434376361613139393034222c226d656469615f74797065223a22746578742f706c61696e222c2273697a65223a31367d2c2272616e676573223a5b7b22656e64223a34332c227374617274223a32377d5d7d');
+INSERT INTO public.objects VALUES ('\x23d258eeda33e7e9bcd7ba4f04c51d0e7ac7f4491fbf3714120edc4bd31239fd', 'evidence', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2265766964656e6365222c226f726967696e223a2273616d706c652f656469746f722f7631222c227375626a656374223a227368613235363a35313263663564666534343863323262633633393866373962373833343963633731633831626164366663383861666637613464356561616636633961353030222c22737570706f727473223a227368613235363a63613062346132313962366664633638333439636432366463383938353232323265646263636437666563383438343165376465376230336665623738363665227d');
+INSERT INTO public.objects VALUES ('\x72234d02c46a3eff728d27d359cfae7c252135eef35c80eaedfd4941231e23a1', 'evidence', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2265766964656e6365222c226f726967696e223a2273616d706c652f656469746f722f7631222c227375626a656374223a227368613235363a35313263663564666534343863323262633633393866373962373833343963633731633831626164366663383861666637613464356561616636633961353030222c22737570706f727473223a227368613235363a34653730663162313234323333663630346539323338663666313636323337653666333862613437346564373565383930336233336239363433316334633836227d');
+INSERT INTO public.objects VALUES ('\x3c873e8d2edd9ce72be24157a3bbecd72d513eef52f307eabd8eb8d904944538', 'relation-set', NULL, '\x7b2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2272656c6174696f6e2d736574222c226d656d62657273223a5b227368613235363a32336432353865656461333365376539626364376261346630346335316430653761633766343439316662663337313431323065646334626433313233396664222c227368613235363a37323233346430326334366133656666373238643237643335396366616537633235323133356565663335633830656165646664343934313233316532336131225d7d');
+INSERT INTO public.objects VALUES ('\x3ffa4cb371f81cb51a69c83bd837bcb83bf6f3d8733e339fae75bef8e307b5da', 'snapshot', '\x73616d706c652d65766964656e6365', '\x7b22636f6c6c656374696f6e223a2273616d706c652d65766964656e6365222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22736e617073686f74222c2272656c6174696f6e5f73657473223a5b227368613235363a33633837336538643265646439636537326265323431353761336262656364373264353133656566353266333037656162643865623864393034393434353338225d7d');
+INSERT INTO public.objects VALUES ('\x9083fb08df48de39f4aa74bf35c75ba024c99c4fb4e314d95368ea5a54f1d48f', 'artifact', NULL, '\x7b2261727469666163745f74797065223a2273616d706c652f646f63756d656e742f7631222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a226172746966616374222c227061796c6f6164223a7b22646967657374223a227368613235363a35623763316633376336326638663936343131333139643965613735346562313066306331623965643063393730663230336566623037386661643039303137222c226d656469615f74797065223a22746578742f706c61696e222c2273697a65223a33367d7d');
+INSERT INTO public.objects VALUES ('\xf035eb57fd6ebd62f42685f3af84a2246009665fe6ed2c8570a98c32b93ff5bf', 'binding-set', NULL, '\x7b2262696e64696e6773223a7b22646f63223a227368613235363a39303833666230386466343864653339663461613734626633356337356261303234633939633466623465333134643935333638656135613534663164343866227d2c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a2262696e64696e672d736574227d');
+INSERT INTO public.objects VALUES ('\xc53bd7f65fa657c2f8d86ff4eaa60062bf3a8213d5065d58ffedfa4e02b85baf', 'knowledge-unit', NULL, '\x7b2262696e64696e675f736574223a227368613235363a66303335656235376664366562643632663432363835663361663834613232343630303936363566653665643263383537306139386333326239336666356266222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a226b6e6f776c656467652d756e6974227d');
+INSERT INTO public.objects VALUES ('\x925d8dafb7a29e32f289d40b1e3b667c5766af05a96797cd9d2acaeb58604ee2', 'snapshot', '\x73616d706c652d6d616e75616c', '\x7b22636f6c6c656374696f6e223a2273616d706c652d6d616e75616c222c2264657363726970746f725f70726f66696c65223a22616176616e616d2f626173652f7631222c226b696e64223a22736e617073686f74222c22756e697473223a5b227368613235363a63353362643766363566613635376332663864383666663465616136303036326266336138323133643530363564353866666564666134653032623835626166222c227368613235363a65376432386238313761316562313664353131653830633761346663653934326130326664666265656161343536333438613864323333373436303261366362225d7d');
+
+
+--
+-- Data for Name: payloads; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.payloads VALUES ('\xb4ed3ef3a9a94839c30e5ad2924124d276798127756f09a5219cf4176cd601bb', 32, '\x436865636b207468652070756d70207365616c206576657279207765656b2e0a');
+INSERT INTO public.payloads VALUES ('\x21cff7c2208aabbffbd0130e68c23b35193156325c49ae93ea69883659ce9196', 41, '\x7b226465636973696f6e223a20226163636570746564222c20227469636b6574223a2022722d31227d');
+INSERT INTO public.payloads VALUES ('\x329dc1dc569b8047f81638b7f6799246be78eb6dab6f85f5d06e21a8494ecf29', 34, '\x7b226669656c6473223a205b2270617274222c2022696e74657276616c5f68225d7d');
+INSERT INTO public.payloads VALUES ('\x8164c740b685b429275978946d586b8bdb4395075c2bf3813ecc826067f3dbb9', 44, '\x50756d703a20636865636b20746865207365616c2e2046616e3a20636c65616e2074686520626c6164652e0a');
+INSERT INTO public.payloads VALUES ('\xdfc0dc406e87e73a9fc00543de2fefb3b3b2e18acd55122e8c61f20394387741', 93, '\x7b22636f6c756d6e73223a205b2270617274222c2022696e74657276616c5f68225d2c20226b6579223a205b2270617274225d2c2022726f7773223a205b5b227365616c222c203530305d2c205b22626c616465222c203230305d5d7d');
+INSERT INTO public.payloads VALUES ('\x3f46d276f542464d8e8b7b114d2be3ff860f5de2093805b4a7a9c447caa19904', 16, '\x636c65616e2074686520626c6164652e');
+INSERT INTO public.payloads VALUES ('\x5b7c1f37c62f8f96411319d9ea754eb10f0c1b9ed0c970f203efb078fad09017', 36, '\x5265706c616365207468652076616c7665206761736b6574206561636820796561722e0a');
+
+
+--
+-- Data for Name: producer_entries; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: producer_objects; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: producer_removals; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: publications; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.publications OVERRIDING SYSTEM VALUE VALUES (1, '\x73616d706c652d6d616e75616c', '\x2c2f95878e100c18c68454b9590fd19e0a413d1cc19453d518f4a60fc78b2a73', '\x174ec58b0ce5a5b2dde49d4e3f880579ff1013a13b1618d19d45c2ae6299f4c8', NULL, NULL, '\x254765fbd75f831a9db28ff7af3e1208b99daddcec005bc419299fcc3450ccad');
+
+
+--
+-- Data for Name: removal_epoch; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.removal_epoch VALUES (1);
+
+
+--
+-- Data for Name: removals; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.removals VALUES (1, '\xca0b4a219b6fdc68349cd26dc89852222edbccd7fec84841e7de7b03feb7866e', 'excerpt', '2026-11-28T11:36:35Z', '\x73616d706c652072656d6f76616c20726571756573742031');
+
+
+--
+-- Data for Name: schema_migrations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.schema_migrations VALUES (1, '2026-11-28 11:36:34.797195+00');
+INSERT INTO public.schema_migrations VALUES (2, '2026-11-28 11:36:34.797195+00');
+INSERT INTO public.schema_migrations VALUES (3, '2026-11-28 11:36:34.797195+00');
+INSERT INTO public.schema_migrations VALUES (4, '2026-11-28 11:36:34.797195+00');
+INSERT INTO public.schema_migrations VALUES (5, '2026-11-28 11:36:34.797195+00');
+
+
+--
+-- Data for Name: sections; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.sections VALUES ('\x73616d706c652d65766964656e6365', 'evidence');
+
+
+--
+-- Data for Name: table_heads; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: table_rows; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: text_tokens; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.text_tokens VALUES ('\xb4ed3ef3a9a94839c30e5ad2924124d276798127756f09a5219cf4176cd601bb', '\x0000a000800000000000000000448000000008041000209000000000200000120040120000004000002004000000000000001000000000010000000000000008');
+INSERT INTO public.text_tokens VALUES ('\x5b7c1f37c62f8f96411319d9ea754eb10f0c1b9ed0c970f203efb078fad09017', '\x00018000000000000000004100010000020000040000000000008008000000040000020000000000004005001000000000821000004000000000280020002000');
+
+
+--
+-- Name: publications_seq_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.publications_seq_seq', 1, true);
+
+
+--
+-- Name: candidates candidates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.candidates
+    ADD CONSTRAINT candidates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: closures closures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.closures
+    ADD CONSTRAINT closures_pkey PRIMARY KEY (root, member);
+
+
+--
+-- Name: contexts contexts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contexts
+    ADD CONSTRAINT contexts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: deferred deferred_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deferred
+    ADD CONSTRAINT deferred_pkey PRIMARY KEY (digest, ref);
+
+
+--
+-- Name: edges edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.edges
+    ADD CONSTRAINT edges_pkey PRIMARY KEY (src, dst);
+
+
+--
+-- Name: objects objects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.objects
+    ADD CONSTRAINT objects_pkey PRIMARY KEY (ref);
+
+
+--
+-- Name: payloads payloads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payloads
+    ADD CONSTRAINT payloads_pkey PRIMARY KEY (digest);
+
+
+--
+-- Name: publications publications_candidate_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publications
+    ADD CONSTRAINT publications_candidate_key UNIQUE (candidate);
+
+
+--
+-- Name: publications publications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publications
+    ADD CONSTRAINT publications_pkey PRIMARY KEY (seq);
+
+
+--
+-- Name: removals removals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.removals
+    ADD CONSTRAINT removals_pkey PRIMARY KEY (sequence);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: table_heads table_heads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.table_heads
+    ADD CONSTRAINT table_heads_pkey PRIMARY KEY (digest);
+
+
+--
+-- Name: table_rows table_rows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.table_rows
+    ADD CONSTRAINT table_rows_pkey PRIMARY KEY (digest, idx);
+
+
+--
+-- Name: text_tokens text_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.text_tokens
+    ADD CONSTRAINT text_tokens_pkey PRIMARY KEY (digest);
+
+
+--
+-- Name: collection_locks_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX collection_locks_key ON public.collection_locks USING btree (sha256(collection));
+
+
+--
+-- Name: contexts_opened; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contexts_opened ON public.contexts USING btree (opened);
+
+
+--
+-- Name: deferred_ref; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX deferred_ref ON public.deferred USING btree (ref);
+
+
+--
+-- Name: edges_dst; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX edges_dst ON public.edges USING btree (dst, src);
+
+
+--
+-- Name: gates_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX gates_key ON public.gates USING btree (sha256(collection));
+
+
+--
+-- Name: heads_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX heads_key ON public.heads USING btree (sha256(collection));
+
+
+--
+-- Name: objects_layers; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX objects_layers ON public.objects USING btree (sha256(collection)) WHERE (kind = 'layer'::text);
+
+
+--
+-- Name: objects_snapshots; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX objects_snapshots ON public.objects USING btree (sha256(collection)) WHERE (kind = 'snapshot'::text);
+
+
+--
+-- Name: producer_entries_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX producer_entries_key ON public.producer_entries USING btree (sha256(producer), sha256(log), sequence);
+
+
+--
+-- Name: producer_objects_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX producer_objects_key ON public.producer_objects USING btree (sha256(producer), sha256(key));
+
+
+--
+-- Name: producer_removals_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX producer_removals_key ON public.producer_removals USING btree (sha256(producer), sha256(key));
+
+
+--
+-- Name: producer_removals_sequence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX producer_removals_sequence ON public.producer_removals USING btree (sha256(producer), sequence);
+
+
+--
+-- Name: publications_collection; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX publications_collection ON public.publications USING btree (sha256(collection), seq);
+
+
+--
+-- Name: removals_ref; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX removals_ref ON public.removals USING btree (ref);
+
+
+--
+-- Name: sections_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX sections_key ON public.sections USING btree (sha256(collection));
+
+
+--
+-- Name: candidates inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.candidates FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_removal_only();
+
+
+--
+-- Name: edges inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.edges FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_removal_only();
+
+
+--
+-- Name: gates inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.gates FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_inserts_only();
+
+
+--
+-- Name: objects inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.objects FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_removal_only();
+
+
+--
+-- Name: payloads inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.payloads FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_removal_only();
+
+
+--
+-- Name: producer_entries inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.producer_entries FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_inserts_only();
+
+
+--
+-- Name: producer_removals inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.producer_removals FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_inserts_only();
+
+
+--
+-- Name: publications inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.publications FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_inserts_only();
+
+
+--
+-- Name: removals inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.removals FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_inserts_only();
+
+
+--
+-- Name: sections inserts_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER inserts_only BEFORE DELETE OR UPDATE ON public.sections FOR EACH STATEMENT EXECUTE FUNCTION public.aavanam_inserts_only();
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+

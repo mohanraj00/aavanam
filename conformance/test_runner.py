@@ -798,6 +798,77 @@ class EchoTest(unittest.TestCase):
             self.assertEqual(runner.run_vector(adapter, vid, vector), [], vid)
 
 
+class ReleaseTest(unittest.TestCase):
+    """A vector with a release store (conformance/README.md, "Release stores"). The envelopes come from the vectors."""
+
+    def setUp(self):
+        self.vectors = runner.load()
+
+    def restored(self, vid, stores):
+        """Return an adapter that restored `stores`, with the envelopes of the other steps, and the steps of the release."""
+        vector = self.vectors[vid]
+        steps = runner.check_spec.release_steps(vector)
+        results, contexts = echo(vector), {}
+        for step, result in zip(steps, results):
+            if 'as_context' in step:
+                contexts.setdefault(step.get('store', 'writer'), {})[step['as_context']] = result['context']
+        adapter = Scripted(*[r for s, r in zip(steps, results) if s.get('store', 'writer') not in stores], *results[len(steps):])
+        adapter.restore = lambda release: {s: contexts.get(s, {}) for s in stores}
+        return adapter, steps, vector
+
+    def test_a_restored_store_gets_no_call_for_a_step_of_its_release(self):  # MIG-VER-1
+        adapter, steps, vector = self.restored('migration/store-read-ok', ('writer', 'device', 'output'))
+        self.assertEqual(runner.run_vector(adapter, 'migration/store-read-ok', vector), [])
+        self.assertEqual(len(adapter.requests), len(vector['steps']))
+        self.assertTrue(all(ref.startswith('sha256:') for ref in adapter.requests[0]['refs']))  # IDN-CAN-2: the runner computes them
+
+    def test_a_store_with_no_stored_form_gets_each_step_of_its_release(self):
+        adapter, steps, vector = self.restored('migration/device-read-ok', ('device', 'output'))
+        self.assertEqual(runner.run_vector(adapter, 'migration/device-read-ok', vector), [])
+        writer = [s for s in steps if s.get('store', 'writer') == 'writer']
+        self.assertEqual(adapter.stores, ['writer'] * len(writer) + ['device'] * len(vector['steps']))
+
+    def test_a_step_of_a_release_gives_the_bundle_of_the_release(self):  # MIG-TRF-1
+        vector = self.vectors['migration/bundle-import-ok']
+        steps = runner.check_spec.release_steps(vector)
+        for adapter in (Scripted(*echo(vector)), self.restored('migration/bundle-import-ok', ('writer', 'device', 'output'))[0]):
+            self.assertEqual(runner.run_vector(adapter, 'migration/bundle-import-ok', vector), [])
+            first = adapter.requests[len(steps) if len(adapter.requests) > len(vector['steps']) else 0]
+            self.assertEqual(first['bundle'], runner.check_spec.release_bundles('0.6.0')['x1'])
+
+    def test_a_restore_that_fails_fails_the_vector(self):
+        adapter, _, vector = self.restored('migration/store-read-ok', ('writer',))
+
+        def refuse(release):
+            raise OSError('no file')
+        adapter.restore = refuse
+        self.assertIn('MIG-VER-1', runner.run_vector(adapter, 'migration/store-read-ok', vector)[0])
+
+    def test_a_restored_store_gives_each_context_identity(self):
+        adapter, _, vector = self.restored('migration/store-read-ok', ('writer', 'device', 'output'))
+        adapter.restore = lambda release: {'writer': {}, 'device': {}, 'output': {}}
+        self.assertIn('no context identity', runner.run_vector(adapter, 'migration/store-read-ok', vector)[0])
+
+    def test_a_vector_with_a_release_store_has_no_declaration_of_its_own(self):
+        vector = self.vectors['migration/store-read-ok']
+        for field, value in (('sections', {'sample-evidence': 'evidence'}), ('fixture', 'part-notes'), ('gates', ['c'])):
+            self.assertRaises(ValueError, runner.check_spec.with_fixture, {**vector, field: value})
+        self.assertRaises(ValueError, runner.check_spec.with_fixture, {**vector, 'release': '9.9.9'})
+        self.assertRaises(ValueError, runner.check_spec.with_fixture, {**vector, 'payloads': {'d1': {'media_type': 'text/plain', 'text': 'x'}}})
+
+    def test_the_check_of_a_release_store(self):
+        self.assertEqual(runner.check_spec.check_releases(), [])
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / '0.6.0').mkdir()
+            definition = json.loads((runner.check_spec.RELEASES / '0.6.0' / 'release.json').read_text())
+            definition['steps'][0]['operation'] = 'gc_collect'
+            definition['commit'] = 'v0.6.0'
+            (Path(folder) / '0.6.0' / 'release.json').write_text(json.dumps(definition))
+            problems = '\n'.join(runner.check_spec.check_releases(Path(folder)))
+        for part in ('the operation is not one of', 'commit is not', 'no bundle file bundles/x1.json'):
+            self.assertIn(part, problems)
+
+
 class DeclareTest(unittest.TestCase):
     def test_the_runner_declares_the_profile_of_a_vector_after_each_reset(self):  # LYR-PRF-1
         vectors = runner.load()

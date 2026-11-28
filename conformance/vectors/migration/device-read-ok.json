@@ -1,0 +1,152 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A device store of release 0.6.0 opens, and a read context of that release gives its members, their bytes and a text match",
+  "clauses": [
+    "MIG-VER-1",
+    "MIG-VER-2",
+    "MIG-VER-4",
+    "MIG-STG-4",
+    "BUN-CLS-3",
+    "CRD-TXT-4"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "get",
+      "request": {
+        "context": {
+          "$context": "dc1"
+        },
+        "refs": [
+          {
+            "$ref": "s1"
+          },
+          {
+            "$ref": "u1"
+          },
+          {
+            "$ref": "b1"
+          },
+          {
+            "$ref": "d1"
+          }
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "s1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "u1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "b1"
+              }
+            }
+          },
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      },
+      "store": "device"
+    },
+    {
+      "operation": "read",
+      "request": {
+        "context": {
+          "$context": "dc1"
+        },
+        "ref": {
+          "$ref": "d1"
+        }
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              },
+              "kind": "artifact",
+              "data": "Q2hlY2sgdGhlIHB1bXAgc2VhbCBldmVyeSB3ZWVrLgo="
+            }
+          }
+        ],
+        "store_unchanged": true
+      },
+      "store": "device"
+    },
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "dc1"
+        },
+        "query": "seal"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 15,
+                "end": 19
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      },
+      "store": "device"
+    }
+  ]
+}

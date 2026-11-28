@@ -31,7 +31,13 @@ class Adapter(Protocol):
     `raw_bundle` returns the raw form that the implementation of the given
     store makes from a bundle (BUN-RAW-3). `advance` moves the clock of each
     store forward by a number of seconds (CTX-LIF-2). After `reset`, each store
-    clock is the system clock again.
+    clock is the system clock again. An adapter can have the method `restore`
+    (conformance/README.md, "Release stores"). It makes each store from the
+    stored form that a release wrote (MIG-VER-1), and it returns the read
+    context identities of each store that it made, by the handles of the
+    release. The runner calls it after `reset`, only for a vector with a
+    release store. An adapter with no such method gets each step of the release
+    as a call.
     """
 
     def reset(self) -> None: ...

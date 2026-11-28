@@ -1,0 +1,53 @@
+{
+  "format": "aavanam-vector/v1",
+  "title": "A text search on a writer store of release 0.6.0 gives the match in the bytes of the release",
+  "clauses": [
+    "MIG-VER-2",
+    "MIG-STG-4",
+    "CRD-TXT-4",
+    "CRD-ORD-1"
+  ],
+  "provenance": {
+    "type": "spec",
+    "note": "The definition of the release store 0.6.0 gives the content. The cited clauses give each result."
+  },
+  "profile": "aavanam/base/v1",
+  "release": "0.6.0",
+  "steps": [
+    {
+      "operation": "search_text",
+      "request": {
+        "context": {
+          "$context": "c1"
+        },
+        "query": "seal"
+      },
+      "expect": {
+        "status": "ok",
+        "reasons": [],
+        "items": [
+          {
+            "status": "ok",
+            "reasons": [],
+            "fields": {
+              "ref": {
+                "$ref": "d1"
+              },
+              "snapshots": [
+                {
+                  "$ref": "s1"
+                }
+              ],
+              "selector": {
+                "selector_profile": "aavanam/bytes/v1",
+                "start": 15,
+                "end": 19
+              }
+            }
+          }
+        ],
+        "store_unchanged": true
+      }
+    }
+  ]
+}

@@ -40,7 +40,14 @@ FIXTURES = ROOT / 'fixtures'
 FIXTURE_FIELDS = {'format', 'collection', 'root', 'payloads', 'descriptors'}
 REQUIRED_COUNTS = {'1', '1..n', '1..n list'}
 FIXTURE_EXCLUDED_KINDS = {'supersession'}
-VECTOR_FIELDS = {'format', 'title', 'clauses', 'provenance', 'profile', 'fixture', 'payloads', 'steps', 'pair', 'acceptance', 'gates', 'sections'}
+VECTOR_FIELDS = {'format', 'title', 'clauses', 'provenance', 'profile', 'fixture', 'release', 'payloads', 'steps', 'pair', 'acceptance', 'gates', 'sections'}
+RELEASES = FIXTURES / 'releases'  # the release stores (fixtures/README.md)
+RELEASE_FIELDS = {'format', 'release', 'commit', 'title', 'payloads', 'steps', 'acceptance', 'gates', 'sections'}
+RELEASE_OPERATIONS = {'put', 'create_snapshot', 'create_candidate', 'publish', 'remove', 'open_context', 'export', 'import'}
+RELEASE_STEP_FIELDS = {'operation', 'request', 'expect', 'as_context', 'as_bundle', 'as_ref', 'store'}
+RELEASE_FILES = ('reference/writer.sqlite', 'reference/device.sqlite', 'reference/output.sqlite', 'reference/contexts.json',
+                 'backend/postgresql.sql', 'backend/contexts.json', 'device/device.sqlite', 'device/output.sqlite',
+                 'device/contexts.json')  # the stored forms of a release store (fixtures/README.md)
 PROVENANCE = {'spec', 'spike', 'fault'}
 EXPECT_FIELDS = {'status', 'reasons', 'items', 'store_unchanged', 'unordered', 'reason_details', 'fields'}
 UNORDERED_OPERATIONS = {'evidence', 'observations', 'coverage', 'execution_inputs', 'build_inputs', 'export', 'import', 'render', 'gc_collect'}  # REL-EVD-4, OBS-SUB-4, OBS-COV-3, LCK-EXE-4, LCK-BLD-3, BUN-EXP-3, BUN-IMP-3, RND-DOC-5, LIF-GC-6
@@ -699,8 +706,57 @@ def check_vectors(clauses: set[str], withdrawn: set[str], root: Path = VECTORS) 
     return errors
 
 
+def release_definition(name, root: Path = RELEASES) -> dict:
+    """Return the definition of a release store: the calls that made the stores of one release (fixtures/README.md)."""
+    folder = root / name if isinstance(name, str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', name) else None
+    if folder is None or not (folder / 'release.json').is_file():
+        raise ValueError(f'release {name!r} is not a folder in fixtures/releases/')
+    try:
+        definition = json.loads((folder / 'release.json').read_text(), object_pairs_hook=unique_pairs, parse_constant=no_constant)
+    except ValueError as e:
+        raise ValueError(f'release {name}: release.json is not JSON without duplicate keys: {e}') from None
+    if not isinstance(definition, dict) or not isinstance(definition.get('steps'), list) \
+            or not all(isinstance(s, dict) for s in definition['steps']) or not isinstance(definition.get('payloads', {}), dict):
+        raise ValueError(f'release {name} is not valid; check_releases gives the problems')
+    return definition
+
+
+def release_steps(vector: dict, root: Path = RELEASES) -> list:
+    """Return the steps of the release store of a vector, or an empty list (conformance/README.md)."""
+    return release_definition(vector['release'], root)['steps'] if isinstance(vector, dict) and 'release' in vector else []
+
+
+def release_bundles(name: str, root: Path = RELEASES) -> dict[str, dict]:
+    """Return the bundles that the release exported, by the handle of the export step."""
+    steps = release_definition(name, root)['steps']
+    return {s['as_bundle']: json.loads((root / name / 'bundles' / f'{s["as_bundle"]}.json').read_text())
+            for s in steps if isinstance(s.get('as_bundle'), str)}
+
+
+def with_release(vector: dict, root: Path = RELEASES) -> dict:
+    """Return the vector with the steps, the payloads and the declarations of its release store before its own."""
+    if 'release' not in vector:
+        return vector
+    definition = release_definition(vector['release'], root)
+    if not isinstance(vector.get('steps'), list) or not vector['steps']:
+        raise ValueError('a vector with a release store needs its own steps')
+    if not isinstance(vector.get('payloads', {}), dict):
+        raise ValueError('payloads is not a JSON object')
+    for f in ('fixture', 'acceptance', 'gates', 'sections'):
+        if f in vector:
+            raise ValueError(f'a vector with a release store has no {f} of its own')
+    for clash in sorted(set(vector.get('payloads', {})) & set(definition.get('payloads', {}))):
+        raise ValueError(f'payload {clash} is also a payload of the release store')
+    declared = {f: definition[f] for f in ('acceptance', 'gates', 'sections') if f in definition}
+    return {**vector, **declared, 'payloads': {**definition.get('payloads', {}), **vector.get('payloads', {})},
+            'steps': definition['steps'] + vector['steps']}
+
+
 def with_fixture(vector: dict, root: Path = FIXTURES) -> dict:
-    """Return the vector with the put steps and payloads of its fixtures before its own (conformance/README.md)."""
+    """Return the vector with the put steps and payloads of its fixtures before its own (conformance/README.md).
+    A vector with a release store gets the steps of that store (with_release)."""
+    if 'release' in vector:
+        return with_release(vector, root / 'releases')
     if 'fixture' not in vector:
         return vector
     if not isinstance(vector.get('steps'), list) or not vector['steps']:
@@ -1069,6 +1125,64 @@ def check_fixtures(root: Path = FIXTURES) -> list[str]:
     return errors
 
 
+def check_releases(root: Path = RELEASES) -> list[str]:
+    """Check the definition of each release store: its fields, its steps and its bundle files (fixtures/README.md).
+    The vector check gives the problems of the steps, for each vector that names the release."""
+    errors = []
+    for folder in sorted(p for p in root.glob('*') if p.is_dir()) if root.is_dir() else []:
+        where = f'fixtures/releases/{folder.name}'
+        try:
+            definition = release_definition(folder.name, root)
+        except ValueError as e:
+            errors.append(f'{where}: {e}')
+            continue
+        for f in sorted(set(definition) - RELEASE_FIELDS):
+            errors.append(f'{where}: unknown field {f}')
+        if definition.get('format') != 'aavanam-release-store/v1':
+            errors.append(f'{where}: format is not aavanam-release-store/v1')
+        if definition.get('release') != folder.name:
+            errors.append(f'{where}: release is not the name of the folder')
+        if not isinstance(definition.get('commit'), str) or not re.fullmatch(r'[0-9a-f]{40}', definition['commit']):
+            errors.append(f'{where}: commit is not the 40 hexadecimal digits of a commit')
+        if not isinstance(definition.get('title'), str) or not definition['title']:
+            errors.append(f'{where}: no title')
+        if not all(valid_text(t) for t in json_strings(definition)):
+            errors.append(f'{where}: a string is not valid I-JSON Unicode (STS-MAL-3)')
+        for name in RELEASE_FILES:
+            if not (folder / name).is_file():
+                errors.append(f'{where}: no file {name}')
+        bundles = {f'bundles/{s["as_bundle"]}.json' for s in definition['steps'] if isinstance(s.get('as_bundle'), str)}
+        for path in sorted(p for p in folder.rglob('*') if p.is_file()):
+            name = path.relative_to(folder).as_posix()
+            if name != 'release.json' and name not in RELEASE_FILES and name not in bundles:
+                errors.append(f'{where}: {name} is not a file of a release store')
+        for n, step in enumerate(definition['steps'], 1):
+            at = f'{where}: step {n}'
+            for f in sorted(set(step) - RELEASE_STEP_FIELDS):
+                errors.append(f'{at}: a step of a release store has no field {f}')
+            if step.get('operation') not in RELEASE_OPERATIONS:
+                errors.append(f'{at}: the operation is not one of {", ".join(sorted(RELEASE_OPERATIONS))}')
+            expect = step.get('expect')
+            if not isinstance(expect, dict) or expect.get('status') != 'ok':
+                errors.append(f'{at}: a step of a release store expects ok')
+            request = step.get('request')
+            if step.get('operation') == 'open_context' and not (
+                    isinstance(request, dict) and set(request) == {'roots'} and isinstance(step.get('as_context'), str)):
+                errors.append(f'{at}: open_context has only roots, and it has as_context')
+            if step.get('operation') == 'export' and not isinstance(step.get('as_bundle'), str):
+                errors.append(f'{at}: export has as_bundle')
+            if step.get('operation') != 'export' and 'as_bundle' in step:
+                errors.append(f'{at}: only export has as_bundle')
+            bundle = folder / 'bundles' / f'{step.get("as_bundle")}.json'
+            if isinstance(step.get('as_bundle'), str):
+                try:
+                    if not isinstance(json.loads(bundle.read_text()), dict):
+                        errors.append(f'{at}: {bundle.name} is not a JSON object')
+                except (OSError, ValueError) as e:
+                    errors.append(f'{at}: no bundle file bundles/{bundle.name}: {type(e).__name__}')
+    return errors
+
+
 def check_states(documents: dict[str, tuple[str, str]], readme: str) -> list[str]:
     """Each contract document is normative. The compatibility statement of README.md lists each draft topic, and
     the document of each listed topic marks it (SPEC.md, "Document states"). `documents` maps a prefix to the name
@@ -1146,7 +1260,7 @@ def check(vectors: Path = VECTORS) -> list[str]:
     documents = {prefix: (path.name, path.read_text()) for prefix, path in index.items() if path.exists()}
     errors += check_states(documents, (ROOT / 'README.md').read_text())
     return (errors + check_registry() + check_profile_tables() + check_statuses(list(index.values())) + check_reserved()
-            + check_vectors(set(seen), withdrawn, vectors) + check_fixtures())
+            + check_vectors(set(seen), withdrawn, vectors) + check_fixtures() + check_releases())
 
 
 if __name__ == '__main__':
