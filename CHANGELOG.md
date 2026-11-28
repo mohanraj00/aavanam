@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add the `aavanam-server` container image build and PostgreSQL check (#131). The owner can publish the image with its SBOM and provenance in a separate workflow run.
 - Pin the browse page example to the mugham UI kit v0.8.0. Each table of the page is in a named scroll box, so a wide table scrolls in its box and the page does not scroll to the side at a phone width.
 
 ## 0.6.0
