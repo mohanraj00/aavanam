@@ -1,0 +1,95 @@
+name: Publish backend image
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Backend Git tag, for example backend/v1.0.0
+        required: true
+        type: string
+permissions: {}
+env:
+  IMAGE_NAME: ghcr.io/mohanraj00/aavanam-server
+jobs:
+  publish:
+    if: >-
+      github.repository == 'mohanraj00/aavanam' && github.ref == 'refs/heads/main' &&
+      github.actor == 'mohanraj00' && github.triggering_actor == 'mohanraj00'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    services:
+      postgres:
+        image: postgres:17@sha256:b60e90042aa6b8dbecd58e224b3e36114dbf8ad754465264c2476ad58a86e45c
+        env:
+          POSTGRES_USER: aavanam
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: aavanam
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U aavanam -d aavanam"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Check the tag format
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ! [[ "$RELEASE_TAG" =~ ^backend/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo '::error::Use a backend tag of the form backend/vX.Y.Z.'
+            exit 1
+          fi
+          echo "version=${RELEASE_TAG#backend/v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: 3.14.6
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: 1.27.2
+          cache-dependency-path: backend/go.sum
+      - name: Create a builder that can export attestations
+        run: docker buildx create --driver docker-container --use
+      - name: Build the image and run the PostgreSQL vectors
+        env:
+          AAVANAM_PG_DSN: postgres://aavanam:ci-only@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/aavanam?sslmode=disable
+          AAVANAM_IMAGE_NETWORK: ${{ job.services.postgres.network }}
+          AAVANAM_IMAGE_PG_DSN: postgres://aavanam:ci-only@postgres:5432/aavanam?sslmode=disable
+        run: make check-image
+      - name: Push the image, SBOM and provenance
+        id: push
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ steps.release.outputs.version }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          unset GHCR_TOKEN
+          make build-image IMAGE="$IMAGE_NAME:$IMAGE_TAG" \
+            IMAGE_OUTPUT="--push --sbom=true --provenance=mode=max --metadata-file $RUNNER_TEMP/image.json"
+          digest=$(jq -er '."containerimage.digest" | select(test("^sha256:[0-9a-f]{64}$"))' "$RUNNER_TEMP/image.json")
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          printf 'Image `%s:%s`\n\nDigest `%s@%s`\n\nSource commit `%s`\n' \
+            "$IMAGE_NAME" "$IMAGE_TAG" "$IMAGE_NAME" "$digest" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+  attest:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - name: Sign the published digest for GitHub CLI verification
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          create-storage-record: false

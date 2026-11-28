@@ -12,6 +12,8 @@ The environment selects the stores:
   not write content goes to the network read binding of the driver (NET-TRN-1), if the driver has one.
 - AAVANAM_CONFORM_BIN and AAVANAM_DEVICE_BIN: the command of each driver. If one is not set, the adapter
   builds the driver with `go build` into a temporary directory.
+- AAVANAM_IMAGE_READ_URLS: the read URLs of the packaged servers, by profile. The empty key is the base profile.
+  The servers and the writer driver use the same PostgreSQL test database.
 
 The driver `aavanam-conform` reads AAVANAM_STORAGE and AAVANAM_PG_DSN.
 """
@@ -125,9 +127,9 @@ class Driver:
                 raise DriverError(f'the driver gave an error for {message.get("cmd")}: {reply["error"]}')
             return reply
 
-    def post(self, operation: str, request: dict) -> dict:
+    def post(self, operation: str, request: dict, read_url: str | None = None) -> dict:
         """Call one operation over the network read binding (NET-TRN-1, NET-TRN-3)."""
-        url = f'{self.read_url}/v1/op/{urllib.parse.quote(operation, safe="")}'
+        url = f'{read_url or self.read_url}/v1/op/{urllib.parse.quote(operation, safe="")}'
         body = json.dumps(request).encode()
         call = urllib.request.Request(url, data=body, method='POST', headers={'Content-Type': 'application/json'})
         try:
@@ -178,6 +180,8 @@ class BackendAdapter:
         self.writer = choice('AAVANAM_WRITER', ('backend', 'reference'))
         self.device = choice('AAVANAM_DEVICE', ('go', 'reference'))
         self.http = os.environ.get('AAVANAM_READ_HTTP', '1') != '0'
+        self.image_reads = json.loads(os.environ.get('AAVANAM_IMAGE_READ_URLS', '{}'))
+        self.clock_advanced = False
         self.validators: dict = {}
         self.profiles: tuple = ()  # the profiles that each store declares (LYR-PRF-1, IDX-PRF-1)
         self.local: dict = {}  # the roles that the Python store has
@@ -221,6 +225,7 @@ class BackendAdapter:
     def reset(self) -> None:
         self.validators.clear()
         self.profiles = ()
+        self.clock_advanced = False
         for driver in self.processes():
             driver.request({'cmd': 'reset'})
         self.open_local()
@@ -236,6 +241,7 @@ class BackendAdapter:
     def advance(self, seconds: int) -> None:
         """Move the clock of each store forward (CTX-LIF-2). After `reset`, each store clock is the system clock:
         a driver puts its clock back, and `open_local` makes new Python stores."""
+        self.clock_advanced = True
         for store in {id(s): s for s in self.local.values()}.values():
             store.clock = lambda base=store.clock: base() + timedelta(seconds=seconds)
         for driver in self.processes():
@@ -254,8 +260,16 @@ class BackendAdapter:
                 raise DriverError(f'the driver gave no result for {operation}')
             return reply['result']
         added = any(operation in PROFILE_OPERATIONS.get(profile, ()) for profile in self.profiles)
-        if store == 'writer' and self.http and driver.read_url and operation not in WRITES and not added:
-            return driver.post(operation, request)
+        if store == 'writer' and self.http and operation not in WRITES and not added:
+            read_url = driver.read_url
+            # The packaged server uses the system clock. The driver keeps the injected clock of the vector.
+            if self.image_reads and not self.clock_advanced:
+                profile = self.profiles[0] if len(self.profiles) == 1 else '' if not self.profiles else None
+                if profile not in self.image_reads:
+                    raise DriverError(f'AAVANAM_IMAGE_READ_URLS has no read URL for the profiles {list(self.profiles)}')
+                read_url = self.image_reads[profile]
+            if read_url:
+                return driver.post(operation, request, read_url)
         reply = driver.request({'cmd': 'call', 'store': store, 'op': operation, 'request': request}, self.validators)
         if not isinstance(reply.get('result'), dict):
             raise DriverError(f'the driver gave no result for {operation}')

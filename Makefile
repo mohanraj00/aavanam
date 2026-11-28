@@ -35,6 +35,19 @@ check-backend-mem:
 check-backend-pg:
 	$(BACKEND) AAVANAM_STORAGE=pg $(RUNNER) --expect backend/conformance/passing.txt
 
+IMAGE ?= aavanam-server:check
+IMAGE_OUTPUT ?= --load --provenance=false
+.PHONY: build-image
+build-image:
+	@epoch=$$(git log -1 --format=%ct) && \
+		docker buildx build --build-arg "SOURCE_DATE_EPOCH=$$epoch" --tag "$(IMAGE)" \
+			--file backend/Containerfile $(IMAGE_OUTPUT) backend
+
+# Use a test database. The PostgreSQL driver removes all store rows between vectors.
+.PHONY: check-image
+check-image: build-image
+	$(PYTHON) -B backend/conformance/check_image.py "$(IMAGE)" $(MAKE) check-backend-pg
+
 # The null storage refuses each call, so the run must fail with exit 1. The summary line shows that the run
 # came to its end, because a driver that stops also gives a status other than 0.
 .PHONY: check-null-driver

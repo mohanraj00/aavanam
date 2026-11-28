@@ -1,5 +1,35 @@
 # Aavanam backend
 
+## Container image
+
+The image name is `ghcr.io/mohanraj00/aavanam-server`. The Git tag `backend/vX.Y.Z` gives the image tag `X.Y.Z`. The owner runs **Publish backend image** from `main` and supplies the Git tag. The workflow tests the tagged source on PostgreSQL 17 before it publishes the Linux amd64 image. A tag push does not start publication.
+
+The image runs `aavanam-server` as `nonroot` and accepts the same flags and environment as the binary. Set `AAVANAM_PG_DSN` to a PostgreSQL 17 database that the container can reach. The default read address is `127.0.0.1:8437` inside the container. Set `--read-addr 0.0.0.0:8437` to accept connections on the container network. Put access control in front of the read listener. See [document 22](../docs/contracts/22-network-read-binding.md).
+
+Use `--write-socket` to enable the optional Unix socket for writes. Use a directory that the container user can write to. The image adds no network listener for writes.
+
+### Verify a release
+
+The publication job summary records the image digest and the source commit. Compare the `Digest` from `imagetools inspect` with the digest in the summary. Use that digest to pin a deployment. The following commands use an example version and a placeholder digest.
+
+```sh
+image=ghcr.io/mohanraj00/aavanam-server
+docker buildx imagetools inspect "$image:1.0.0"
+digest='sha256:<64-hex-digits>'
+docker buildx imagetools inspect "$image@$digest" --format '{{ json .SBOM }}'
+docker buildx imagetools inspect "$image@$digest" --format '{{ json .Provenance }}'
+gh attestation verify "oci://$image@$digest" --repo mohanraj00/aavanam \
+  --signer-workflow mohanraj00/aavanam/.github/workflows/image.yml
+```
+
+Buildx attaches the SBOM and build provenance to the image index. GitHub signs a separate provenance attestation for that index digest. The `gh` command checks the signature and workflow identity. Sign in to GHCR if the package requires authentication.
+
+### Run the image check
+
+Run `make check-image` from the repository root with `AAVANAM_PG_DSN` set to a PostgreSQL 17 test database. The conformance driver removes all store rows between vectors. The image serves the HTTP read calls for the active profile. The driver handles fixture writes and calls that need the test clock or fall outside the read binding. The reference implementation handles the device and output stores.
+
+For a URL with a loopback host, the check uses `host.docker.internal` from the container. If the container needs a different address, set `AAVANAM_IMAGE_PG_DSN`. To use an existing Docker network, set `AAVANAM_IMAGE_NETWORK`.
+
 ## Read listener
 
 The service uses TCP address `127.0.0.1:8437` by default. Use `--read-addr` to set a different TCP address.
