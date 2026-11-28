@@ -26,21 +26,21 @@ A harness does not review its own change. The branch prefix names the harness th
 Follow these rules for each request:
 
 1. Ask when CI is green and the PR is ready.
-2. For a Codex code review request, write `Head: <sha>` on the next line of the comment, with the short SHA of the PR head commit. Do not add this line to a Claude request. The Claude review starts only for the exact text in the table, and its comment names the head that it reviewed.
-3. Write a security review request as the exact text in the table, with no other text in the comment. If the comment has other text, for example a `Head:` line, Codex does a code review and no security review. The Codex result names the commit that it reviewed.
+2. For a code review request, write `Head: <sha>` on the next line of the comment, with the short SHA of the PR head commit. A Claude request can also have this line. The first line of a Claude request must be a text in the table. The Claude review comment names the head that it reviewed.
+3. Write a Codex security review request as the exact text in the table, with no other text in the comment. If the comment has other text, for example a `Head:` line, Codex does a code review and no security review. The Codex result names the commit that it reviewed.
 4. Ask one time for each head commit. Before you ask, read the PR comments. If a request names the current head, or comes after the last push, do not ask again.
 5. If you push fixes after a review, ask again for the new head. Ask at most 3 times for each PR. After that, ask the maintainer to review. The `gate` job of the Claude review stops a second Claude review of one kind for a head, and a Claude review after 3 of one kind.
 6. Fix each real finding, or write on the PR why it is not a defect. For a finding in the gates, use the stop rule of the [standard](STANDARD.md). The gates are the files of `mohanraj00/.github` and their copies in this project. Do not change a copy. File the finding in `mohanraj00/.github`.
 
 The `cross-review` check passes only for a review of the current head from the other harness. A Claude-built PR needs a completed Codex code review. A Codex-built or agy-built PR needs a Claude review marker with `findings=0`. If the review came from the agy fallback or from the maintainer, the maintainer adds the `cross-reviewed` label. The label counts only with an approval record for the current head and base.
 
-Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow. The workflow starts only if all of these are true:
+Codex reviews through the Codex GitHub integration. Claude Code reviews through the [Claude review](../.github/workflows/claude-review.yml) workflow. The workflow starts a review only if all of these are true:
 
 - The comment is on a PR.
-- The comment body is exactly one of the two Claude request texts in the table. GitHub compares these texts with no regard to letter case.
+- The first line of the comment is one of the two Claude request texts in the table. The `gate` job compares this line with no regard to letter case, to the white space at the two ends and to the length of each run of white space. The next lines do not count.
 - The commenter is an owner, a member or a collaborator and has repository write permission.
 
-A comment or a review with other text does not start the workflow. The comment text selects one of two fixed prompts, and it never goes into a prompt.
+GitHub expressions have no regular expressions, so the workflow starts for each comment of a writer that names `@claude`. If the first line is not a request text, the `gate` job sets no kind, and the review and the post jobs skip. If the commenter has no repository write permission, the `gate` job fails, and the review and the post jobs skip. A comment with other text does not start a review. The comment text selects one of two fixed prompts, and it never goes into a prompt.
 
 ### Claude review design
 
