@@ -264,7 +264,9 @@ class BackendAdapter:
             read_url = driver.read_url
             # The packaged server uses the system clock. The driver keeps the injected clock of the vector.
             if self.image_reads and not self.clock_advanced:
-                profile, = self.profiles or ('',)
+                profile = self.profiles[0] if len(self.profiles) == 1 else '' if not self.profiles else None
+                if profile not in self.image_reads:
+                    raise DriverError(f'AAVANAM_IMAGE_READ_URLS has no read URL for the profiles {list(self.profiles)}')
                 read_url = self.image_reads[profile]
             if read_url:
                 return driver.post(operation, request, read_url)

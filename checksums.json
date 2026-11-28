@@ -126,7 +126,7 @@
   "backend/pg/upgrade_test.go": "6b3df46e54a269f108b8dee9589efe54da41363473b1fe01a9bb270a370733d8",
   "conformance/README.md": "2878b5f4750d5eed8551455494bb2de9dc7d0b0fbc5221990e08289d95601e75",
   "conformance/adapter.py": "aad12a5065b8a5d758ae83cd564c86060852705634be73607a0b37320b185433",
-  "conformance/backend_adapter.py": "3127c106b2c2fc8197c65e683d32b467dad44a244ff28283e31d032bddc96201",
+  "conformance/backend_adapter.py": "0def6dc7baae9c88304c52f4e63e20ad3d754bed5d2a86ba29c210f9ca789665",
   "conformance/null_adapter.py": "ae9653e0444a2975de700c4bb2028dedbcce7a26c9f69c38bdade58d5b2850c8",
   "conformance/pending-go.txt": "52eef66203f20f6df228d6bae5e160ee08f83d5b522a2b81f334cb6d9c83417b",
   "conformance/runner.py": "3c9c424775bf330d460e7adffc5eadd6d07b94680cbe713d88cb4c3e1eaea19e",
