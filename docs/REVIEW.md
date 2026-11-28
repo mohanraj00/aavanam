@@ -65,18 +65,19 @@ The `review` job has `contents: read` and `pull-requests: read` only. It uses th
 5. It checks the JSON result: `type` is `result`, `subtype` is `success`, `is_error` is false, `result` is not empty and `permission_denials` is empty. If a check fails, the job fails.
 6. It keeps the review text and the head SHA in an artifact.
 
-The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. This file is a copy of `gates/claude_review.py` of `mohanraj00/.github`. The comment starts with a fixed marker: `<!-- claude-review:v2 kind=<code|security> head=<sha> base=<sha> findings=<count|unknown> run=<run id> -->`. The script writes the marker outside the model text. `base` is the merge base of the base branch and the head, where the diff of the review starts. The count comes from the first line of the model text, `Findings: <number>`. If that line is not valid, the count is `unknown`. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA. If the `gate` job stopped the request, the comment gives the reason of the `gate` job.
+The `post` job has `contents: read`, `issues: write` and `pull-requests: write` only, with no secret and no environment. A comment on a PR needs `pull-requests: write`. It runs [tools/claude_review.py](../tools/claude_review.py) from the `main` checkout. This file is a copy of `gates/claude_review.py` of `mohanraj00/.github`. The comment starts with a fixed marker: `<!-- claude-review:v2 kind=<code|security> head=<sha> base=<sha> findings=<count|unknown> run=<run id> -->`. The script writes the marker outside the model text. `base` is the merge base of the base branch and the head, where the diff of the review starts. The count comes from the first count line of the model text, `Findings: <number>`, with no indent. Lines of plain prose that end a sentence can come before it. If no line is a valid count line, the count is `unknown`. If the `review` job failed, the comment holds only `NO VALID CLAUDE REVIEW` and the head SHA. If the `gate` job stopped the request, the comment gives the reason of the `gate` job.
 
 The `post` job writes as the workflow bot, and the gates trust approval records and review markers from this bot. Thus the script treats the model text as untrusted. The model text cannot make a marker or an approval record. It escapes `&` and `<`, changes each `@` to a character that makes no mention, and limits the length.
 
 ### Use of a Claude result
 
-The `cross-review` gate reads the marker. It accepts a marker only from an `issue_comment` run of this workflow on the default branch, for the current head and merge base, with `findings=0`. It does not accept a `v1` marker, because that marker names no base. A new commit on the base branch does not change the merge base, so the review stays valid. If the base branch of the PR changes, ask for a new Claude review. The marker gives `findings=unknown` if the review text does not agree with the count on its first line:
+The `cross-review` gate reads the marker. It accepts a marker only from an `issue_comment` run of this workflow on the default branch, for the current head and merge base, with `findings=0`. It does not accept a `v1` marker, because that marker names no base. A new commit on the base branch does not change the merge base, so the review stays valid. If the base branch of the PR changes, ask for a new Claude review. The marker gives `findings=unknown` if the review text does not agree with the count on its first count line:
 
-- `INCOMPLETE REVIEW` is on a line below the first line.
-- A later `Findings: N` line gives a different count.
-- The count is 0, and a later line starts with a severity tag or a `path:line` reference.
-- The count is 0, and a severity tag P0 to P3 is at any position in a later line.
+- A line before the count line is not plain prose, or the last of these lines does not end a sentence. Code fences, quote lines, list markers, HTML and double quotes are not plain prose.
+- `INCOMPLETE REVIEW` is on a different line.
+- A different `Findings: N` line gives a different count.
+- The count is 0, and a different line starts with a severity tag or a `path:line` reference.
+- The count is 0, and a severity tag P0 to P3 is at any position in a different line.
 
 The check reads the text in NFKC form with no format characters. It does not find prose that describes a defect with no severity tag and no `path:line` reference. A Claude security marker is advisory. The `security-review` gate writes a line about it, but it does not pass for it. A person also reads the text. The review has no inline comments and no conversation. A push makes a new head, so ask again as the request rules say. The OAuth token is a static secret. If you suspect a leak, revoke it and make a new one.
 
