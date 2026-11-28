@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS contexts (id TEXT PRIMARY KEY, roots TEXT NOT NULL, c
 CREATE TABLE IF NOT EXISTS context_views (context TEXT PRIMARY KEY, view TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_ends (context TEXT PRIMARY KEY, expires TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS context_members (context TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (context, ref));
+CREATE TABLE IF NOT EXISTS context_removed (context TEXT NOT NULL, ref TEXT NOT NULL, PRIMARY KEY (context, ref));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, collection TEXT NOT NULL,
     policy TEXT NOT NULL, expected_head TEXT);
 CREATE TABLE IF NOT EXISTS heads (collection TEXT PRIMARY KEY, snapshot TEXT NOT NULL);
@@ -118,8 +119,10 @@ class DeferredFailure(Exception):
 
 class Members(set):
     """The members of a read context (CTX-VIW-1). `view` is the base snapshot and the layer of a layered
-    context (LYR-PRE-2), or None."""
+    context (LYR-PRE-2), or None. `removed` has the objects that the context reported in `removed` when it
+    opened (REL-RMV-9). They stay out of the context, also after a later `put` adds them again (REL-RMV-13)."""
     view: list[str] | None = None
+    removed: frozenset[str] = frozenset()
 
 
 class SectionViolation(Exception):
@@ -640,6 +643,17 @@ class Store:
         """The removed objects in the closure of the roots, in ascending order (REL-RMV-9, REL-RMV-10)."""
         return sorted(self.closure(roots, True) & self.removed()) if self.removed() else []
 
+    def checked_closure(self, roots, members: Members) -> set[str]:
+        """The closure of the roots for a bundle or a lock of a read context (REL-RMV-10). A closure with a removed
+        object gives `removed`. A closure with an object that the context reported in `removed`, and that a later
+        `put` added again, gives the reason of an object that is not in the context (REL-RMV-13, LYR-ISO-2)."""
+        closure = self.closure(roots, True)
+        out = sorted(closure & (self.removed() | members.removed))
+        if out:
+            outside = 'not_in_context' if members.view is None else 'unknown_ref'
+            raise Failure('not_found', [reason('removed' if r in self.removed() else outside, [r]) for r in out])
+        return closure  # it has no removed object, so each reference names an object
+
     def fingerprint(self) -> str:
         h = hashlib.sha256()
         for table, key in (('objects', 'ref'), ('blobs', 'digest'), ('deferred', "digest || ' ' || ref"), ('candidates', 'id'),
@@ -850,6 +864,7 @@ class Store:
         members = Members(r for (r,) in self.db.execute('SELECT ref FROM context_members WHERE context = ?', (context,)))
         view = self.db.execute('SELECT view FROM context_views WHERE context = ?', (context,)).fetchone()
         members.view = json.loads(view[0]) if view else None  # a context with no row has no layer (LYR-OPN-3)
+        members.removed = frozenset(r for (r,) in self.db.execute('SELECT ref FROM context_removed WHERE context = ?', (context,)))
         return context, members, json.loads(row[0])
 
     def base_roots(self, context: str) -> list[str]:
@@ -966,6 +981,8 @@ class Store:
             if view:
                 self.db.execute('INSERT INTO context_views VALUES (?, ?)', (context, json.dumps(view)))
             self.db.executemany('INSERT INTO context_members VALUES (?, ?)', ((context, r) for r in closure))
+            # REL-RMV-13: the objects that the items report stay out of the context, also after a later `put`
+            self.db.executemany('INSERT INTO context_removed VALUES (?, ?)', ((context, r) for r in {r for i in items for r in i['removed']}))
             self.db.execute('COMMIT')
         except BaseException:
             self.rollback()
@@ -979,7 +996,8 @@ class Store:
     def end_contexts(self, where: str, values=()) -> None:
         """Remove the rows of the read contexts that the condition selects. The caller has the transaction."""
         ended = [(c,) for (c,) in self.db.execute(f'SELECT id FROM contexts WHERE {where}', values)]
-        for table, column in (('context_members', 'context'), ('context_views', 'context'), ('context_ends', 'context'), ('contexts', 'id')):
+        for table, column in (('context_members', 'context'), ('context_removed', 'context'), ('context_views', 'context'),
+                              ('context_ends', 'context'), ('contexts', 'id')):
             self.db.executemany(f'DELETE FROM {table} WHERE {column} = ?', ended)
 
     def transaction(self, change, output=None, strict: bool = False):
@@ -1268,6 +1286,7 @@ class Store:
     def op_evidence(self, request: dict) -> dict:
         context, members, subject = self.subject_of(request)
         reachable = {m for _, s in self.records(members, {'relation-set'}) for m in s.get('members', [])}  # REL-RET-3
+        reachable &= members  # CTX-OPN-4, REL-RMV-13: a record that is in the store but not in the context gives no item
         supports = [r for r, e in self.records(reachable, {'evidence'}) if e['subject'] == subject]  # REL-EVD-2
         items = [item(relation='support', ref=r) for r in supports]
         items += [item(relation='withdrawal', ref=r, target=w['target'], origin=w['origin'])
@@ -1353,19 +1372,17 @@ class Store:
         if reasons:
             raise Failure('unsupported', reasons)
 
-    def lock(self, operation: str, request: dict, context: str, covered: list[str], view=None) -> dict:
+    def lock(self, operation: str, request: dict, context: str, covered: list[str], members: Members) -> dict:
         """Write the lock of the request and return the closure that it covers (LCK-EXE-4, LCK-BLD-3).
         A device store writes the lock to its local output store (BUN-IMP-7). In a layered context, the lock
         has the base snapshot and the layer in `view` (LYR-LCK-1)."""
         fields = {k: v for k, v in request.items() if k != 'context'}
-        if view:
-            fields['view'] = view
+        if members.view:
+            fields['view'] = members.view
         desc = d.check({'descriptor_profile': BASE_PROFILE, 'kind': LOCK_KINDS[operation], **fields}, self.profiles)
         ref = revision(desc)
-        gone = self.gone_in(covered)
-        if gone:  # REL-RMV-10: no lock over a closure with a removed object
-            raise Failure('not_found', [reason('removed', [r]) for r in gone])
-        items = [item(ref=r) for r in sorted(self.closure(covered))]  # read before the write (STS-ENV-4)
+        # REL-RMV-10, REL-RMV-13: no lock over a closure with a removed object. The read comes before the write (STS-ENV-4).
+        items = [item(ref=r) for r in sorted(self.checked_closure(covered, members))]
         target = self.output or self
         with target.mutex:  # the local output store can have calls of its own
             if target is not self:  # begin() of the output store also reads the file of this device store (BUN-RMV-1)
@@ -1420,7 +1437,7 @@ class Store:
         self.required(request, capabilities)
         self.fresh_indexes(request, context)
         self.bindings_problems(self.descriptor(binding_set))
-        return self.lock('execution_inputs', request, context, [binding_set, *inputs], members.view)
+        return self.lock('execution_inputs', request, context, [binding_set, *inputs], members)
 
     def op_build_inputs(self, request: dict) -> dict:
         form(request, {'context': (True, is_str), 'inputs': (True, lambda v: is_refs(v, empty=True)),
@@ -1434,7 +1451,7 @@ class Store:
         self.checked_refs([(r, d.targets('build-lock', 'inputs')) for r in inputs] + self.indexes_of(request), members)
         self.required(request, capabilities)
         self.fresh_indexes(request, context)
-        return self.lock('build_inputs', request, context, inputs, members.view)
+        return self.lock('build_inputs', request, context, inputs, members)
 
     # Bundles (document 11)
 
@@ -1486,10 +1503,7 @@ class Store:
             inside = sorted(r for r in self.closure(roots) if self.kind(r) == 'knowledge-unit' and r not in roots)
             if inside:  # BUN-FLT-2 rule 3: the closure of a match has a unit that does not match
                 return self.envelope('export', 'incompatible', [reason('unmatched_dependency', [r]) for r in inside], [], context)
-        gone = self.gone_in(roots)
-        if gone:  # REL-RMV-10: no bundle of a closure with a removed object
-            raise Failure('not_found', [reason('removed', [r]) for r in gone])
-        objects = sorted(self.closure(roots))
+        objects = sorted(self.checked_closure(roots, members))  # REL-RMV-10, REL-RMV-13: no bundle of a closure with a removed object
         statements = [o for _, o in self.records(set(objects), {'observation'}) if o['observation_type'] == REDISTRIBUTION]
         values = {r: self.redistribution(r, statements) for r in objects}  # BUN-RED-2
         # BUN-RED-4 and BUN-RED-5: the bytes of a withheld object
