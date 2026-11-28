@@ -203,12 +203,10 @@ func lock(c *ops.Call, rc *ops.ReadContext, covered []string) envelope.Envelope 
 		ops.Fail(refusal.Codes...)
 	}
 	ref := canon.Revision(desc)
-	if gone := c.RemovedIn(covered...); len(gone) > 0 { // REL-RMV-10: no lock over a closure with a removed object
-		reasons := make([]envelope.Reason, len(gone))
-		for n, r := range gone {
-			reasons[n] = envelope.R("removed", r)
-		}
-		fail("not_found", reasons)
+	// REL-RMV-10, REL-RMV-13: no lock over a closure with a removed object, or with an object that is not in
+	// the context after a later `put` added it again.
+	if outside := rc.Outside(covered...); len(outside) > 0 {
+		fail("not_found", outside)
 	}
 	members := ops.Sorted(c.Closure(covered...)) // the read comes before the write (STS-ENV-4)
 	items := make([]envelope.Item, len(members))

@@ -72,7 +72,9 @@ func unitBuckets(c *ops.Call, unit string, dimensions uint32) (map[uint32]struct
 				out[bucket] = struct{}{}
 			}
 		}
-		for _, target := range check.Targets(desc) { // the `refs` of the descriptor (KND-DEP-2)
+		// The kept `refs` of the object (KND-DEP-2). The closure of an item keeps the references of a removed
+		// object, so the texts of an item do not change after a removal or after a later `put` (REL-RMV-8).
+		for _, target := range c.S.Targets(ref) {
 			if _, ok := seen[target]; !ok {
 				seen[target] = struct{}{}
 				todo = append(todo, target)

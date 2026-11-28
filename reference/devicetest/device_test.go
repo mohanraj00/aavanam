@@ -362,3 +362,102 @@ func TestRemovalCountOfTwoOpens(t *testing.T) {
 		t.Fatalf("the removal count after a call that removed nothing: %q", got)
 	}
 }
+
+// secondOpen opens the device directory a second time, as a second program does (DEV-RMV-2).
+func secondOpen(t *testing.T, dir string) (dev, out *device.Store) {
+	t.Helper()
+	dev, out, err := device.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { out.Close(); dev.Close() })
+	return dev, out
+}
+
+// objectCount returns the number of descriptors in one file of the device directory.
+func objectCount(t *testing.T, dir, file string) int {
+	t.Helper()
+	var n int
+	if err := openSQLiteFile(t, dir, file).QueryRow(`SELECT count(*) FROM objects`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// DEV-RMV-2, LIF-GC-5, BUN-IMP-7: a lock call of the second open reads its inputs. Then the first open ends
+// the context and removes the inputs, before the update of the lock call in the output file. The update
+// does not write, the call runs again, and the output file has no lock that names a removed object.
+func TestLockOfTwoOpens(t *testing.T) {
+	dir, writer, first := newStores(t)
+	dev, out := secondOpen(t, dir)
+	_, unit := putEntry(t, writer, "The west room has a map collection.\n")
+	snapshot := itemRef(t, call(t, writer, "create_snapshot", fields{"collection": catalog, "units": []string{unit}}, "ok"))
+	call(t, first, "import", fields{"bundle": exportBundle(t, writer, snapshot)}, "ok")
+	second := ops.New(ops.Device, dev, conformance.Registry())
+	contextID := openContext(t, second, snapshot)
+	ran := false
+	second.Output = ops.New(ops.Output, storagetest.Racing(out, func() {
+		if !ran {
+			ran = true
+			call(t, first, "close_context", fields{"context": contextID}, "ok")
+			if removed := call(t, first, "gc_collect", fields{"roots": []string{}}, "ok"); len(removed.Items) == 0 {
+				t.Error("the gc_collect of the first open removed no object")
+			}
+		}
+	}), conformance.Registry())
+	request := fields{"context": contextID, "inputs": []string{unit}, "consumer": "sample/emitter/build/v1", "completeness": "sample/declared/v1"}
+	result := second.Call(t.Context(), jsontext.S("build_inputs"), jsonBytes(t, request))
+	if got := storagetest.Summary(result); !ran || got != "failed:context_expired" {
+		t.Errorf("a lock call after a removal of its inputs by a different open: %s", got)
+	}
+	if n := objectCount(t, dir, device.OutputFile); n != 0 {
+		t.Errorf("the output file has %d objects", n)
+	}
+	// With no removal, the same call of the second open writes its lock.
+	call(t, first, "import", fields{"bundle": exportBundle(t, writer, snapshot)}, "ok")
+	request["context"] = openContext(t, second, snapshot)
+	call(t, second, "build_inputs", request, "ok")
+	if n := objectCount(t, dir, device.OutputFile); n != 1 {
+		t.Errorf("the output file has %d objects after an ok lock call", n)
+	}
+}
+
+// DEV-RMV-2, BUN-DLT-4, BUN-UPD-6: an import of a delta bundle in the second open finds its base root in the
+// store. Then the first open removes the base, before the update of the import. The update does not write,
+// and the call runs again: the store does not have the base root, so the result is `bundle_incomplete`.
+func TestDeltaImportOfTwoOpens(t *testing.T) {
+	dir, writer, first := newStores(t)
+	dev, out := secondOpen(t, dir)
+	_, unit := putEntry(t, writer, "The west room has a map collection.\n")
+	base := itemRef(t, call(t, writer, "create_snapshot", fields{"collection": catalog, "units": []string{unit}}, "ok"))
+	entry, added := putEntry(t, writer, "The east room has a globe.\n")
+	update := itemRef(t, call(t, writer, "create_snapshot", fields{"collection": catalog, "units": []string{unit, added}}, "ok"))
+	exported := call(t, writer, "export", fields{"context": openContext(t, writer, update), "roots": []string{update},
+		"base_context": openContext(t, writer, base)}, "ok")
+	bundle, _ := exported.Value().Get("bundle")
+	delta := fields{"bundle": json.RawMessage(canon.Canonical(bundle))}
+	full := fields{"bundle": exportBundle(t, writer, base)}
+
+	call(t, first, "import", full, "ok")
+	ran := false
+	second := ops.New(ops.Device, storagetest.Racing(dev, func() {
+		if !ran {
+			ran = true
+			if removed := call(t, first, "gc_collect", fields{"roots": []string{}}, "ok"); len(removed.Items) == 0 {
+				t.Error("the gc_collect of the first open removed no object")
+			}
+		}
+	}), conformance.Registry())
+	second.Output = ops.New(ops.Output, out, conformance.Registry())
+	result := second.Call(t.Context(), jsontext.S("import"), jsonBytes(t, delta))
+	if !ran || result.Status != "failed" || len(result.Reasons) == 0 || result.Reasons[0].Code != "bundle_incomplete" {
+		t.Errorf("a delta import after a removal of its base by a different open: %s", storagetest.Summary(result))
+	}
+	if n := objectCount(t, dir, device.DeviceFile); n != 0 {
+		t.Errorf("the device file has %d objects after an import that is not ok", n)
+	}
+	// With no removal, the same import of the second open adds the content of the update.
+	call(t, first, "import", full, "ok")
+	call(t, second, "import", delta, "ok")
+	readEntry(t, first, openContext(t, first, update), entry, "The east room has a globe.\n")
+}
