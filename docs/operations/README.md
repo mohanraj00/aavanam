@@ -66,8 +66,8 @@ Each operation page gives the reasons that are specific to it.
 | [`list_items`](list_items.md) | List the members by kind, logical ID or metadata |
 | [`context_bundle`](context_bundle.md) | List the closure of roots with a budget |
 | [`query_data`](query_data.md) | Read typed rows |
-| [`search`](search.md) | Find a word in the members |
-| [`search_text`](search_text.md) | Find a word in text artifacts, with a selector |
+| [`search`](search.md) | Find exact text in readings and excerpts |
+| [`search_text`](search_text.md) | Find words in text artifacts, with a selector |
 | [`semantic_search`](semantic_search.md) | Search through a retrieval index |
 | [`evidence`](evidence.md) | Find the evidence of a subject |
 | [`observations`](observations.md) | List the observations of a subject |

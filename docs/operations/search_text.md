@@ -2,14 +2,14 @@
 
 This page describes release 0.6.0. Contract: [document 20](../contracts/20-content-reads-and-text-search.md), CRD-TXT-1.
 
-Find a word in the text artifacts of a read context. Each match gives a byte selector that `read` accepts. Evidence material is not a candidate.
+Find the words of the query, in the same order, in the text artifacts of a read context. The match ignores the separators between words and folds ASCII case. Each match gives a byte selector that `read` accepts. Evidence material is not a candidate.
 
 ## Request
 
 | Field | Value |
 |---|---|
 | `context` | The identity of the context. |
-| `query` | The words to find. |
+| `query` | The words to find, in order. |
 | `limit`, `offset` | Optional. The page of the result. |
 
 ## Example
@@ -21,7 +21,7 @@ note = put('artifact', 'Check the seal for wear at each service.', artifact_type
 unit2 = put('knowledge-unit', binding_set=bindings, narratives=[note])
 snap2 = store.call('create_snapshot', {'collection': 'pump-manual', 'units': [unit2]})['items'][0]['ref']
 ctx = store.call('open_context', {'roots': [snap2]})['context']
-out = store.call('search_text', {'context': ctx, 'query': 'wear'})
+out = store.call('search_text', {'context': ctx, 'query': 'Seal for WEAR'})
 match = out['items'][0]
 print(out['status'], match['ref'] == note, match['selector'])
 ```
@@ -29,7 +29,7 @@ print(out['status'], match['ref'] == note, match['selector'])
 Output:
 
 ```text
-ok True {'end': 23, 'start': 19, 'selector_profile': 'aavanam/bytes/v1'}
+ok True {'end': 23, 'start': 10, 'selector_profile': 'aavanam/bytes/v1'}
 ```
 
 ## Result

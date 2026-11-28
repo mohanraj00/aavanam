@@ -2,14 +2,14 @@
 
 This page describes release 0.6.0. Contract: [document 09](../contracts/09-lookup-and-discovery.md), QRY-LEX-1.
 
-Find the members whose text has a word of the query. The match is lexical and exact. It is not a semantic search.
+Find the readings and the excerpts whose payload bytes contain the exact UTF-8 bytes of the query. The store does not change the case, does not normalize Unicode and does not divide the text into words. It is not a semantic search.
 
 ## Request
 
 | Field | Value |
 |---|---|
 | `context` | The identity of the context. |
-| `query` | The words to find. |
+| `query` | The exact text to find. |
 | `limit`, `offset` | Optional. The page of the result. |
 | `search_profile` | Optional. The search profile. |
 
@@ -18,19 +18,23 @@ Find the members whose text has a word of the query. The match is lexical and ex
 The example continues the [quickstart](../../README.md#try-it). Run the quickstart first, in the same Python session.
 
 ```python
-out = store.call('search', {'context': agent, 'query': 'seal'})
-print(out['status'], [(i['kind'], i['count']) for i in out['items']])
+for query in ('seal', 'eal', 'Seal', 'seal bearing'):
+    out = store.call('search', {'context': agent, 'query': query})
+    print(query, out['status'], [(i['kind'], i['count']) for i in out['items']])
 ```
 
 Output:
 
 ```text
-ok [('reading', 1)]
+seal ok [('reading', 1)]
+eal ok [('reading', 1)]
+Seal ok []
+seal bearing ok []
 ```
 
 ## Result
 
-One item for each match, with the fields `ref`, `kind` and `count`. A result with no items states only that the context has no match.
+One item for each match, with the fields `ref`, `kind` and `count`. `count` is the number of occurrences that do not overlap. A result with no items states only that the context has no match.
 
 ## Typed reasons
 
