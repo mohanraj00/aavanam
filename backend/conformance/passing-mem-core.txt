@@ -270,7 +270,13 @@ removal/gc-keeps-removed-closure-ok
 removal/lock-kept-ok
 removal/lock-removed-refused
 removal/other-snapshot-ok
+removal/put-again-export-ok
+removal/put-again-export-refused
+removal/put-again-get-outside
+removal/put-again-lock-ok
+removal/put-again-lock-refused
 removal/put-again-ok
+removal/put-again-open-context-ok
 removal/put-target-removed
 removal/read-kept-ok
 removal/read-removed
