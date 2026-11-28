@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add two tests for two opens of one device directory (DEV-RMV-2, #154). A lock call and an import of a delta bundle of the second open do not write after a `gc_collect` of the first open removed the content that their checks read. The removal count of the device file (PR 151) gives this protection, and the device reader does not change.
+- Keep a removed object out of an open read context after a later `put` or `import` adds the object again (REL-RMV-13, #153). Before this change, `evidence` gave the object as a support item in a read context that reported it in `removed`, and `export`, `execution_inputs` and `build_inputs` gave a bundle or a lock with it. Now these operations give `not_found` with the reason `not_in_context` in that context, or `unknown_ref` in a layered context. A read context that opens after the write has the object. The base profile stays at minor version 14. The reference store keeps the reported objects of each context in the new table `context_removed`. The backend also corrects three faults of the same topic. A layered context now keeps an object that a kept member reaches through a removed object (REL-RMV-8). `semantic_search` now scores a text that an item reaches through a removed object (IDX-MTH-3). An `open_context` at the same time as a `put` of a removed descriptor now reports the removed objects of the content that the context has.
 - Add the `aavanam-server` container image build and PostgreSQL check (#131). The owner can publish the image with its SBOM and provenance in a separate workflow run.
 - Pin the browse page example to the mugham UI kit v0.8.0. Each table of the page is in a named scroll box, so a wide table scrolls in its box and the page does not scroll to the side at a phone width.
 

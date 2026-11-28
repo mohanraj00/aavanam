@@ -21,7 +21,7 @@ This document defines views, read contexts, the life of a read context, projecte
 
 ### Views and membership
 
-**CTX-VIW-1.** A view is the content of one read context. An object is a member of the view if it is in the closure of a root (CTX-OPN-2) and it is not a removed object (REL-RMV-8). Membership does not depend on how the request names the root, by reference or by head. LYR-PRE-2 gives the members of a layered context.
+**CTX-VIW-1.** A view is the content of one read context. An object is a member of the view if it is in the closure of a root (CTX-OPN-2) and it was not a removed object when the store opened the context (REL-RMV-8, REL-RMV-13). Membership does not depend on how the request names the root, by reference or by head. LYR-PRE-2 gives the members of a layered context.
 
 **CTX-VIW-2.** The request of `open_context` can have the field `heads`, a set of collection names (KND-SCH-5). For each name, the store reads the head of that collection in the catalog (PUB-HED-1). If the catalog has a head, the head snapshot is a root of the context. If the catalog has no head for the name, the item of the name has status `unresolved` with reason `no_head`.
 
@@ -37,7 +37,7 @@ This document defines views, read contexts, the life of a read context, projecte
 2. If `roots` is not a list, or `heads` is not a list, the field gives `field_type`. If `skew_policy` is not one of the values of CTX-SKW-3, the field gives `field_type`. If `capabilities` is not a list, the field gives `field_type`. Each value of `capabilities` that is not a string gives `field_type`. If `life` is not an integer of 1 or more, the field gives `field_type`. Each value of `roots` that is not a reference, and each value of `heads` that is not a string, gives `field_type`. A `layer` that does not have the form of LYR-OPN-1 gives `field_type`.
 3. If the two fields together have no value, the request gives `field_count`. Each name that occurs again in `heads` or in `capabilities` gives `field_count`. If the request has `layer`, and the two fields together do not have exactly one value, the request gives `field_count` (LYR-OPN-1).
 
-**CTX-OPN-2.** If `open_context` is `ok`, the read context contains the closure of each root (KND-DEP-3) without the removed objects (REL-RMV-8), and no other object. A layered context contains the members of LYR-PRE-2, and no other object. The envelope field `context` is the identity of the read context, a string. The content of a read context MUST NOT change after the store opens it, until the context ends (CTX-LIF-2). A later `put` does not add an object to it. If `open_context` is not `ok`, `context` is null.
+**CTX-OPN-2.** If `open_context` is `ok`, the read context contains the closure of each root (KND-DEP-3) without the removed objects (REL-RMV-8), and no other object. A layered context contains the members of LYR-PRE-2, and no other object. The envelope field `context` is the identity of the read context, a string. The content of a read context MUST NOT change after the store opens it, until the context ends (CTX-LIF-2). A later `put` does not add an object to it. This applies also to a `put` or an `import` of the descriptor of a removed object (REL-RMV-13). If `open_context` is not `ok`, `context` is null.
 
 **CTX-OPN-3.** An operation that reads in a context has the request field `context`, with the identity from `open_context`. Its envelope field `context` MUST be that identity.
 
