@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -51,7 +52,7 @@ func newCollectPublisher() *collectPublisher {
 	}
 }
 
-func (p *collectPublisher) Publish(record, signed []byte) error {
+func (p *collectPublisher) Publish(_ context.Context, record, signed []byte) error {
 	p.records[p.current] = record
 	p.signed[p.current] = signed
 	return nil

@@ -13,7 +13,7 @@ The example does the steps of issue #83:
 4. The activation record approves the update. The publish with the activation moves the head (PUB-ACT-3).
 5. A filtered read of the head for one branch and one date (DSC-FLT-1 to DSC-FLT-5, DAT-RNG-2) gives one fact.
 
-The activation record comes from entelos v0.5.0 (first_signed.json). The shared `activation_mapping.py`
+The activation record comes from entelos v1.0.0 (first_signed.json). The shared `activation_mapping.py`
 checks record rules 1 to 8, checks the manifest and resolves the record.
 
 This example does NOT check the signature, `record_ref`, `key_id` or the key set of `first_signed.json`.

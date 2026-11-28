@@ -1,21 +1,14 @@
-# Activation records from entelos v0.5.0
+# Activation records from entelos v1.0.0
 
 This directory holds the program and the files that make the activation records for the activation seam test and the library example.
 
 ## How to make the records again
 
-The default command expects an entelos checkout at the pinned commit in the folder `entelos` at the repository root, as in CI.
+`go.mod` requires the published module `github.com/mohanraj00/entelos/src/lifecycle-core` v1.0.0, and `go.sum` records its hashes. The command needs no entelos checkout.
 
 Run this command from this directory:
 
 ```sh
-go run .
-```
-
-If entelos is in another location, update the replace directive. Do not commit the changed `go.mod`:
-
-```sh
-go mod edit -replace github.com/mohanraj00/entelos/src/lifecycle-core=/path/to/entelos/src/lifecycle-core
 go run .
 ```
 
@@ -31,7 +24,8 @@ Because the seed, the clock, the build value and the inputs are fixed, repeated 
 ## Files
 
 - `main.go`: the Go program that runs the Host operations and writes the records.
-- `go.mod`: the Go module definition with the local replace directive.
+- `go.mod`: the Go module definition. It requires lifecycle-core v1.0.0.
+- `go.sum`: the hashes of the required module.
 - `seed.txt`: the fixed Ed25519 test seed. Marked as public test data only.
 - `keyset.json`: the public key set (`entelos.keyset/1`) of the test signer.
 - `manifest_first.json`: the content manifest for notice update 1.

@@ -18,7 +18,7 @@ The test [tests/test_library_example.py](../../tests/test_library_example.py) co
 
 ## Activation record
 
-The activation record comes from entelos v0.5.0. It is signed by the producer key.
+The activation record comes from entelos v1.0.0. It is signed by the producer key.
 This example does NOT check the signature, `record_ref`, `key_id` or the key set.
 It decodes the record bytes and takes `record_kind` from the envelope of `first_signed.json` without a check.
 The example prints one line before step 4 to show this.
@@ -68,8 +68,8 @@ The guard test requires each descriptor value to come from `resolve`.
 - `library_hours.py`: the example.
 - `activation_mapping.py`: the shared consumer mapping. It uses only the standard library.
 - `hours.txt`: the synthetic source document. It names no real library, place or person.
-- `first_signed.json`: the signed activation record from entelos v0.5.0.
-- `first_record.json`: the activation record bytes from entelos v0.5.0.
+- `first_signed.json`: the signed activation record from entelos v1.0.0.
+- `first_record.json`: the activation record bytes from entelos v1.0.0.
 - `manifest.json`: the content manifest of the update.
 - `keyset.json`: the public key set (`entelos.keyset/1`) of the signer.
 - `requirements.txt`: the fact producer at version 0.15.0, pinned with its hash. A text source needs no extra dependency.
