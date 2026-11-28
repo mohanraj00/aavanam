@@ -6,7 +6,7 @@ A workflow producer activates an update and publishes it to a gated collection. 
 - a refused activation leaves the head unchanged and gives the reason;
 - a repeat with the same request key gives the earlier outcome.
 
-The activation records come from entelos v0.5.0 at commit bacfb4b6d743803db3127cf75b93620669774bff (issue #94).
+The activation records come from entelos v1.0.0 at commit 90bc414b38bd9ccb8251dcfc1c1bfab3d7e5dc98 (issue #94).
 The signed records live in `tests/entelos_records/` and `examples/library_hours/`. `resolve` maps the record
 to the store descriptor. The shared check_record applies record rules 1 to 8 before resolve checks the manifest.
 
@@ -443,6 +443,7 @@ class ActivationSeamTest(unittest.TestCase):
         faults = [
             (None, None, 'unexpected_record_kind'),
             (first, 'event', 'unexpected_record_kind'),
+            (first, 'suspension', 'unexpected_record_kind'),
             ([], 'activation', 'json'),
             ({**first, 'format': 'other/1'}, 'activation', 'unsupported_record_format'),
             ({**first, 'owner': 'sample'}, 'activation', 'unknown_field:owner'),

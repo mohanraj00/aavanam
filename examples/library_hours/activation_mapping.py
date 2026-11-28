@@ -18,7 +18,7 @@ from datetime import date
 
 from aavanam.jsontext import canonical
 
-# The record table and schema of entelos v0.5.0. No schema package is needed.
+# The record table and schema of entelos v1.0.0. No schema package is needed.
 FIELDS = {'format', 'scope', 'function', 'event_ref', 'request_key', 'candidate', 'base', 'collection', 'partition',
           'from', 'until', 'source_ref', 'snapshot_ref', 'report_ref', 'decision_ref', 'producer', 'runner', 'approver',
           'activator', 'targets', 'supersedes', 'applicability'}
@@ -64,7 +64,7 @@ def json_object(text: str) -> dict:
 
 
 def check_record(record: dict, record_kind: str | None) -> None:
-    """Apply consumer rules 1 to 8 of entelos v0.5.0 (ACTIVATION.md). Rule 1 requires the record kind 'activation'.
+    """Apply consumer rules 1 to 8 of entelos v1.0.0 (ACTIVATION.md). Rule 1 requires the record kind 'activation'.
 
     A missing kind (None) or another value gives unexpected_record_kind.
     json_object checks duplicate names before this function gets a record object.
@@ -114,7 +114,7 @@ def check_record(record: dict, record_kind: str | None) -> None:
 
 
 def check_manifest(text: str) -> dict:
-    """Apply the content manifest rules of entelos v0.5.0 (CONTENT.md), without a schema package."""
+    """Apply the content manifest rules of entelos v1.0.0 (CONTENT.md), without a schema package."""
     require(len(text.encode('utf-8')) <= 262144, 'too_large')
     obj = json_object(text)
     require(matches(obj.get('format'), r'entelos.content/[1-9][0-9]*'), 'format')
