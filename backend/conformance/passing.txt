@@ -307,6 +307,8 @@ layers/open-layer-two-roots
 layers/open-layer-unit-root
 layers/open-layer-unknown
 layers/open-ok
+layers/put-again-export-ok
+layers/put-again-export-refused
 layers/put-layer-missing-target
 layers/put-layer-native-conflict
 layers/put-layer-native-ok
@@ -316,6 +318,8 @@ layers/put-layer-serving-ok
 layers/put-layer-target-kind
 layers/query-layer-ok
 layers/read-layer-ok
+layers/removed-reach-kept-ok
+layers/removed-source-kept-ok
 layers/search-text-layer-ok
 layers/shared-object-ok
 layers/two-layer-revisions-ok
@@ -709,7 +713,13 @@ removal/gc-keeps-removed-closure-ok
 removal/lock-kept-ok
 removal/lock-removed-refused
 removal/other-snapshot-ok
+removal/put-again-export-ok
+removal/put-again-export-refused
+removal/put-again-get-outside
+removal/put-again-lock-ok
+removal/put-again-lock-refused
 removal/put-again-ok
+removal/put-again-open-context-ok
 removal/put-target-removed
 removal/read-kept-ok
 removal/read-removed
@@ -795,6 +805,7 @@ retrieval/search-order-ok
 retrieval/search-page-bounded
 retrieval/search-page-ok
 retrieval/search-query-no-word
+retrieval/search-removed-closure-ok
 retrieval/search-stale
 retrieval/search-text-media-ok
 retrieval/search-unknown-field
