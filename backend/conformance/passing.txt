@@ -99,6 +99,8 @@ contexts/skew-conflict-first
 contexts/skew-conflict-first-pair-ok
 contexts/skew-conflict-first-permit
 contexts/skew-conflict-first-permit-pair-ok
+contexts/skew-conflict-other-roots
+contexts/skew-conflict-other-roots-pair-reject
 contexts/skew-head
 contexts/skew-head-agree-ok
 contexts/skew-head-duplicate
