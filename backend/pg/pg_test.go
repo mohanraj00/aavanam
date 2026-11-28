@@ -303,6 +303,7 @@ func TestSearchTokenFillWaitsForWrite(t *testing.T) {
 			searched <- envelope.Envelope{}
 		}
 	}()
+	blocked := false
 	writeFault := storagetest.Fault(func() {
 		s.Session(ctx).Update(func(work ops.Tx) {
 			writer := work.(tx)
@@ -310,13 +311,21 @@ func TestSearchTokenFillWaitsForWrite(t *testing.T) {
 			writer.PutTextTokens(z, text.TokensOf([]byte(high)))
 			writer.flushTokens() // Flush as a large batch would before it reaches a.
 			close(inside)
-			// Wait until the fill is blocked by this write before adding the second row.
-			for !writer.exists(`SELECT 1 FROM pg_locks WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))`) {
+			// Wait until the fill waits for an advisory lock of this write before adding the second row.
+			// Stop at the deadline of ctx, so that a fill that does not wait fails the test and does not hang it.
+			for ctx.Err() == nil {
+				if writer.exists(`SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))`) {
+					blocked = true
+					break
+				}
 				time.Sleep(10 * time.Millisecond)
 			}
 			writer.PutTextTokens(a, text.TokensOf([]byte(low)))
 		})
 	})
+	if !blocked {
+		t.Fatalf("the fill did not wait for the advisory locks of the write before the deadline (write: %v)", writeFault)
+	}
 	got := storagetest.Summary(<-searched)
 	if got != "ok | ok | ok" || writeFault != nil || searchFault != nil {
 		t.Fatalf("search_text: %s (fault: %v), write: %v", got, searchFault, writeFault)
